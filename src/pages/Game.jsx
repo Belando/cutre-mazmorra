@@ -20,6 +20,9 @@ import SkillTree from '@/components/game/SkillTree';
 import { useGameEngine } from '@/hooks/useGameEngine';
 import { hasSaveGame, deleteSave } from '@/components/game/SaveSystem';
 
+// Import necesario para el teclado numérico de habilidades
+import { getUnlockedSkills } from '@/components/game/SkillSystem';
+
 export default function Game() {
   // Extraemos todo del hook
   const { 
@@ -32,14 +35,9 @@ export default function Game() {
   const [skillTreeOpen, setSkillTreeOpen] = useState(false);
   const [activeNPC, setActiveNPC] = useState(null);
 
-  // Detectar NPC cercano automáticamente para interacción
+  // CORRECCIÓN: Solo cerramos el diálogo si nos alejamos, ya no lo abrimos automáticamente
   useEffect(() => {
-    if (gameState && !activeNPC) {
-      const npc = gameState.npcs?.find(n => 
-        Math.abs(n.x - gameState.player.x) + Math.abs(n.y - gameState.player.y) <= 1
-      );
-      if (npc) setActiveNPC(npc);
-    } else if (gameState && activeNPC) {
+    if (gameState && activeNPC) {
       const dist = Math.abs(activeNPC.x - gameState.player.x) + Math.abs(activeNPC.y - gameState.player.y);
       if (dist > 1) setActiveNPC(null);
     }
@@ -54,14 +52,19 @@ export default function Game() {
       if (e.key.toLowerCase() === 'i') { setInventoryOpen(p => !p); return; }
       if (e.key.toLowerCase() === 'c') { setCraftingOpen(p => !p); return; }
       if (e.key.toLowerCase() === 't') { setSkillTreeOpen(p => !p); return; }
+      
+      // CORRECCIÓN: ESC cierra también los diálogos de NPC
       if (e.key === 'Escape') {
-        setInventoryOpen(false); setCraftingOpen(false); setSkillTreeOpen(false);
+        setInventoryOpen(false); 
+        setCraftingOpen(false); 
+        setSkillTreeOpen(false);
+        setActiveNPC(null); // <--- AÑADIDO
         if (uiState.rangedMode) actions.setRangedMode(false);
         return;
       }
 
       // Si hay menús abiertos, no mover personaje
-      if (inventoryOpen || craftingOpen || skillTreeOpen) return;
+      if (inventoryOpen || craftingOpen || skillTreeOpen || activeNPC) return;
 
       // Movimiento y Acciones
       switch (e.key) {
@@ -72,11 +75,28 @@ export default function Game() {
         case ' ': actions.wait(); break;
         case 'Enter': actions.descend(e.shiftKey); break; // Shift+Enter para subir
         case 'g': case 'G': actions.saveGame(); break;
+        
+        // CORRECCIÓN: Tecla E para interactuar con NPCs
+        case 'e': case 'E': {
+            const npc = gameState.npcs?.find(n => 
+                Math.abs(n.x - gameState.player.x) + Math.abs(n.y - gameState.player.y) <= 1
+            );
+            if (npc) setActiveNPC(npc);
+            break;
+        }
       }
 
       // Habilidades (1-6)
       if (e.key >= '1' && e.key <= '6') {
-        // TODO: Implementar selección por índice en el hook si se desea
+        const index = parseInt(e.key) - 1;
+        const player = gameState?.player;
+        if (player && player.skills) {
+            const unlockedSkills = getUnlockedSkills(player.level, player.skills.learned);
+            if (unlockedSkills[index]) {
+                const skillId = unlockedSkills[index].id;
+                actions.setSelectedSkill(uiState.selectedSkill === skillId ? null : skillId);
+            }
+        }
       }
       
       // Accesos Rápidos (Q, E, R)
@@ -88,7 +108,7 @@ export default function Game() {
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [gameStarted, gameOver, inventoryOpen, craftingOpen, skillTreeOpen, uiState.rangedMode, actions]);
+  }, [gameStarted, gameOver, inventoryOpen, craftingOpen, skillTreeOpen, activeNPC, uiState, gameState, actions]);
 
   // --- PANTALLA DE SELECCIÓN DE PERSONAJE ---
   if (!gameStarted) {
@@ -121,7 +141,7 @@ export default function Game() {
     <div className="min-h-screen p-2 bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950">
       <div className="max-w-7xl mx-auto h-[calc(100vh-16px)]">
         <div className="flex h-full gap-2">
-          {/* PANEL IZQUIERDO: Habilidades y Objetos Rápidos */}
+          {/* PANEL IZQUIERDO */}
           <div className="flex flex-col flex-shrink-0 w-20 gap-2">
             <SkillBar 
               skills={gameState?.player?.skills}
@@ -140,17 +160,27 @@ export default function Game() {
             />
           </div>
           
-          {/* ÁREA CENTRAL: Tablero y Log */}
-          <div className="flex flex-col flex-1 min-w-0 gap-2 overflow-hidden">
-            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="flex items-center justify-center">
-              <GameBoard gameState={gameState} viewportWidth={23} viewportHeight={15} />
-            </motion.div>
-            <div className="h-28 w-full max-w-[744px] mx-auto">
-              <MessageLog messages={messages} />
-            </div>
-          </div>
+          {/* ÁREA CENTRAL */}
+          {/* ... dentro del div central, justo después de <GameBoard ... /> ... */}
+
+<div className="relative"> {/* Asegúrate de que el contenedor tenga relative */}
+  <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="flex items-center justify-center">
+    <GameBoard gameState={gameState} viewportWidth={23} viewportHeight={15} />
+  </motion.div>
+  
+  {/* AÑADE ESTO: Aviso flotante cuando hay un NPC cerca */}
+  {gameState && !activeNPC && gameState.npcs?.some(n => 
+      Math.abs(n.x - gameState.player.x) + Math.abs(n.y - gameState.player.y) <= 1
+  ) && (
+    <div className="absolute transform -translate-x-1/2 -translate-y-16 pointer-events-none top-1/2 left-1/2">
+      <div className="px-3 py-1 text-xs font-bold text-yellow-400 border rounded-full bg-black/80 border-yellow-500/50 animate-bounce">
+        💬 Pulsa [E] para hablar
+      </div>
+    </div>
+  )}
+</div>
           
-          {/* PANEL DERECHO: Estadísticas y Botones */}
+          {/* PANEL DERECHO */}
           <div className="flex flex-col flex-shrink-0 w-48 gap-2">
             <PlayerStats 
               player={gameState?.player} 
@@ -166,7 +196,7 @@ export default function Game() {
               <Button onClick={() => setSkillTreeOpen(true)} className="h-6 text-[10px] bg-purple-900/80 hover:bg-purple-800 border border-purple-700/50">✦ Habilidades [T]</Button>
               <Button onClick={actions.saveGame} className="h-6 text-[10px] bg-slate-800/80 hover:bg-slate-700 border border-slate-600/50">💾 Guardar [G]</Button>
               <div className="text-[8px] text-slate-600 text-center mt-1">
-                WASD: Mover | ESPACIO: Esperar | ENTER: Bajar
+                WASD: Mover | E: Hablar | ESPACIO: Esperar
               </div>
             </div>
           </div>
@@ -195,9 +225,14 @@ export default function Game() {
             npc={activeNPC}
             player={gameState.player}
             onClose={() => setActiveNPC(null)}
-            // Aquí puedes conectar las acciones de compra/venta/misiones si las agregas al hook
-            onBuy={(item) => addMessage("Compra no implementada en hook aún", "info")}
-            onSell={(idx) => addMessage("Venta no implementada en hook aún", "info")}
+            onBuy={actions.buyItem}
+            onSell={actions.sellItem}
+            onAcceptQuest={actions.acceptQuest}
+            onCompleteQuest={actions.completeQuest}
+            activeQuests={uiState.activeQuests}
+            completedQuests={uiState.completedQuests}
+            questProgress={uiState.questProgress}
+            gameState={gameState}
             inventory={gameState.inventory}
           />
         )}

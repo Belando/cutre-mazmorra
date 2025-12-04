@@ -104,12 +104,16 @@ function getEnemiesForLevel(level) {
   return available;
 }
 
+
 // Escalar estadísticas de enemigos según nivel del jugador y mazmorra (Curva de Dificultad)
 function scaleEnemyStats(baseStats, playerLevel, dungeonLevel) {
   const scaleFactor = 1 + (playerLevel * 0.08) + (dungeonLevel * 0.05);
+  const scaledHp = Math.floor(baseStats.hp * scaleFactor);
+  
   return {
     ...baseStats,
-    hp: Math.floor(baseStats.hp * scaleFactor),
+    hp: scaledHp,
+    maxHp: scaledHp, // <--- Esta es la corrección clave
     attack: Math.floor(baseStats.attack * scaleFactor),
     defense: Math.floor(baseStats.defense * (1 + playerLevel * 0.03)),
     exp: Math.floor(baseStats.exp * (1 + playerLevel * 0.05)),

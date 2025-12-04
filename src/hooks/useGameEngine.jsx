@@ -1,5 +1,4 @@
 import { useState, useCallback, useEffect } from 'react';
-// Importamos la lógica de los sistemas existentes
 import { generateDungeon, TILE, ENTITY, ENEMY_STATS, scaleEnemyStats } from '@/components/game/DungeonGenerator';
 import { 
   addToInventory, useItem, equipItem, unequipItem, calculatePlayerStats 
@@ -7,13 +6,12 @@ import {
 import { 
   useQuickSlot as processQuickSlot, assignToQuickSlot 
 } from '@/components/game/QuickSlots';
-import { getWeaponRange } from '@/components/game/EquipmentSystem';
 import { generateNPCs, QUESTS } from '@/components/game/NPCSystem';
 import { processEnemyTurn, calculateEnemyDamage, getEnemyRangedInfo } from '@/components/game/EnemyAI';
-import { generateMaterialDrop, generateBossDrop, MATERIAL_TYPES } from '@/components/game/CraftingSystem';
+import { generateMaterialDrop, generateBossDrop, MATERIAL_TYPES, craftItem, upgradeItem } from '@/components/game/CraftingSystem';
 import { 
   initializeSkills, useSkill, canUseSkill, updateCooldowns, updateBuffs, 
-  calculateBuffBonuses, getLearnableSkills 
+  calculateBuffBonuses, getLearnableSkills, learnSkill, upgradeSkill, evolveClass, SKILLS 
 } from '@/components/game/SkillSystem';
 import { saveGame as saveSystem, loadGame as loadSystem } from '@/components/game/SaveSystem';
 
@@ -21,13 +19,13 @@ const MAP_WIDTH = 50;
 const MAP_HEIGHT = 35;
 
 export function useGameEngine() {
-  // --- ESTADO PRINCIPAL DEL JUEGO ---
+  // --- ESTADO PRINCIPAL ---
   const [gameStarted, setGameStarted] = useState(false);
   const [gameState, setGameState] = useState(null);
   const [messages, setMessages] = useState([]);
   const [gameOver, setGameOver] = useState(false);
   
-  // --- ESTADO DE PROGRESO Y PERSISTENCIA ---
+  // --- ESTADO DE PROGRESO ---
   const [stats, setStats] = useState({ maxLevel: 1, kills: 0, gold: 0, playerLevel: 1 });
   const [activeQuests, setActiveQuests] = useState([]);
   const [completedQuests, setCompletedQuests] = useState([]);
@@ -35,26 +33,22 @@ export function useGameEngine() {
   const [materials, setMaterials] = useState({});
   const [quickSlots, setQuickSlots] = useState([null, null, null]);
   
-  // --- CONFIGURACIÓN DEL JUGADOR ---
+  // --- JUGADOR Y UI ---
   const [playerName, setPlayerName] = useState('');
   const [selectedAppearance, setSelectedAppearance] = useState(null);
   const [playerClass, setPlayerClass] = useState('warrior');
-  
-  // --- ESTADOS DE COMBATE Y UI ---
   const [rangedMode, setRangedMode] = useState(false);
   const [rangedTargets, setRangedTargets] = useState([]);
   const [selectedSkill, setSelectedSkill] = useState(null);
 
-  // --- SISTEMA DE LOG (MENSAJES) ---
   const addMessage = useCallback((text, type = 'info') => {
     setMessages(prev => [...prev.slice(-50), { text, type }]);
   }, []);
 
-  // --- INICIALIZAR PARTIDA ---
+  // --- INICIALIZAR ---
   const initGame = useCallback((level = 1, existingPlayer = null, existingInventory = null, existingEquipment = null) => {
     const dungeon = generateDungeon(MAP_WIDTH, MAP_HEIGHT, level);
     
-    // Configurar atributos base según la clase elegida
     const classAttributes = {
       warrior: { strength: 10, dexterity: 5, intelligence: 3 },
       mage: { strength: 3, dexterity: 5, intelligence: 10 },
@@ -62,7 +56,6 @@ export function useGameEngine() {
     };
     const baseAttrs = classAttributes[playerClass] || classAttributes.warrior;
     
-    // Crear o recuperar jugador
     const player = existingPlayer || {
       x: dungeon.playerStart.x,
       y: dungeon.playerStart.y,
@@ -78,7 +71,6 @@ export function useGameEngine() {
       skills: initializeSkills(playerClass)
     };
     
-    // Si ya existe el jugador (al bajar de piso), actualizamos su posición
     if (existingPlayer) {
       player.x = dungeon.playerStart.x;
       player.y = dungeon.playerStart.y;
@@ -92,7 +84,6 @@ export function useGameEngine() {
       boots: null, gloves: null, ring: null, earring: null, necklace: null,
     };
     
-    // Generar y escalar enemigos
     const enemies = [];
     const playerLvl = existingPlayer?.level || 1;
     
@@ -115,7 +106,6 @@ export function useGameEngine() {
       }
     }
 
-    // Preparar matrices de visión
     const visible = Array(MAP_HEIGHT).fill(null).map(() => Array(MAP_WIDTH).fill(false));
     const explored = Array(MAP_HEIGHT).fill(null).map(() => Array(MAP_WIDTH).fill(false));
 
@@ -140,7 +130,7 @@ export function useGameEngine() {
       materials,
     };
 
-    updateVisibility(newState);
+    updateVisibilityState(newState);
     setGameState(newState);
     
     if (level === 1 && !existingPlayer) {
@@ -150,17 +140,14 @@ export function useGameEngine() {
     }
   }, [addMessage, playerName, questProgress, selectedAppearance, playerClass, materials]);
 
-  // --- SISTEMA DE VISIÓN (FOV) ---
-  const updateVisibility = (state) => {
+  const updateVisibilityState = (state) => {
     const { player, map, visible, explored } = state;
     const radius = 6;
 
-    // Limpiar visión actual
     for (let y = 0; y < MAP_HEIGHT; y++) {
       for (let x = 0; x < MAP_WIDTH; x++) visible[y][x] = false;
     }
 
-    // Raycasting simple para FOV
     for (let angle = 0; angle < 360; angle += 2) {
       const rad = angle * Math.PI / 180;
       const dx = Math.cos(rad);
@@ -184,15 +171,85 @@ export function useGameEngine() {
     }
   };
 
-  // --- TURNO DE LOS ENEMIGOS ---
+  const updateVisibility = (state) => {
+    updateVisibilityState(state);
+  };
+
+  const checkLevelUp = (player) => {
+    const expNeeded = player.level * 25;
+    if (player.exp >= expNeeded) {
+        player.level++;
+        player.exp -= expNeeded;
+        player.maxHp += 10; player.hp = player.maxHp;
+        player.maxMp += 5; player.mp = player.maxMp;
+        player.baseAttack += 2;
+        player.baseDefense += 1;
+        
+        player.skills.skillPoints = (player.skills.skillPoints || 0) + 1;
+        
+        addMessage(`¡NIVEL ALCANZADO! Ahora eres nivel ${player.level}`, 'levelup');
+        
+        const learnable = getLearnableSkills(player.level, player.class, player.skills.learned, player.skills.evolvedClass);
+        learnable.forEach(skill => {
+            player.skills.learned.push(skill.id);
+            player.skills.skillLevels[skill.id] = 1;
+            addMessage(`¡Nueva habilidad aprendida: ${skill.name}!`, 'levelup');
+        });
+
+        if (player.level === 10 && !player.skills.evolvedClass) {
+            addMessage('¡Evolución de clase disponible! (Pulsa T)', 'levelup');
+        }
+    }
+  };
+
+  const updateQuestProgress = (type, target, amount = 1) => {
+    activeQuests.forEach(qId => {
+        const quest = QUESTS[qId];
+        if (!quest) return;
+        
+        if (quest.targetType === type) {
+            if (type === 'kill' || type === 'boss') {
+                 setQuestProgress(prev => {
+                    const current = prev[qId];
+                    if (typeof current === 'object') return prev; 
+                    return { ...prev, [qId]: (prev[qId] || 0) + amount };
+                 });
+            }
+        }
+    });
+  };
+
+  const handleEnemyDeath = (state, enemyIndex) => {
+    const enemy = state.enemies[enemyIndex];
+    const stats = ENEMY_STATS[enemy.type];
+    
+    state.enemies.splice(enemyIndex, 1);
+    state.player.exp += stats.exp;
+    setStats(s => ({ ...s, kills: s.kills + 1 }));
+    addMessage(`¡${stats.name} derrotado! +${stats.exp} XP`, 'death');
+
+    const drops = enemy.isBoss ? generateBossDrop(enemy.type, state.level) : generateMaterialDrop(enemy.type, state.level);
+    drops.forEach(drop => {
+        state.materials[drop.type] = (state.materials[drop.type] || 0) + drop.count;
+        addMessage(`Recogido: ${drop.count} ${MATERIAL_TYPES[drop.type]?.name || drop.type}`, 'pickup');
+    });
+
+    if (enemy.isBoss) {
+        state.bossDefeated = true;
+        addMessage('🎉 ¡JEFE ELIMINADO! El camino está libre.', 'levelup');
+        updateQuestProgress('boss', enemy.type, 1);
+    } else {
+        updateQuestProgress('kill', enemy.type, 1);
+    }
+
+    checkLevelUp(state.player);
+  };
+
   const moveEnemies = useCallback((state) => {
     const { enemies, player, map, visible } = state;
     const playerStats = calculatePlayerStats(player);
-    // Calcular bonos defensivos del jugador
-    // const buffBonuses = calculateBuffBonuses(player.skills?.buffs || [], playerStats);
 
     enemies.forEach(enemy => {
-      // IA del enemigo decide su acción
       const action = processEnemyTurn(enemy, player, enemies, map, visible, addMessage);
       
       if (action.action === 'melee_attack' || action.action === 'ranged_attack') {
@@ -200,7 +257,6 @@ export function useGameEngine() {
         let dmgResult;
         
         if (action.action === 'ranged_attack') {
-           // Ataque a distancia suele ser más débil
            const baseDmg = Math.floor(enemy.attack * 0.7);
            dmgResult = calculateEnemyDamage({...enemy, attack: baseDmg}, player, playerStats, player.skills?.buffs || []);
         } else {
@@ -218,61 +274,23 @@ export function useGameEngine() {
     });
   }, [addMessage]);
 
-  // --- ACCIÓN PRINCIPAL: MOVER JUGADOR ---
-  const handleMove = useCallback((dx, dy) => {
-    if (!gameState || gameOver) return;
+  const endPlayerTurn = (state) => {
+    state.player.mp = Math.min((state.player.mp || 0) + 1, state.player.maxMp || 30);
+    
+    if (state.player.skills) {
+        state.player.skills.cooldowns = updateCooldowns(state.player.skills.cooldowns || {});
+        state.player.skills.buffs = updateBuffs(state.player.skills.buffs || []);
+    }
 
-    setGameState(prevState => {
-      // Copia profunda del estado para inmutabilidad
-      const state = JSON.parse(JSON.stringify(prevState));
-      const { player, map, enemies } = state;
-      
-      const newX = player.x + dx;
-      const newY = player.y + dy;
+    moveEnemies(state);
+    updateVisibility(state);
 
-      // 1. Límites y Paredes
-      if (newX < 0 || newX >= MAP_WIDTH || newY < 0 || newY >= MAP_HEIGHT) return prevState;
-      if (map[newY][newX] === TILE.WALL) return prevState;
+    if (state.player.hp <= 0) {
+        setGameOver(true);
+        addMessage('Has caído en combate...', 'death');
+    }
+  };
 
-      // 2. Combate (si hay enemigo en la casilla)
-      const enemyIndex = enemies.findIndex(e => e.x === newX && e.y === newY);
-      if (enemyIndex !== -1) {
-        handlePlayerAttack(state, enemyIndex);
-      } else {
-        // 3. Movimiento e Interacción
-        const npc = state.npcs?.find(n => n.x === newX && n.y === newY);
-        if (!npc) {
-          // Si no hay NPC, nos movemos
-          player.x = newX;
-          player.y = newY;
-          
-          // Revisar si hay items o cofres en el suelo
-          checkInteractions(state, newX, newY);
-          
-          // Mensajes de escaleras
-          if (state.stairs && newX === state.stairs.x && newY === state.stairs.y) {
-             const bossAlive = state.enemies.some(e => e.isBoss);
-             if (bossAlive) addMessage('⚠️ ¡El Jefe protege las escaleras!', 'info');
-             else addMessage('Pulsa ENTER para bajar.', 'info');
-          }
-          if (state.stairsUp && newX === state.stairsUp.x && newY === state.stairsUp.y) {
-             addMessage('Pulsa SHIFT+ENTER para subir.', 'info');
-          }
-
-        } else {
-          // Chocar con NPC
-          addMessage(`Hablas con ${npc.name}.`, 'info');
-          return prevState; // Cancelar turno si choca con NPC
-        }
-      }
-      
-      // 4. Finalizar turno (regeneración, cooldowns, movimiento enemigo)
-      endPlayerTurn(state);
-      return state;
-    });
-  }, [gameState, gameOver, addMessage, selectedSkill, moveEnemies]);
-
-  // --- ATAQUE DEL JUGADOR ---
   const handlePlayerAttack = (state, enemyIndex) => {
     const { player, enemies } = state;
     const enemy = enemies[enemyIndex];
@@ -283,7 +301,6 @@ export function useGameEngine() {
 
     let skillUsed = false;
     
-    // Intentar usar habilidad cuerpo a cuerpo seleccionada
     if (selectedSkill && canUseSkill(selectedSkill, player.skills?.cooldowns || {})) {
         const skill = SKILLS[selectedSkill];
         if (skill && skill.type === 'melee') {
@@ -301,50 +318,18 @@ export function useGameEngine() {
         }
     } 
     
-    // Ataque básico si no se usó habilidad
     if (!skillUsed && enemy.hp > 0) {
         const damage = Math.max(1, totalAttack - enemy.defense + Math.floor(Math.random() * 4));
         enemy.hp -= damage;
         addMessage(`¡Golpeas a ${enemyStats.name} por ${damage} de daño!`, 'player_damage');
     }
 
-    // Verificar si el enemigo murió
     if (enemy.hp <= 0) {
         handleEnemyDeath(state, enemyIndex);
     }
   };
 
-  const handleEnemyDeath = (state, enemyIndex) => {
-    const enemy = state.enemies[enemyIndex];
-    const stats = ENEMY_STATS[enemy.type];
-    
-    state.enemies.splice(enemyIndex, 1);
-    state.player.exp += stats.exp;
-    setStats(s => ({ ...s, kills: s.kills + 1 }));
-    addMessage(`¡${stats.name} derrotado! +${stats.exp} XP`, 'death');
-
-    // Generar botín (Drops)
-    const drops = enemy.isBoss ? generateBossDrop(enemy.type, state.level) : generateMaterialDrop(enemy.type, state.level);
-    drops.forEach(drop => {
-        state.materials[drop.type] = (state.materials[drop.type] || 0) + drop.count;
-        addMessage(`Recogido: ${drop.count} ${MATERIAL_TYPES[drop.type]?.name || drop.type}`, 'pickup');
-    });
-
-    if (enemy.isBoss) {
-        state.bossDefeated = true;
-        addMessage('🎉 ¡JEFE ELIMINADO! El camino está libre.', 'levelup');
-        // Actualizar misiones de jefe
-        updateQuestProgress('boss', enemy.type, 1);
-    } else {
-        // Actualizar misiones de matar
-        updateQuestProgress('kill', enemy.type, 1);
-    }
-
-    checkLevelUp(state.player);
-  };
-
   const checkInteractions = (state, x, y) => {
-    // Cofres
     const chest = state.chests.find(c => c.x === x && c.y === y && !c.opened);
     if (chest) {
         chest.opened = true;
@@ -358,7 +343,6 @@ export function useGameEngine() {
         }
     }
 
-    // Objetos en el suelo
     const itemIdx = state.items.findIndex(i => i.x === x && i.y === y);
     if (itemIdx !== -1) {
         const item = state.items[itemIdx];
@@ -379,90 +363,121 @@ export function useGameEngine() {
     }
   };
 
-  const endPlayerTurn = (state) => {
-    // Regenerar maná
-    state.player.mp = Math.min((state.player.mp || 0) + 1, state.player.maxMp || 30);
-    
-    // Actualizar enfriamientos y buffs
-    if (state.player.skills) {
-        state.player.skills.cooldowns = updateCooldowns(state.player.skills.cooldowns || {});
-        state.player.skills.buffs = updateBuffs(state.player.skills.buffs || []);
-    }
+  const handleMove = useCallback((dx, dy) => {
+    if (!gameState || gameOver) return;
 
-    // Turno de la IA
-    moveEnemies(state);
-    
-    // Actualizar lo que ve el jugador
-    updateVisibility(state);
+    setGameState(prevState => {
+      const state = JSON.parse(JSON.stringify(prevState));
+      const { player, map, enemies } = state;
+      
+      const newX = player.x + dx;
+      const newY = player.y + dy;
 
-    // Comprobar Game Over
-    if (state.player.hp <= 0) {
-        setGameOver(true);
-        addMessage('Has caído en combate...', 'death');
-    }
-  };
+      if (newX < 0 || newX >= MAP_WIDTH || newY < 0 || newY >= MAP_HEIGHT) return prevState;
+      if (map[newY][newX] === TILE.WALL) return prevState;
 
-  const checkLevelUp = (player) => {
-    const expNeeded = player.level * 25;
-    if (player.exp >= expNeeded) {
-        player.level++;
-        player.exp -= expNeeded;
-        player.maxHp += 10; player.hp = player.maxHp;
-        player.maxMp += 5; player.mp = player.maxMp;
-        player.baseAttack += 2;
-        player.baseDefense += 1;
-        
-        player.skills.skillPoints = (player.skills.skillPoints || 0) + 1;
-        
-        addMessage(`¡NIVEL ALCANZADO! Ahora eres nivel ${player.level}`, 'levelup');
-        
-        // Comprobar nuevas habilidades desbloqueadas
-        const learnable = getLearnableSkills(player.level, player.class, player.skills.learned, player.skills.evolvedClass);
-        learnable.forEach(skill => {
-            player.skills.learned.push(skill.id);
-            player.skills.skillLevels[skill.id] = 1;
-            addMessage(`¡Nueva habilidad aprendida: ${skill.name}!`, 'levelup');
-        });
+      const enemyIndex = enemies.findIndex(e => e.x === newX && e.y === newY);
+      if (enemyIndex !== -1) {
+        handlePlayerAttack(state, enemyIndex);
+      } else {
+        const npc = state.npcs?.find(n => n.x === newX && n.y === newY);
+        if (!npc) {
+          player.x = newX;
+          player.y = newY;
+          
+          checkInteractions(state, newX, newY);
+          
+          if (state.stairs && newX === state.stairs.x && newY === state.stairs.y) {
+             const bossAlive = state.enemies.some(e => e.isBoss);
+             if (bossAlive) addMessage('⚠️ ¡El Jefe protege las escaleras!', 'info');
+             else addMessage('Pulsa ENTER para bajar.', 'info');
+          }
+          if (state.stairsUp && newX === state.stairsUp.x && newY === state.stairsUp.y) {
+             addMessage('Pulsa SHIFT+ENTER para subir.', 'info');
+          }
 
-        if (player.level === 10 && !player.skills.evolvedClass) {
-            addMessage('¡Evolución de clase disponible! (Pulsa T)', 'levelup');
+        } else {
+          addMessage(`Hablas con ${npc.name}.`, 'info');
+          return prevState; 
         }
-    }
-  };
-
-  const updateQuestProgress = (type, target, amount = 1) => {
-    activeQuests.forEach(qId => {
-        const quest = QUESTS[qId];
-        if (!quest) return;
-        
-        if (quest.targetType === type) {
-            // Lógica simple para kills y bosses
-            // (Nota: el sistema completo está en NPCSystem, aquí simplificamos el trigger)
-            if (type === 'kill' || type === 'boss') {
-                 // La lógica real de chequeo está en el componente NPCDialog y Game.jsx original, 
-                 // aquí actualizamos el contador crudo.
-                 setQuestProgress(prev => {
-                    const current = prev[qId];
-                    // Si es multi-kill, es un objeto, si es simple, es número
-                    if (typeof current === 'object') {
-                        // TODO: Implementar lógica multi-kill compleja si es necesario
-                        return prev; 
-                    }
-                    const entityKey = Object.keys(ENTITY).find(k => ENTITY[k] === target);
-                    // Comprobación simplificada: si el target coincide con el de la quest
-                    // (Esto requeriría un mapeo más robusto en un sistema real)
-                    return { ...prev, [qId]: (prev[qId] || 0) + amount };
-                 });
-            }
-        }
+      }
+      
+      endPlayerTurn(state);
+      return state;
     });
-  };
+  }, [gameState, gameOver, addMessage, selectedSkill, moveEnemies]);
 
-  // --- API PÚBLICA DEL HOOK ---
   const actions = {
     move: handleMove,
     wait: () => {
         if (!gameState || gameOver) return;
+        
+        if (selectedSkill) {
+            const skill = SKILLS[selectedSkill];
+            if (skill && ['self', 'aoe', 'ultimate'].includes(skill.type)) {
+                setGameState(prev => {
+                    const state = JSON.parse(JSON.stringify(prev));
+                    
+                    if (!canUseSkill(selectedSkill, state.player.skills.cooldowns || {})) {
+                        addMessage("¡Habilidad en enfriamiento!", 'info');
+                        return prev;
+                    }
+                    if (skill.manaCost && (state.player.mp || 0) < skill.manaCost) {
+                        addMessage("¡No tienes suficiente maná!", 'info');
+                        return prev;
+                    }
+
+                    const playerStats = calculatePlayerStats(state.player);
+                    const buffBonuses = calculateBuffBonuses(state.player.skills.buffs || [], playerStats);
+                    const effectiveStats = { 
+                        ...playerStats, 
+                        attack: playerStats.attack + buffBonuses.attackBonus 
+                    };
+
+                    const result = useSkill(selectedSkill, state.player, effectiveStats, null, state.enemies, state.visible);
+
+                    if (result.success) {
+                        if (!state.player.skills.cooldowns) state.player.skills.cooldowns = {};
+                        state.player.skills.cooldowns[selectedSkill] = result.cooldown;
+                        if (skill.manaCost) state.player.mp -= skill.manaCost;
+
+                        if (result.heal) {
+                            state.player.hp = Math.min(state.player.hp + result.heal, state.player.maxHp);
+                        }
+                        
+                        if (result.buff) {
+                            if (!state.player.skills.buffs) state.player.skills.buffs = [];
+                            state.player.skills.buffs.push(result.buff);
+                        }
+
+                        if (result.damages) {
+                            result.damages.forEach(d => {
+                                d.target.hp -= d.damage;
+                                if (d.stun) d.target.stunned = d.stun;
+                                if (d.slow) d.target.slowed = d.slow;
+                            });
+                        }
+
+                        addMessage(result.message, 'player_damage');
+                        setSelectedSkill(null);
+
+                        for (let i = state.enemies.length - 1; i >= 0; i--) {
+                            if (state.enemies[i].hp <= 0) {
+                                handleEnemyDeath(state, i);
+                            }
+                        }
+
+                        endPlayerTurn(state);
+                        return state;
+                    } else {
+                        addMessage(result.message, 'info');
+                        return prev;
+                    }
+                });
+                return;
+            }
+        }
+
         setGameState(prev => {
             const state = JSON.parse(JSON.stringify(prev));
             addMessage('Esperas un momento...', 'info');
@@ -535,6 +550,71 @@ export function useGameEngine() {
             return state;
         });
     },
+    // --- ACCIONES DE COMERCIO Y MISIONES NUEVAS ---
+    buyItem: (item) => {
+        setGameState(prev => {
+            const state = JSON.parse(JSON.stringify(prev));
+            if (state.player.gold >= item.price) {
+                const res = addToInventory(state.inventory, { ...item, id: `${item.id}_${Date.now()}` });
+                if (res.success) {
+                    state.player.gold -= item.price;
+                    addMessage(`Comprado: ${item.name}`, 'pickup');
+                } else {
+                    addMessage("Inventario lleno", 'info');
+                }
+            } else {
+                addMessage("No tienes suficiente oro", 'info');
+            }
+            return state;
+        });
+    },
+    sellItem: (index, price) => {
+        setGameState(prev => {
+            const state = JSON.parse(JSON.stringify(prev));
+            const item = state.inventory[index];
+            if (item) {
+                state.inventory.splice(index, 1);
+                state.player.gold += price;
+                addMessage(`Vendido: ${item.name} por ${price} oro`, 'pickup');
+            }
+            return state;
+        });
+    },
+    acceptQuest: (quest) => {
+        if (!activeQuests.includes(quest.id) && !completedQuests.includes(quest.id)) {
+            setActiveQuests(prev => [...prev, quest.id]);
+            addMessage(`Misión aceptada: ${quest.name}`, 'levelup');
+        }
+    },
+    completeQuest: (quest) => {
+        if (activeQuests.includes(quest.id)) {
+            // Eliminar de activas, mover a completadas
+            setActiveQuests(prev => prev.filter(q => q !== quest.id));
+            setCompletedQuests(prev => [...prev, quest.id]);
+            
+            // Otorgar recompensas
+            setGameState(prev => {
+                const state = JSON.parse(JSON.stringify(prev));
+                if (quest.reward.gold) {
+                    state.player.gold += quest.reward.gold;
+                    addMessage(`Recompensa: ${quest.reward.gold} oro`, 'pickup');
+                }
+                if (quest.reward.exp) {
+                    state.player.exp += quest.reward.exp;
+                    addMessage(`Recompensa: ${quest.reward.exp} XP`, 'levelup');
+                }
+                if (quest.reward.item) {
+                    addToInventory(state.inventory, { ...quest.reward.item, id: `reward_${Date.now()}` });
+                    addMessage(`Recompensa: ${quest.reward.item.name}`, 'pickup');
+                }
+                
+                checkLevelUp(state.player);
+                addMessage(`¡Misión completada: ${quest.name}!`, 'levelup');
+                return state;
+            });
+        }
+    },
+    // ----------------------------------------------
     saveGame: () => {
         if (gameState) {
             const result = saveSystem(gameState, stats, activeQuests, completedQuests, questProgress, materials, quickSlots);
@@ -589,12 +669,11 @@ export function useGameEngine() {
             addMessage(res.message, 'info');
         }
     },
-    // Crafting y mejoras
     craftItem: (recipeKey) => {
         const res = craftItem(recipeKey, materials, gameState.inventory);
         if (res.success) {
-            setMaterials({...materials}); // Forzar actualización UI
-            setGameState(prev => ({...prev})); // Forzar re-render
+            setMaterials({...materials});
+            setGameState(prev => ({...prev}));
             addMessage(res.message, 'pickup');
         } else {
             addMessage(res.message, 'info');
@@ -616,7 +695,6 @@ export function useGameEngine() {
             addMessage(res.message, 'info');
         }
     },
-    // Skills
     learnSkill: (skillId) => {
         setGameState(prev => {
             const s = JSON.parse(JSON.stringify(prev));
@@ -639,15 +717,12 @@ export function useGameEngine() {
             const res = evolveClass(s.player.skills, newClass);
             if (res.success) {
                 addMessage(res.message, 'levelup');
-                // Actualizar clase visual si es necesario
-                // s.player.class = newClass; // Opcional, dependiendo de cómo manejes los sprites
             }
             return s;
         });
     }
   };
 
-  // Iniciar juego al seleccionar personaje
   useEffect(() => {
     if (gameStarted && !gameState) {
         initGame(1);
