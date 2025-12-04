@@ -1,19 +1,21 @@
-// Enhanced Combat System with ranged attacks and class abilities
+// Sistema de Combate: Daño, Rango y Visión
+// ==========================================
 
-import { getWeaponRange, isRangedWeapon, calculateEquipmentStats } from './EquipmentSystem';
+import { getWeaponRange, calculateEquipmentStats } from './EquipmentSystem';
 
-// Calculate if target is in range
+// Calcular si el objetivo está dentro del rango
 export function isInRange(attacker, target, range) {
   const distance = Math.abs(attacker.x - target.x) + Math.abs(attacker.y - target.y);
   return distance <= range;
 }
 
-// Get Manhattan distance
+// Obtener distancia Manhattan (movimiento en cuadrícula)
 export function getDistance(a, b) {
   return Math.abs(a.x - b.x) + Math.abs(a.y - b.y);
 }
 
-// Check line of sight for ranged attacks
+// Comprobar línea de visión (Algoritmo Bresenham simplificado)
+// Retorna false si hay una pared (0) en el camino
 export function hasLineOfSight(map, x1, y1, x2, y2) {
   const dx = Math.abs(x2 - x1);
   const dy = Math.abs(y2 - y1);
@@ -35,20 +37,20 @@ export function hasLineOfSight(map, x1, y1, x2, y2) {
       y += sy;
     }
     
-    // Skip start and end positions
+    // Saltar posiciones de inicio y fin (no nos bloqueamos a nosotros mismos ni al objetivo)
     if ((x === x1 && y === y1) || (x === x2 && y === y2)) continue;
     
-    // Check for walls (0 = wall)
+    // 0 = Pared
     if (map[y]?.[x] === 0) return false;
   }
   
   return true;
 }
 
-// Get valid ranged targets
+// Obtener objetivos válidos para ataque a distancia
 export function getRangedTargets(player, enemies, map, equipment) {
   const range = getWeaponRange(equipment);
-  if (range === 0) return [];
+  if (range === 0) return []; // Es un arma cuerpo a cuerpo
   
   return enemies.filter(enemy => {
     const dist = getDistance(player, enemy);
@@ -56,7 +58,7 @@ export function getRangedTargets(player, enemies, map, equipment) {
   });
 }
 
-// Execute ranged attack
+// Ejecutar ataque a distancia del jugador
 export function executeRangedAttack(player, target, equipment, playerStats, map) {
   const range = getWeaponRange(equipment);
   const dist = getDistance(player, target);
@@ -69,12 +71,15 @@ export function executeRangedAttack(player, target, equipment, playerStats, map)
     return { success: false, message: '¡Sin línea de visión!' };
   }
   
-  // Calculate damage with range penalty
-  const rangePenalty = Math.max(0, (dist - 2) * 0.05); // 5% less damage per tile after 2
+  // Calcular daño con penalización por distancia
+  // 5% menos de daño por cada casilla más allá de 2
+  const rangePenalty = Math.max(0, (dist - 2) * 0.05); 
   const baseDamage = playerStats.attack;
+  
+  // Fórmula de daño final
   const damage = Math.max(1, Math.floor(baseDamage * (1 - rangePenalty) - (target.defense || 0)));
   
-  // Critical hit chance
+  // Probabilidad de crítico
   const critChance = (playerStats.critChance || 5) / 100;
   const isCrit = Math.random() < critChance;
   const finalDamage = isCrit ? Math.floor(damage * 1.5) : damage;
@@ -90,15 +95,17 @@ export function executeRangedAttack(player, target, equipment, playerStats, map)
   };
 }
 
-// Calculate melee damage
+// Calcular daño cuerpo a cuerpo (Melee)
 export function calculateMeleeDamage(attacker, defender, attackerStats) {
   const baseDamage = attackerStats.attack || attacker.attack || 5;
   const defense = defender.defense || 0;
-  const variance = Math.floor(Math.random() * 4) - 1; // -1 to +3
+  
+  // Variación aleatoria de daño (-1 a +3)
+  const variance = Math.floor(Math.random() * 4) - 1; 
   
   const damage = Math.max(1, baseDamage - defense + variance);
   
-  // Critical hit
+  // Crítico
   const critChance = (attackerStats.critChance || 5) / 100;
   const isCrit = Math.random() < critChance;
   
@@ -108,42 +115,42 @@ export function calculateMeleeDamage(attacker, defender, attackerStats) {
   };
 }
 
-// Enemy ranged attack types
+// Tipos de ataques a distancia enemigos
 export const ENEMY_RANGED_TYPES = {
-  // Spellcasters
-  15: { range: 5, type: 'magic', color: '#a855f7' }, // Cultist
-  10: { range: 6, type: 'magic', color: '#6366f1' }, // Wraith
-  104: { range: 7, type: 'magic', color: '#06b6d4' }, // Lich
+  // Magos
+  15: { range: 5, type: 'magic', color: '#a855f7' }, // Cultista
+  10: { range: 6, type: 'magic', color: '#6366f1' }, // Espectro
+  104: { range: 7, type: 'magic', color: '#06b6d4' }, // Liche
   
-  // Ranged attackers
-  7: { range: 4, type: 'poison', color: '#22c55e' }, // Spider (web/poison)
-  11: { range: 5, type: 'fire', color: '#ef4444' }, // Demon
-  12: { range: 6, type: 'fire', color: '#f59e0b' }, // Dragon
-  106: { range: 8, type: 'fire', color: '#fbbf24' }, // Ancient Dragon
-  105: { range: 6, type: 'dark', color: '#7f1d1d' }, // Demon Lord
+  // Físicos / Elementales
+  7: { range: 4, type: 'poison', color: '#22c55e' }, // Araña (Veneno)
+  11: { range: 5, type: 'fire', color: '#ef4444' }, // Demonio
+  12: { range: 6, type: 'fire', color: '#f59e0b' }, // Dragón
+  106: { range: 8, type: 'fire', color: '#fbbf24' }, // Dragón Ancestral
+  105: { range: 6, type: 'dark', color: '#7f1d1d' }, // Señor Demonio
 };
 
-// Check if enemy has ranged attack
+// Utilidades para IA enemiga
 export function isEnemyRanged(enemyType) {
   return !!ENEMY_RANGED_TYPES[enemyType];
 }
 
-// Get enemy attack range
 export function getEnemyAttackRange(enemyType) {
   return ENEMY_RANGED_TYPES[enemyType]?.range || 1;
 }
 
-// Process enemy ranged attack
+// Procesar ataque a distancia de un enemigo hacia el jugador
 export function processEnemyRangedAttack(enemy, player, map) {
   const rangedInfo = ENEMY_RANGED_TYPES[enemy.type];
   if (!rangedInfo) return null;
   
   const dist = getDistance(enemy, player);
+  // Si está muy lejos o muy cerca (melee), no dispara
   if (dist > rangedInfo.range || dist < 2) return null;
   
   if (!hasLineOfSight(map, enemy.x, enemy.y, player.x, player.y)) return null;
   
-  // Ranged attack damage (slightly lower than melee)
+  // El daño a distancia suele ser un 80% del ataque base
   const damage = Math.floor(enemy.attack * 0.8);
   
   return {
@@ -154,26 +161,26 @@ export function processEnemyRangedAttack(enemy, player, map) {
   };
 }
 
-// Class-specific combat bonuses
+// Bonificaciones de combate por Clase
 export const CLASS_COMBAT_BONUSES = {
   warrior: {
-    meleeDamageBonus: 0.15, // +15% melee damage
-    armorBonus: 0.10, // +10% defense from armor
-    blockChance: 0.10, // 10% chance to block
+    meleeDamageBonus: 0.15, // +15% daño melee
+    armorBonus: 0.10,       // +10% defensa de armadura
+    blockChance: 0.10,      // 10% probabilidad de bloqueo (futuro)
   },
   mage: {
-    magicDamageBonus: 0.25, // +25% magic/skill damage
-    rangedBonus: 0.10, // +10% ranged damage
-    manaRegen: 1, // Not used yet but for future
+    magicDamageBonus: 0.25, // +25% daño mágico
+    rangedBonus: 0.10,      // +10% daño distancia
+    manaRegen: 1, 
   },
   rogue: {
-    critBonus: 0.15, // +15% crit chance
-    evasionBonus: 0.10, // +10% evasion
-    backstabBonus: 0.30, // +30% damage from behind (stunned enemies)
+    critBonus: 0.15,        // +15% probabilidad crítico
+    evasionBonus: 0.10,     // +10% evasión
+    backstabBonus: 0.30,    // +30% daño por la espalda (o a aturdidos)
   },
 };
 
-// Apply class bonuses to damage
+// Aplicar bonos de clase al daño final
 export function applyClassBonus(damage, playerClass, attackType, isEnemyVulnerable = false) {
   const bonuses = CLASS_COMBAT_BONUSES[playerClass];
   if (!bonuses) return damage;
@@ -196,7 +203,7 @@ export function applyClassBonus(damage, playerClass, attackType, isEnemyVulnerab
   return Math.floor(damage * multiplier);
 }
 
-// Calculate effective defense with class bonuses
+// Calcular defensa efectiva con bonos
 export function calculateEffectiveDefense(baseDefense, playerClass, equipment) {
   const bonuses = CLASS_COMBAT_BONUSES[playerClass];
   let defense = baseDefense;
