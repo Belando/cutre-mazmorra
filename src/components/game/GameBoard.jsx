@@ -3,6 +3,7 @@ import { TILE, ENEMY_STATS } from './DungeonGenerator';
 import { getThemeForFloor, drawAmbientOverlay } from './DungeonThemes';
 import { isLargeEnemy, getEnemySize, drawLargeBossSprite, NPC_SPRITES, drawNPCSprite } from './LargeEnemies';
 import { PLAYER_APPEARANCES, drawPlayerPreview } from './CharacterSelect';
+import { drawItemSprite } from './ItemSprites'; // Asegúrate de tener esta importación si usas items
 
 const TILE_SIZE = 32;
 

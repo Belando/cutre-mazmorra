@@ -11,7 +11,6 @@ export default function SkillBar({
   selectedSkill, 
   onSelectSkill,
   disabled,
-  playerClass = 'warrior'
 }) {
   // Use the skills from the player's learned skills array
   const learnedSkillIds = skills?.learned || [];
