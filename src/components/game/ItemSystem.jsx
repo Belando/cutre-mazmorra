@@ -1068,11 +1068,3 @@ export function calculatePlayerStats(player) {
 export function canAssignToQuickSlot(item) {
   return item && ['potion', 'scroll', 'food'].includes(item.category);
 }
-
-// Legacy item info for backwards compatibility with existing dungeon generator
-export const ITEM_INFO = {
-  10: { name: 'Health Potion', symbol: '♥', color: '#ef4444', effect: 'heal', value: 20 },
-  11: { name: 'Strength Potion', symbol: '↑', color: '#eab308', effect: 'strength', value: 2 },
-  12: { name: 'Gold', symbol: '●', color: '#fbbf24', effect: 'gold', value: 10 },
-  13: { name: 'Weapon', symbol: '†', color: '#94a3b8', effect: 'weapon', value: 3 },
-};

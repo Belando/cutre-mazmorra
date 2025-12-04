@@ -1,18 +1,20 @@
-// Procedural dungeon generator for roguelike
+// Generador procedimental de mazmorras para roguelike
 import { generateLevelItems } from './ItemSystem';
 
+// Definición de tipos de casilla (Tiles)
 const TILE = {
-  WALL: 0,
-  FLOOR: 1,
-  STAIRS: 2,
-  DOOR: 3,
-  STAIRS_UP: 4,
+  WALL: 0,      // Pared
+  FLOOR: 1,     // Suelo
+  STAIRS: 2,    // Escaleras bajada
+  DOOR: 3,      // Puerta (si se implementa visualmente)
+  STAIRS_UP: 4, // Escaleras subida
 };
 
+// Identificadores de Entidades
 const ENTITY = {
   NONE: 0,
   PLAYER: 1,
-  // Basic enemies
+  // Enemigos básicos
   ENEMY_RAT: 2,
   ENEMY_BAT: 3,
   ENEMY_GOBLIN: 4,
@@ -24,14 +26,14 @@ const ENTITY = {
   ENEMY_WRAITH: 10,
   ENEMY_DEMON: 11,
   ENEMY_DRAGON: 12,
-  // New enemies
+  // Nuevos enemigos
   ENEMY_SLIME: 13,
   ENEMY_WOLF: 14,
   ENEMY_CULTIST: 15,
   ENEMY_GOLEM: 16,
   ENEMY_VAMPIRE: 17,
   ENEMY_MIMIC: 18,
-  // Bosses
+  // Jefes (Bosses)
   BOSS_GOBLIN_KING: 100,
   BOSS_SKELETON_LORD: 101,
   BOSS_ORC_WARLORD: 102,
@@ -39,13 +41,14 @@ const ENTITY = {
   BOSS_LICH: 104,
   BOSS_DEMON_LORD: 105,
   BOSS_ANCIENT_DRAGON: 106,
-  // New Bosses
+  // Jefes Nuevos
   BOSS_VAMPIRE_LORD: 107,
   BOSS_GOLEM_KING: 108,
 };
 
+// Estadísticas base de los enemigos
 const ENEMY_STATS = {
-  // Basic enemies - appear at different levels
+  // Enemigos básicos - aparecen en diferentes niveles
   [ENTITY.ENEMY_RAT]: { name: 'Rata', hp: 6, attack: 2, defense: 0, exp: 3, symbol: 'r', color: '#a1a1aa', minLevel: 1 },
   [ENTITY.ENEMY_BAT]: { name: 'Murciélago', hp: 8, attack: 3, defense: 0, exp: 4, symbol: 'b', color: '#71717a', minLevel: 1 },
   [ENTITY.ENEMY_GOBLIN]: { name: 'Goblin', hp: 12, attack: 4, defense: 1, exp: 6, symbol: 'g', color: '#4ade80', minLevel: 1 },
@@ -64,7 +67,7 @@ const ENEMY_STATS = {
   [ENTITY.ENEMY_DEMON]: { name: 'Demonio', hp: 55, attack: 13, defense: 6, exp: 35, symbol: 'D', color: '#ef4444', minLevel: 6 },
   [ENTITY.ENEMY_DRAGON]: { name: 'Dragón Joven', hp: 70, attack: 15, defense: 8, exp: 50, symbol: 'd', color: '#f59e0b', minLevel: 7 },
   
-  // Bosses - one per floor
+  // Jefes - uno por piso
   [ENTITY.BOSS_GOBLIN_KING]: { name: 'Rey Goblin', hp: 60, attack: 8, defense: 4, exp: 50, symbol: 'G', color: '#22c55e', isBoss: true, minLevel: 1 },
   [ENTITY.BOSS_SKELETON_LORD]: { name: 'Señor Esqueleto', hp: 80, attack: 10, defense: 5, exp: 70, symbol: 'L', color: '#fafafa', isBoss: true, minLevel: 2 },
   [ENTITY.BOSS_ORC_WARLORD]: { name: 'Señor de la Guerra Orco', hp: 100, attack: 12, defense: 6, exp: 90, symbol: 'O', color: '#ea580c', isBoss: true, minLevel: 3 },
@@ -76,7 +79,7 @@ const ENEMY_STATS = {
   [ENTITY.BOSS_ANCIENT_DRAGON]: { name: 'Dragón Ancestral', hp: 200, attack: 22, defense: 10, exp: 250, symbol: 'D', color: '#fbbf24', isBoss: true, minLevel: 7 },
 };
 
-// Get boss for a specific level
+// Obtener el jefe correspondiente al nivel
 function getBossForLevel(level) {
   const bosses = [
     ENTITY.BOSS_GOBLIN_KING,
@@ -90,7 +93,7 @@ function getBossForLevel(level) {
   return bosses[Math.min(level - 1, bosses.length - 1)];
 }
 
-// Get available enemies for a level
+// Obtener enemigos disponibles para un nivel específico
 function getEnemiesForLevel(level) {
   const available = [];
   for (const [entityId, stats] of Object.entries(ENEMY_STATS)) {
@@ -101,7 +104,7 @@ function getEnemiesForLevel(level) {
   return available;
 }
 
-// Scale enemies based on player level for difficulty curve
+// Escalar estadísticas de enemigos según nivel del jugador y mazmorra (Curva de Dificultad)
 function scaleEnemyStats(baseStats, playerLevel, dungeonLevel) {
   const scaleFactor = 1 + (playerLevel * 0.08) + (dungeonLevel * 0.05);
   return {
@@ -113,14 +116,16 @@ function scaleEnemyStats(baseStats, playerLevel, dungeonLevel) {
   };
 }
 
+// Función principal de generación de mazmorra
 function generateDungeon(width, height, level, playerLevel = 1) {
   const map = Array(height).fill(null).map(() => Array(width).fill(TILE.WALL));
   const entities = Array(height).fill(null).map(() => Array(width).fill(ENTITY.NONE));
   const rooms = [];
   
+  // Número de habitaciones aumenta ligeramente con el nivel
   const roomCount = 6 + Math.floor(Math.random() * 4) + level;
   
-  // Generate rooms
+  // 1. Generar Habitaciones
   for (let i = 0; i < roomCount * 3; i++) {
     if (rooms.length >= roomCount) break;
     
@@ -129,7 +134,7 @@ function generateDungeon(width, height, level, playerLevel = 1) {
     const x = 1 + Math.floor(Math.random() * (width - roomWidth - 2));
     const y = 1 + Math.floor(Math.random() * (height - roomHeight - 2));
     
-    // Check overlap
+    // Comprobar superposición (overlap)
     let overlaps = false;
     for (const room of rooms) {
       if (x < room.x + room.width + 1 && x + roomWidth + 1 > room.x &&
@@ -142,7 +147,7 @@ function generateDungeon(width, height, level, playerLevel = 1) {
     if (!overlaps) {
       rooms.push({ x, y, width: roomWidth, height: roomHeight });
       
-      // Carve room
+      // "Excavar" la habitación
       for (let ry = y; ry < y + roomHeight; ry++) {
         for (let rx = x; rx < x + roomWidth; rx++) {
           map[ry][rx] = TILE.FLOOR;
@@ -151,7 +156,7 @@ function generateDungeon(width, height, level, playerLevel = 1) {
     }
   }
   
-  // Connect rooms with corridors
+  // 2. Conectar habitaciones con pasillos
   for (let i = 1; i < rooms.length; i++) {
     const prev = rooms[i - 1];
     const curr = rooms[i];
@@ -161,7 +166,7 @@ function generateDungeon(width, height, level, playerLevel = 1) {
     const currCenterX = Math.floor(curr.x + curr.width / 2);
     const currCenterY = Math.floor(curr.y + curr.height / 2);
     
-    // Horizontal then vertical
+    // Aleatoriamente elegir Horizontal-Vertical o Vertical-Horizontal
     if (Math.random() > 0.5) {
       carveHorizontalCorridor(map, prevCenterX, currCenterX, prevCenterY);
       carveVerticalCorridor(map, prevCenterY, currCenterY, currCenterX);
@@ -171,12 +176,12 @@ function generateDungeon(width, height, level, playerLevel = 1) {
     }
   }
   
-  // Place player in first room
+  // 3. Colocar al Jugador (Primera habitación)
   const firstRoom = rooms[0];
   const playerX = Math.floor(firstRoom.x + firstRoom.width / 2);
   const playerY = Math.floor(firstRoom.y + firstRoom.height / 2);
   
-  // Place stairs up in first room (to go back up) - only if level > 1
+  // Colocar escaleras de subida (solo si nivel > 1)
   let stairsUp = null;
   if (level > 1) {
     const upX = firstRoom.x + 1;
@@ -185,39 +190,38 @@ function generateDungeon(width, height, level, playerLevel = 1) {
     stairsUp = { x: upX, y: upY };
   }
   
-  // Place stairs down in last room
+  // 4. Colocar escaleras de bajada (Última habitación)
   const lastRoom = rooms[rooms.length - 1];
   const stairsX = Math.floor(lastRoom.x + lastRoom.width / 2);
   const stairsY = Math.floor(lastRoom.y + lastRoom.height / 2);
   map[stairsY][stairsX] = TILE.STAIRS;
   
-  // Place enemies
+  // 5. Generar Enemigos
   const enemyTypes = getEnemiesForLevel(level);
   const enemyCount = 4 + level * 2 + Math.floor(Math.random() * 3);
   const lastRoomIndex = rooms.length - 1;
   placeEntities(map, entities, rooms, enemyTypes, enemyCount, [0, lastRoomIndex]);
   
-  // Place boss in the last room (stairs room)
+  // 6. Colocar Jefe (En la habitación de salida)
   const bossType = getBossForLevel(level);
   const bossRoom = rooms[lastRoomIndex];
   const bossX = Math.floor(bossRoom.x + bossRoom.width / 2);
   const bossY = Math.floor(bossRoom.y + bossRoom.height / 2);
-  // Place boss slightly away from stairs
+  
+  // Ajustar posición del jefe para no bloquear escaleras directamente
   const bossOffsetX = bossX !== stairsX ? 0 : (bossX > bossRoom.x + 1 ? -1 : 1);
   const bossOffsetY = bossY !== stairsY ? 0 : (bossY > bossRoom.y + 1 ? -1 : 1);
   entities[bossY + bossOffsetY][bossX + bossOffsetX] = bossType;
   
-  // Generate chests with items using the new item system
+  // 7. Generar Botín (Items y Cofres)
   const generatedItems = generateLevelItems(level, rooms, map, [0]);
   const chests = [];
-  const items = []; // For loose items like gold
+  const items = []; // Items sueltos como oro
   
   generatedItems.forEach(item => {
     if (item.category === 'currency') {
-      // Gold goes directly on the floor
       items.push(item);
     } else {
-      // Other items go in chests
       chests.push({
         x: item.x,
         y: item.y,
@@ -228,10 +232,9 @@ function generateDungeon(width, height, level, playerLevel = 1) {
     }
   });
   
-  // Place torches on walls near rooms
+  // 8. Colocar decoración (Antorchas)
   const torches = [];
   rooms.forEach(room => {
-    // Try to place torches on walls adjacent to room
     const torchPositions = [
       { x: room.x - 1, y: room.y + Math.floor(room.height / 2) },
       { x: room.x + room.width, y: room.y + Math.floor(room.height / 2) },
@@ -241,8 +244,8 @@ function generateDungeon(width, height, level, playerLevel = 1) {
     
     torchPositions.forEach(pos => {
       if (pos.x >= 0 && pos.x < map[0].length && pos.y >= 0 && pos.y < map.length) {
-        if (map[pos.y][pos.x] === TILE.WALL && Math.random() > 0.3) { // More torches
-          // Check if adjacent to floor
+        // Probabilidad de antorcha en pared
+        if (map[pos.y][pos.x] === TILE.WALL && Math.random() > 0.3) {
           const adjacentToFloor = [
             [pos.x - 1, pos.y], [pos.x + 1, pos.y],
             [pos.x, pos.y - 1], [pos.x, pos.y + 1]
@@ -256,9 +259,20 @@ function generateDungeon(width, height, level, playerLevel = 1) {
     });
   });
   
-  return { map, entities, rooms, playerStart: { x: playerX, y: playerY }, stairs: { x: stairsX, y: stairsY }, stairsUp, items, chests, torches };
+  return { 
+    map, 
+    entities, 
+    rooms, 
+    playerStart: { x: playerX, y: playerY }, 
+    stairs: { x: stairsX, y: stairsY }, 
+    stairsUp, 
+    items, 
+    chests, 
+    torches 
+  };
 }
 
+// Funciones auxiliares para excavar pasillos
 function carveHorizontalCorridor(map, x1, x2, y) {
   const start = Math.min(x1, x2);
   const end = Math.max(x1, x2);
@@ -279,6 +293,7 @@ function carveVerticalCorridor(map, y1, y2, x) {
   }
 }
 
+// Colocar entidades aleatoriamente evitando ciertas habitaciones
 function placeEntities(map, entities, rooms, types, count, excludeRoomIndices) {
   let placed = 0;
   let attempts = 0;

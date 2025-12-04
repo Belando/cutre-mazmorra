@@ -212,6 +212,9 @@ function drawAmmoSprite(ctx, item, x, y, size) {
 }
 
 function adjustBrightness(hex, amount) {
+  if (!hex || typeof hex !== 'string') {
+  return '#000000'; 
+}
   const num = parseInt(hex.replace('#', ''), 16);
   const r = Math.max(0, Math.min(255, (num >> 16) + amount));
   const g = Math.max(0, Math.min(255, ((num >> 8) & 0x00FF) + amount));
