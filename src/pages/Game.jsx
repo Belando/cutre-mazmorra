@@ -50,7 +50,7 @@ export default function Game() {
     );
   }
 
-  // 2. PANTALLA DE CARGA (SOLUCIÓN AL ERROR)
+  // 2. PANTALLA DE CARGA 
   // Esperamos a que el jugador y el mapa existan antes de renderizar el juego
   if (!gameState || !gameState.player || !gameState.map || gameState.map.length === 0) {
     return (
@@ -90,7 +90,7 @@ export default function Game() {
                 </div>
               )}
           </div>
-          <div className="h-32 w-full max-w-[744px] mx-auto flex-shrink-0">
+          <div className="h-52 w-full max-w-[744px] mx-auto flex-shrink-0">
             <MessageLog messages={messages} />
           </div>
         </div>

@@ -3,6 +3,7 @@ import { usePlayer } from './usePlayer';
 import { useDungeon } from './useDungeon';
 import { useInventory } from './useInventory';
 import { useTurnSystem } from './useTurnSystem';
+import { soundManager } from '@/components/game/systems/SoundSystem';
 
 // --- IMPORTACIONES DE DATOS ---
 import { TILE, ENTITY } from '@/data/constants';
@@ -131,6 +132,9 @@ export function useGameEngine() {
     }
     
     setStats(prev => ({ ...prev, kills: prev.kills + 1 }));
+    // Al ganar XP, comprobamos si subimos de nivel comparando con el estado anterior
+    const prevLevel = player.level;
+    gainExp(info.exp);
     
     return newEnemies;
   };
@@ -157,6 +161,10 @@ export function useGameEngine() {
         const pStats = calculatePlayerStats(player);
         const buffs = calculateBuffBonuses(player.skills.buffs, pStats);
         const dmg = Math.max(1, (pStats.attack + buffs.attackBonus) - enemy.defense + Math.floor(Math.random()*3));
+
+        // --- AÑADIR EFECTOS VISUALES Y SONOROS AQUÍ ---
+        soundManager.play('attack'); // Sonido de golpe
+        effectsManager.current.addBlood(nx, ny); // Sangre en la posición del enemigo
         
         // Actualizamos HP localmente para comprobar muerte
         const newEnemies = [...dungeon.enemies];
@@ -171,6 +179,8 @@ export function useGameEngine() {
 
         if (newEnemies[enemyIdx].hp <= 0) {
             // Si muere, obtenemos la lista limpia y la pasamos al turno
+            soundManager.play('kill');
+            effectsManager.current.addExplosion(nx, ny, '#52525b'); // Explosión gris de polvo/humo
             const aliveEnemies = handleEnemyDeath(enemyIdx);
             executeTurn(player, aliveEnemies);
         } else {
@@ -195,10 +205,13 @@ export function useGameEngine() {
       if (itemIdx !== -1) {
         const item = dungeon.items[itemIdx];
         if (item.category === 'currency') {
+          soundManager.play('pickup'); // Sonido moneda
           updatePlayer({ gold: player.gold + item.value });
           addMessage(`+${item.value} Oro`, 'pickup');
           showFloatingText(nx, ny, `+${item.value}`, '#fbbf24');
         } else {
+          soundManager.play('pickup'); // Sonido item
+          effectsManager.current.addSparkles(nx, ny); // Brillos
           addItem(item);
           addMessage(`Recogiste: ${item.name}`, 'pickup');
         }
@@ -219,6 +232,8 @@ export function useGameEngine() {
       
       const chestIdx = dungeon.chests.findIndex(c => Math.abs(c.x - player.x) + Math.abs(c.y - player.y) <= 1 && !c.opened);
       if (chestIdx !== -1) {
+        soundManager.play('equip'); // Sonido de cofre abriéndose
+        effectsManager.current.addSparkles(chest.x, chest.y, '#fbbf24');
         const newChests = [...dungeon.chests];
         const chest = newChests[chestIdx];
         chest.opened = true;
@@ -249,6 +264,7 @@ export function useGameEngine() {
                  const res = useSkill(selectedSkill, player, pStats, null, dungeon.enemies, dungeon.visible);
                  
                  if (res.success) {
+                  soundManager.play('magic'); // Sonido magia
                      if(skill.manaCost) updatePlayer({ mp: player.mp - skill.manaCost });
                      const newCooldowns = { ...player.skills.cooldowns, [selectedSkill]: res.cooldown };
                      updatePlayer({ skills: { ...player.skills, cooldowns: newCooldowns } });
@@ -261,6 +277,13 @@ export function useGameEngine() {
                          const newBuffs = [...(player.skills.buffs || []), res.buff];
                          updatePlayer({ skills: { ...player.skills, buffs: newBuffs } });
                      }
+                     // Si es área, poner explosiones
+          if (res.damages) {
+             res.damages.forEach(d => {
+                 effectsManager.current.addExplosion(d.target.x, d.target.y, '#a855f7'); // Explosión púrpura
+                 effectsManager.current.addBlood(d.target.x, d.target.y);
+             });
+          }
                      
                      if (res.damages && res.damages.length > 0) {
                          const newEnemies = [...dungeon.enemies];
@@ -366,6 +389,7 @@ export function useGameEngine() {
         const res = unequipItemLogic(equipment, slot, inventory, player);
         
         if(res.success) {
+          soundManager.play('equip');
             setInventory(res.newInventory); 
             setEquipment(res.newEquipment); 
             setPlayer(res.newPlayer);
@@ -465,6 +489,15 @@ export function useGameEngine() {
       initGame(1);
     }
   }, [gameStarted, player, initGame]);
+
+  // Detectar subida de nivel para efectos
+  useEffect(() => {
+    if (player && player.level > 1 && gameStarted) {
+        soundManager.play('levelUp');
+        effectsManager.current.addSparkles(player.x, player.y, '#ffff00');
+        addMessage(`¡Nivel ${player.level} alcanzado!`, 'levelup');
+    }
+  }, [player?.level]); // Se dispara solo cuando cambia el nivel
 
   // Construir gameState para la UI
   const gameState = {
