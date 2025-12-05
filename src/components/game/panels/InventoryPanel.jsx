@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, Sword, Shield, Heart, Zap, Coins, Trash2, Check, Plus } from 'lucide-react';
-import { Button } from '@/components/ui/button';
+import { Button } from '../ui/button';
 import { EQUIPMENT_SLOTS, SLOT_ICONS, canClassEquip, getMissingRequirement, canAssignToQuickSlot } from '../systems/ItemSystem'; // <-- CORREGIDO
 import { drawItemSprite } from '../entities/ItemSprites'; // <-- CORREGIDO: ../entities/
 

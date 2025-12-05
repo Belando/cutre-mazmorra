@@ -1,7 +1,7 @@
 import React from 'react';
 import { motion } from 'framer-motion';
 import { Skull, RotateCcw, Trophy, Footprints, Sword, Coins } from 'lucide-react';
-import { Button } from '@/components/ui/button';
+import { Button } from '../ui/button';
 
 export default function GameOver({ stats, onRestart }) {
   const handleRestart = () => {

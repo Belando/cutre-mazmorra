@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, ChevronRight, Star, Zap, ChevronDown } from 'lucide-react';
-import { Button } from '@/components/ui/button';
+import { Button } from '../ui/button';
 import { getClassSkills, getSkillLevel, canEvolve, getEvolutionOptions } from '../systems/SkillSystem'; // <-- CORREGIDO: ../systems/
 import { SKILLS, SKILL_TREES, CLASS_EVOLUTIONS } from '@/data/skills';
 

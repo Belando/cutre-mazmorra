@@ -2,7 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { TILE } from '../systems/DungeonGenerator'; // <-- CORREGIDO: ../systems/
 import { Map, X, ChevronLeft, ChevronRight } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Button } from '@/components/ui/button';
+import { Button } from '../ui/button';
 
 export default function MiniMap({ gameState, floorHistory = [] }) {
   const canvasRef = useRef(null);
