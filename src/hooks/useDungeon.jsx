@@ -1,6 +1,6 @@
 import { useState, useCallback } from 'react';
-import { generateDungeon, TILE } from '@/components/game/DungeonGenerator';
-import { generateNPCs } from '@/components/game/NPCSystem';
+import { generateDungeon, TILE } from '@/components/game/systems/DungeonGenerator';
+import { generateNPCs } from '@/components/game/systems/NPCSystem';
 
 const MAP_WIDTH = 50;
 const MAP_HEIGHT = 35;

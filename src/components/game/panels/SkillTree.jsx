@@ -2,11 +2,7 @@ import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, ChevronRight, Star, Zap, ChevronDown } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-
-// --- IMPORTACIONES CORREGIDAS ---
-// 1. Funciones de lógica desde el sistema
-import { getClassSkills, getSkillLevel, canEvolve, getEvolutionOptions } from './SkillSystem';
-// 2. Datos estáticos desde la nueva capa de datos
+import { getClassSkills, getSkillLevel, canEvolve, getEvolutionOptions } from '../systems/SkillSystem'; // <-- CORREGIDO: ../systems/
 import { SKILLS, SKILL_TREES, CLASS_EVOLUTIONS } from '@/data/skills';
 
 export default function SkillTree({ 

@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { motion } from 'framer-motion';
 import { X, Hammer, ArrowUp, Package } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { RECIPES, MATERIAL_TYPES, UPGRADE_COSTS, canCraft, craftItem, upgradeItem } from './CraftingSystem';
+import { RECIPES, MATERIAL_TYPES, UPGRADE_COSTS, canCraft, craftItem, upgradeItem } from '../systems/CraftingSystem'; // <-- CORREGIDO: ../systems/
 
 export default function CraftingPanel({ 
   isOpen, 

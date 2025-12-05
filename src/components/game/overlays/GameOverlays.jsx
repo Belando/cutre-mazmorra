@@ -1,10 +1,12 @@
 import React from 'react';
 import { AnimatePresence } from 'framer-motion';
-import InventoryPanel from './InventoryPanel';
-import NPCDialog from './NPCDialog';
-import CraftingPanel from './CraftingPanel';
-import SkillTree from './SkillTree';
-import GameOver from './GameOver';
+
+// Rutas corregidas
+import InventoryPanel from '@/components/game/panels/InventoryPanel';
+import NPCDialog from './NPCDialog'; // Mismo directorio (overlays)
+import CraftingPanel from '@/components/game/panels/CraftingPanel';
+import SkillTree from '@/components/game/panels/SkillTree';
+import GameOver from './GameOver'; // Mismo directorio (overlays)
 
 export default function GameOverlays({ 
   gameState, 

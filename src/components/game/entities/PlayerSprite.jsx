@@ -1,5 +1,5 @@
 import React, { useRef, useEffect } from 'react';
-import { PLAYER_APPEARANCES } from './CharacterSelect';
+import { PLAYER_APPEARANCES } from '../panels/CharacterSelect';
 
 export default function PlayerSprite({ size = 32, appearance = null, playerClass = null }) {
   const canvasRef = useRef(null);

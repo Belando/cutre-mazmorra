@@ -7,16 +7,15 @@ import { useTurnSystem } from './useTurnSystem';
 // --- IMPORTACIONES DE DATOS ---
 import { TILE, ENTITY } from '@/data/constants';
 import { ENEMY_STATS } from '@/data/enemies';
-import { SKILLS } from '@/data/skills'; // <--- CORRECCIÓN AQUÍ: Importar SKILLS de data
+import { SKILLS } from '@/data/skills'; 
 
-// --- IMPORTACIONES DE SISTEMAS ---
-import { MATERIAL_TYPES, generateMaterialDrop, generateBossDrop, craftItem, upgradeItem } from '@/components/game/CraftingSystem';
-import { useItem as useItemLogic, equipItem as equipItemLogic, unequipItem as unequipItemLogic, calculatePlayerStats } from '@/components/game/ItemSystem';
-import { useQuickSlot as processQuickSlot, assignToQuickSlot } from '@/components/game/QuickSlots';
-// Nota: Quitamos SKILLS de aquí y lo dejamos solo con las funciones
-import { canUseSkill, learnSkill, upgradeSkill, evolveClass, calculateBuffBonuses, useSkill } from '@/components/game/SkillSystem';
-import { QUESTS } from '@/components/game/NPCSystem';
-import { saveGame as saveSystem, loadGame as loadSystem } from '@/components/game/SaveSystem';
+// --- IMPORTACIONES DE SISTEMAS (Rutas actualizadas) ---
+import { MATERIAL_TYPES, generateMaterialDrop, generateBossDrop, craftItem, upgradeItem } from '@/components/game/systems/CraftingSystem';
+import { useItem as useItemLogic, equipItem as equipItemLogic, unequipItem as unequipItemLogic, calculatePlayerStats } from '@/components/game/systems/ItemSystem';
+import { useQuickSlot as processQuickSlot, assignToQuickSlot } from '@/components/game/ui/QuickSlots';
+import { canUseSkill, learnSkill, upgradeSkill, evolveClass, calculateBuffBonuses, useSkill } from '@/components/game/systems/SkillSystem';
+import { QUESTS } from '@/components/game/systems/NPCSystem';
+import { saveGame as saveSystem, loadGame as loadSystem } from '@/components/game/systems/SaveSystem';
 
 const LOG_LENGTH = 50;
 

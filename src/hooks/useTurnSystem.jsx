@@ -1,7 +1,6 @@
 import { useCallback } from 'react';
-import { processEnemyTurn, calculateEnemyDamage } from '@/components/game/EnemyAI';
-import { calculatePlayerStats } from '@/components/game/ItemSystem';
-import { calculateBuffBonuses } from '@/components/game/SkillSystem';
+import { processEnemyTurn, calculateEnemyDamage } from '@/components/game/systems/EnemyAI';
+import { calculatePlayerStats } from '@/components/game/systems/ItemSystem';
 import { ENEMY_STATS } from '@/data/enemies';
 
 export function useTurnSystem() {

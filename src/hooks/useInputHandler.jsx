@@ -1,6 +1,7 @@
 import { useEffect } from 'react';
-import { QUICK_SLOT_HOTKEYS } from '@/components/game/QuickSlots';
-import { getUnlockedSkills } from '@/components/game/SkillSystem';
+// Rutas corregidas
+import { QUICK_SLOT_HOTKEYS } from '@/components/game/ui/QuickSlots';
+import { getUnlockedSkills } from '@/components/game/systems/SkillSystem';
 
 // Hook personalizado para manejar la entrada del teclado
 export function useInputHandler({ 

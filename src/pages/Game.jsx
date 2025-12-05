@@ -1,20 +1,27 @@
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { Button } from '@/components/ui/button';
-import GameBoard from '@/components/game/GameBoard';
-import PlayerStats from '@/components/game/PlayerStats';
-import MessageLog from '@/components/game/MessageLog';
-import MiniMap from '@/components/game/MiniMap';
-import QuickSlots from '@/components/game/QuickSlots';
-import SkillBar from '@/components/game/SkillBar';
-import CharacterSelect from '@/components/game/CharacterSelect';
-import GameOverlays from '@/components/game/GameOverlays';
-import { useGameEngine } from '@/hooks/useGameEngine';
+
+// --- RUTAS ACTUALIZADAS ---
+import GameBoard from '@/components/game/world/GameBoard';
+import PlayerStats from '@/components/game/ui/PlayerStats';
+import MessageLog from '@/components/game/ui/MessageLog';
+import MiniMap from '@/components/game/world/MiniMap';
+import QuickSlots from '@/components/game/ui/QuickSlots';
+import SkillBar from '@/components/game/ui/SkillBar';
+import CharacterSelect from '@/components/game/panels/CharacterSelect';
+import GameOverlays from '@/components/game/overlays/GameOverlays';
+import { hasSaveGame, deleteSave } from '@/components/game/systems/SaveSystem';
+// --------------------------
+
+import { useGame } from '@/context/GameContext';
 import { useInputHandler } from '@/hooks/useInputHandler';
-import { hasSaveGame, deleteSave } from '@/components/game/SaveSystem';
 
 export default function Game() {
-  const { gameState, gameStarted, gameOver, messages, stats, playerInfo, uiState, actions } = useGameEngine();
+  // Ya no inicializamos el engine aquí, lo consumimos del contexto
+  const { gameState, gameStarted, gameOver, messages, stats, playerInfo, uiState, actions } = useGame();
+  
+  // ... (El resto del estado local de UI se mantiene igual: inventoryOpen, etc.)
   const [inventoryOpen, setInventoryOpen] = useState(false);
   const [craftingOpen, setCraftingOpen] = useState(false);
   const [skillTreeOpen, setSkillTreeOpen] = useState(false);
@@ -66,7 +73,7 @@ export default function Game() {
         
         {/* COLUMNA IZQUIERDA: Habilidades y Objetos Rápidos */}
         <div className="flex flex-col w-20 gap-2">
-          <SkillBar skills={gameState?.player?.skills} playerLevel={gameState?.player?.level} cooldowns={gameState?.player?.skills?.cooldowns} selectedSkill={uiState.selectedSkill} onSelectSkill={actions.setSelectedSkill} disabled={inventoryOpen || gameOver} />
+          <SkillBar disabled={inventoryOpen || gameOver} />
           <QuickSlots quickSlots={uiState.quickSlots} onUseSlot={actions.useQuickSlot} disabled={inventoryOpen || gameOver} inventory={gameState?.inventory} />
         </div>
 

@@ -1,10 +1,10 @@
 import React, { useEffect, useRef } from 'react';
 import { TILE } from '@/data/constants';
-import { getThemeForFloor, drawAmbientOverlay } from './DungeonThemes';
-import { isLargeEnemy, getEnemySize } from './LargeEnemies';
-import { PLAYER_APPEARANCES } from './CharacterSelect';
+import { getThemeForFloor, drawAmbientOverlay } from './DungeonThemes'; // En la misma carpeta (world)
+import { isLargeEnemy, getEnemySize } from '../systems/LargeEnemies'; // <-- CORREGIDO: ../systems/
+import { PLAYER_APPEARANCES } from '../panels/CharacterSelect'; // <-- CORREGIDO: ../panels/
 
-// --- IMPORTACIONES DEL NUEVO RENDERER ---
+// --- IMPORTACIONES DEL RENDERER ---
 import { adjustBrightness } from '@/renderer/utils';
 import { drawEnvironmentSprite } from '@/renderer/environment';
 import { drawEnemy, drawLargeEnemy } from '@/renderer/enemies';

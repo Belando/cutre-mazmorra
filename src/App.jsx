@@ -1,11 +1,11 @@
-// src/App.jsx
+import { GameProvider } from '@/context/GameContext';
 import Game from './pages/Game';
 
 function App() {
   return (
-    <div>
+    <GameProvider>
       <Game />
-    </div>
+    </GameProvider>
   );
 }
 

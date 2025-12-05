@@ -1,19 +1,20 @@
 import React from 'react';
-import { canUseSkill, getUnlockedSkills } from './SkillSystem';
-import { SKILLS } from '@/data/skills'; // <--- CORRECCIÓN AQUÍ
+import { canUseSkill, getUnlockedSkills } from '../systems/SkillSystem'; // <-- CORREGIDO: ../systems/
+import { SKILLS } from '@/data/skills';
 import { cn } from '@/lib/utils';
+import { useGame } from '@/context/GameContext';
 
-export default function SkillBar({ 
-  skills, 
-  playerLevel, 
-  cooldowns, 
-  selectedSkill, 
-  onSelectSkill,
-  disabled,
-}) {
-  // Use the skills from the player's learned skills array
-  const learnedSkillIds = skills?.learned || [];
-  const unlockedSkills = getUnlockedSkills(playerLevel, learnedSkillIds);
+export default function SkillBar({ disabled }) { // Ya no necesitamos pasarle skills, cooldowns, etc.
+  const { gameState, uiState, actions } = useGame();
+  const { player } = gameState;
+  const { selectedSkill } = uiState;
+  
+  // Si no hay jugador (pantalla de carga), no renderizamos
+  if (!player || !player.skills) return null;
+
+  const learnedSkillIds = player.skills.learned || [];
+  const cooldowns = player.skills.cooldowns || {};
+  const unlockedSkills = getUnlockedSkills(player.level, learnedSkillIds);
   
   return (
     <div className="w-20 p-2 border rounded-lg bg-slate-900/80 backdrop-blur-sm border-slate-700/50">
@@ -21,14 +22,14 @@ export default function SkillBar({
       
       <div className="flex flex-col gap-1.5">
         {unlockedSkills.map((skill, index) => {
-          const isOnCooldown = !canUseSkill(skill.id, cooldowns || {});
-          const cooldownLeft = cooldowns?.[skill.id] || 0;
+          const isOnCooldown = !canUseSkill(skill.id, cooldowns);
+          const cooldownLeft = cooldowns[skill.id] || 0;
           const isSelected = selectedSkill === skill.id;
           
           return (
             <button
               key={skill.id}
-              onClick={() => onSelectSkill(isSelected ? null : skill.id)}
+              onClick={() => actions.setSelectedSkill(isSelected ? null : skill.id)}
               disabled={disabled || isOnCooldown}
               className={cn(
                 "relative w-10 h-10 rounded-lg border-2 flex items-center justify-center text-xl transition-all mx-auto",
