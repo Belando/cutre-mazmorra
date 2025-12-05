@@ -47,15 +47,13 @@ export function getEnemyRange(enemyType) {
 // --- FUNCIONES DE MOVIMIENTO ---
 
 // Comprueba si una casilla está libre de obstáculos
-function isTileFree(x, y, map, enemies, chests) {
-  // Debe ser suelo (1) o escaleras (2)
+function isTileFree(x, y, map, enemies, chests, npcs) {
   if (map[y]?.[x] !== 1 && map[y]?.[x] !== 2) return false;
-  
-  // No puede haber otro enemigo (excepto uno mismo, que se filtra fuera antes de llamar)
   if (enemies.some(e => e.x === x && e.y === y)) return false;
-
-  // No puede haber un cofre
   if (chests && chests.some(c => c.x === x && c.y === y)) return false;
+  
+  // CORRECCIÓN: Si hay un NPC en esa posición, no está libre
+  if (npcs && npcs.some(n => n.x === x && n.y === y)) return false;
   
   return true;
 }
@@ -196,7 +194,7 @@ function moveToward(enemy, targetX, targetY, map, enemies, player, chests) {
 }
 
 // PROCESO PRINCIPAL: Turno del Enemigo
-export function processEnemyTurn(enemy, player, enemies, map, visible, log, chests) {
+export function processEnemyTurn(enemy, player, enemies, map, visible, log, chests, npcs) {
   // 1. Estados alterados
   if (enemy.stunned > 0) {
     enemy.stunned--;
@@ -204,7 +202,7 @@ export function processEnemyTurn(enemy, player, enemies, map, visible, log, ches
   }
   
   if (enemy.slowed > 0) {
-    enemy.slowedTurn = !enemy.slowedTurn; // Actúa turnos alternos
+    enemy.slowedTurn = !enemy.slowedTurn;
     enemy.slowed--;
     if (enemy.slowedTurn) return { action: 'slowed' };
   }
@@ -232,7 +230,6 @@ export function processEnemyTurn(enemy, player, enemies, map, visible, log, ches
   const rangedInfo = getEnemyRangedInfo(enemy.type);
   if (rangedInfo && dist <= rangedInfo.range && dist > 1) {
     if (hasLineOfSight(map, enemy.x, enemy.y, player.x, player.y)) {
-      // Si prefiere melee, solo dispara a veces o si está lejos
       const shouldShoot = !rangedInfo.preferMelee || Math.random() < 0.3 || dist > 3;
       if (shouldShoot) return { action: 'ranged_attack', range: rangedInfo.range };
     }
@@ -245,7 +242,8 @@ export function processEnemyTurn(enemy, player, enemies, map, visible, log, ches
   switch (behavior) {
     case AI_BEHAVIORS.AGGRESSIVE:
       if (canSee || dist <= 10) {
-        newPos = moveToward(enemy, player.x, player.y, map, enemies, player, chests);
+        // CORREGIDO: Añadido npcs al final
+        newPos = moveToward(enemy, player.x, player.y, map, enemies, player, chests, npcs);
       }
       break;
       
@@ -254,13 +252,17 @@ export function processEnemyTurn(enemy, player, enemies, map, visible, log, ches
         const optimalRange = ranged ? Math.floor(ranged.range * 0.7) : 4;
         
         if (dist <= 2) {
-            newPos = moveAway(enemy, player, map, enemies, chests); 
+            // CORREGIDO: Añadido npcs
+            newPos = moveAway(enemy, player, map, enemies, chests, npcs); 
         } else if (dist < optimalRange && canSee) {
-            if (Math.random() < 0.6) newPos = moveAway(enemy, player, map, enemies, chests);
+            // CORREGIDO: Añadido npcs
+            if (Math.random() < 0.6) newPos = moveAway(enemy, player, map, enemies, chests, npcs);
         } else if (dist > optimalRange + 2 && canSee) {
-            newPos = moveToward(enemy, player.x, player.y, map, enemies, player, chests); 
+            // CORREGIDO: Añadido npcs
+            newPos = moveToward(enemy, player.x, player.y, map, enemies, player, chests, npcs); 
         } else if (canSee && Math.random() < 0.2) {
-            const lateralMove = getLateralMove(enemy, player, map, enemies, chests); 
+            // CORREGIDO: Añadido npcs
+            const lateralMove = getLateralMove(enemy, player, map, enemies, chests, npcs); 
             if (lateralMove) newPos = lateralMove;
         }
         break;
@@ -274,30 +276,37 @@ export function processEnemyTurn(enemy, player, enemies, map, visible, log, ches
             );
             
             if (allies.length > 0) {
-              const flankPos = getFlankingPosition(player, allies, enemy, map, chests);
+              // CORREGIDO: Añadido npcs
+              const flankPos = getFlankingPosition(player, allies, enemy, map, chests, npcs);
               if (flankPos) {
-                newPos = moveToward(enemy, flankPos.x, flankPos.y, map, enemies, player, chests);
+                // CORREGIDO: Añadido npcs
+                newPos = moveToward(enemy, flankPos.x, flankPos.y, map, enemies, player, chests, npcs);
               } else {
-                newPos = moveToward(enemy, player.x, player.y, map, enemies, player, chests);
+                // CORREGIDO: Añadido npcs
+                newPos = moveToward(enemy, player.x, player.y, map, enemies, player, chests, npcs);
               }
             } else {
-              newPos = moveToward(enemy, player.x, player.y, map, enemies, player, chests);
+              // CORREGIDO: Añadido npcs
+              newPos = moveToward(enemy, player.x, player.y, map, enemies, player, chests, npcs);
             }
         }
         break;
       
     case AI_BEHAVIORS.AMBUSH:
         if (dist <= 3) {
-            newPos = moveToward(enemy, player.x, player.y, map, enemies, player, chests);
+            // CORREGIDO: Añadido npcs
+            newPos = moveToward(enemy, player.x, player.y, map, enemies, player, chests, npcs);
         }
         break;
       
     case AI_BEHAVIORS.BOSS:
         if (canSee || dist <= 12) {
             if (dist <= 2 && Math.random() < 0.3) {
-              newPos = moveAway(enemy, player, map, enemies, chests);
+              // CORREGIDO: Añadido npcs
+              newPos = moveAway(enemy, player, map, enemies, chests, npcs);
             } else {
-              newPos = moveToward(enemy, player.x, player.y, map, enemies, player, chests);
+              // CORREGIDO: Añadido npcs
+              newPos = moveToward(enemy, player.x, player.y, map, enemies, player, chests, npcs);
             }
         }
         break;

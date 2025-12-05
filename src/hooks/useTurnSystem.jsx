@@ -2,6 +2,7 @@ import { useCallback } from 'react';
 import { processEnemyTurn, calculateEnemyDamage } from '@/components/game/systems/EnemyAI';
 import { calculatePlayerStats } from '@/components/game/systems/ItemSystem';
 import { ENEMY_STATS } from '@/data/enemies';
+import { soundManager } from '@/components/game/systems/SoundSystem';
 
 export function useTurnSystem() {
   
@@ -30,7 +31,8 @@ export function useTurnSystem() {
         dungeon.map, 
         dungeon.visible, 
         addMessage, 
-        dungeon.chests
+        dungeon.chests,
+        dungeon.npcs // <--- CORRECCIÓN: Añadimos este parámetro al final
       );
       
       if (action.action.includes('attack')) {
@@ -64,6 +66,7 @@ export function useTurnSystem() {
         if (newHp <= 0) {
           setGameOver(true);
           addMessage("Has muerto...", 'death');
+          soundManager.play('gameOver');
         }
         return { ...prev, hp: newHp };
       });

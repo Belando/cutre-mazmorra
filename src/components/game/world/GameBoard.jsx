@@ -194,11 +194,13 @@ export default function GameBoard({ gameState, viewportWidth = 21, viewportHeigh
       }
     });
     
+    // Dibujar COFRES
     chests?.forEach(chest => {
       const sx = (chest.x - offsetX) * TILE_SIZE;
       const sy = (chest.y - offsetY) * TILE_SIZE;
       if (visible[chest.y]?.[chest.x] && isOnScreen(sx, sy, canvas)) {
-        drawEnvironmentSprite(ctx, 'chest', sx, sy, TILE_SIZE, chest.opened, chest.rarity);
+        // CORRECCIÓN: Usamos 'chest.isOpen' para que coincida con la lógica del engine
+        drawEnvironmentSprite(ctx, 'chest', sx, sy, TILE_SIZE, chest.isOpen, chest.rarity);
       }
     });
     

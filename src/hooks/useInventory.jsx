@@ -27,20 +27,16 @@ export function useInventory() {
     }
   }, []);
 
+  // CORRECCIÓN: Ahora addItem devuelve el booleano correcto síncronamente
   const addItem = useCallback((item) => {
-    let success = false;
-    setInventory(prev => {
-      const newInv = [...prev];
-      const res = addItemLogic(newInv, item);
-      success = res.success;
-      return res.success ? newInv : prev;
-    });
-    return success;
-  }, []);
-
-  // Nota: Estas funciones requieren acceso al 'player' para validar stats.
-  // En este hook manejamos el estado del inventario, pero la lógica de validación
-  // a veces necesita datos externos. Los pasaremos como argumentos.
+    const newInv = [...inventory];
+    const res = addItemLogic(newInv, item);
+    
+    if (res.success) {
+      setInventory(newInv);
+    }
+    return res.success;
+  }, [inventory]); // Añadimos dependencia de inventory
 
   const useItem = useCallback((index, player) => {
     let result = { success: false, message: '' };
@@ -53,32 +49,8 @@ export function useInventory() {
   }, []);
 
   const equipItem = useCallback((index, player) => {
-    let result = { success: false };
-    // Necesitamos actualizar inventory Y equipment a la vez
-    // Esto es tricky con useState separados si dependen uno del otro.
-    // Usaremos una actualización funcional combinada desde fuera o aquí.
-    
-    // Simplificación: Asumimos que equipItemLogic muta los arrays pasados
-    // Así que clonamos antes.
-    
-    let newInv, newEq;
-    setInventory(prevInv => {
-      newInv = [...prevInv];
-      return prevInv; // No actualizamos aún
-    });
-    setEquipment(prevEq => {
-      newEq = { ...prevEq };
-      return prevEq;
-    });
-
-    // Esta lógica es compleja de desacoplar porque equipItemLogic modifica player stats también.
-    // Para simplificar el refactor, devolveremos las nuevas versiones para que el Engine actualice.
-    
     return { success: false, message: "Use engine action" }; 
   }, []);
-
-  // Para evitar complejidad, expongamos los setters directos para acciones complejas
-  // y usemos lógica simple para materiales y slots.
 
   const addMaterial = useCallback((type, amount) => {
     setMaterials(prev => ({ ...prev, [type]: (prev[type] || 0) + amount }));

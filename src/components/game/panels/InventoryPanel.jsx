@@ -1,9 +1,9 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, Sword, Shield, Heart, Zap, Coins, Trash2, Check, Plus } from 'lucide-react';
+import { X, ShoppingBag, Shield, Heart, Zap, Coins, Trash2, Check, Sword } from 'lucide-react'; // Añadida ShoppingBag
 import { Button } from '../ui/button';
-import { EQUIPMENT_SLOTS, SLOT_ICONS, canClassEquip, getMissingRequirement, canAssignToQuickSlot } from '../systems/ItemSystem'; // <-- CORREGIDO
-import { drawItemSprite } from '../entities/ItemSprites'; // <-- CORREGIDO: ../entities/
+import { EQUIPMENT_SLOTS, SLOT_ICONS, canClassEquip, getMissingRequirement, canAssignToQuickSlot } from '../systems/ItemSystem';
+import { drawItemSprite } from '../entities/ItemSprites';
 
 function ItemIcon({ item, size = 48 }) {
   const canvasRef = useRef(null);
@@ -78,14 +78,16 @@ export default function InventoryPanel({
         initial={{ scale: 0.9, y: 20 }}
         animate={{ scale: 1, y: 0 }}
         exit={{ scale: 0.9, y: 20 }}
-        className="bg-slate-900 rounded-2xl border border-amber-900/50 w-full max-w-4xl max-h-[90vh] overflow-hidden"
+        // CORRECCIÓN: max-w-2xl para hacerlo más compacto y centrado
+        className="w-full max-w-2xl overflow-hidden border rounded-2xl bg-slate-900 border-amber-900/50 max-h-[90vh]"
         onClick={e => e.stopPropagation()}
       >
         {/* Header - Medieval Fantasy Style */}
         <div className="flex items-center justify-between p-4 border-b border-amber-900/50 bg-gradient-to-r from-slate-900 via-amber-950/30 to-slate-900">
           <div className="flex items-center gap-3">
             <div className="flex items-center justify-center w-10 h-10 border rounded-lg bg-amber-900/40 border-amber-700/50">
-              <span className="text-xl">⚔</span>
+              {/* CORRECCIÓN: Icono de Bolsa */}
+              <ShoppingBag className="w-6 h-6 text-amber-400" />
             </div>
             <div>
               <h2 className="text-lg font-bold text-amber-200">{player?.name || 'Héroe'}</h2>
@@ -107,7 +109,7 @@ export default function InventoryPanel({
                 : 'text-slate-400 hover:text-white'
             }`}
           >
-            Objetos ({inventory?.length || 0}/20)
+            Bolsa ({inventory?.length || 0}/20)
           </button>
           <button
             onClick={() => setActiveTab('equipment')}
@@ -117,35 +119,35 @@ export default function InventoryPanel({
                 : 'text-slate-400 hover:text-white'
             }`}
           >
-            Equipamiento
+            Equipo
           </button>
         </div>
 
-        <div className="p-4 overflow-y-auto max-h-[65vh]">
+        <div className="p-4 overflow-y-auto max-h-[60vh]">
           {activeTab === 'inventory' && (
             <div className="space-y-4">
-              {/* Inventory Grid - 2 rows of 10 */}
-              <div className="grid grid-cols-10 gap-1.5">
+              {/* Inventory Grid - CORRECCIÓN: 5 columnas para que sea más cuadrado y repartido */}
+              <div className="grid grid-cols-5 gap-3 sm:gap-4 justify-items-center">
                 {(inventory || []).map((item, index) => (
                   <button
                     key={item?.id || index}
                     onClick={() => setSelectedItem(selectedItem?.index === index ? null : { ...item, index })}
-                    className={`relative aspect-square rounded-md border-2 p-0.5 transition-all ${
+                    className={`relative w-full aspect-square rounded-xl border-2 p-1 transition-all ${
                       getRarityColor(item?.rarity)
-                    } ${selectedItem?.index === index ? 'ring-2 ring-amber-400 scale-105' : 'hover:brightness-125'}`}
+                    } ${selectedItem?.index === index ? 'ring-2 ring-amber-400 scale-105 z-10 shadow-lg shadow-amber-900/50' : 'hover:brightness-125 hover:-translate-y-1'}`}
                   >
                     {item?.symbol && (
-                      <div className="flex items-center justify-center w-full h-full text-lg">
+                      <div className="flex items-center justify-center w-full h-full text-2xl">
                         {item.symbol}
                       </div>
                     )}
                     {item?.quantity > 1 && (
-                      <span className="absolute bottom-0 right-0 text-[9px] font-bold text-white bg-black/80 px-0.5 rounded">
+                      <span className="absolute bottom-0 right-0 text-[10px] font-bold text-white bg-black/80 px-1 rounded-tl-md">
                         {item.quantity}
                       </span>
                     )}
                     {item?.upgradeLevel > 0 && (
-                      <span className="absolute top-0 right-0 text-[8px] font-bold text-amber-400 bg-black/80 px-0.5 rounded">
+                      <span className="absolute top-0 right-0 text-[9px] font-bold text-amber-400 bg-black/80 px-1 rounded-bl-md">
                         +{item.upgradeLevel}
                       </span>
                     )}
@@ -155,7 +157,7 @@ export default function InventoryPanel({
                 {Array(Math.max(0, 20 - (inventory?.length || 0))).fill(null).map((_, i) => (
                   <div 
                     key={`empty-${i}`}
-                    className="border rounded-md aspect-square border-slate-700/40 bg-slate-900/30"
+                    className="w-full border-2 border-dashed rounded-xl aspect-square border-slate-800/60 bg-slate-900/30"
                   />
                 ))}
               </div>
@@ -167,7 +169,7 @@ export default function InventoryPanel({
                     initial={{ opacity: 0, y: 10 }}
                     animate={{ opacity: 1, y: 0 }}
                     exit={{ opacity: 0, y: 10 }}
-                    className={`rounded-xl border-2 p-4 ${getRarityColor(selectedItem.rarity)}`}
+                    className={`rounded-xl border-2 p-4 mt-2 ${getRarityColor(selectedItem.rarity)}`}
                   >
                     <div className="flex items-start justify-between mb-3">
                       <div>
@@ -207,31 +209,6 @@ export default function InventoryPanel({
                         {selectedItem.stats.maxHp && (
                           <span className="px-2 py-1 text-xs text-pink-400 rounded bg-pink-500/20">
                             +{selectedItem.stats.maxHp} Vida Máx
-                          </span>
-                        )}
-                        {selectedItem.stats.maxHpBoost && (
-                          <span className="px-2 py-1 text-xs text-pink-400 rounded bg-pink-500/20">
-                            +{selectedItem.stats.maxHpBoost} Vida Máx (perm)
-                          </span>
-                        )}
-                        {selectedItem.stats.attackBoost && (
-                          <span className="px-2 py-1 text-xs text-orange-400 rounded bg-orange-500/20">
-                            +{selectedItem.stats.attackBoost} ATK (perm)
-                          </span>
-                        )}
-                        {selectedItem.stats.defenseBoost && (
-                          <span className="px-2 py-1 text-xs rounded bg-cyan-500/20 text-cyan-400">
-                            +{selectedItem.stats.defenseBoost} DEF (perm)
-                          </span>
-                        )}
-                        {selectedItem.stats.tempAttack && (
-                          <span className="px-2 py-1 text-xs text-orange-400 rounded bg-orange-500/20">
-                            +{selectedItem.stats.tempAttack}% DMG ({selectedItem.stats.duration}t)
-                          </span>
-                        )}
-                        {selectedItem.stats.tempDefense && (
-                          <span className="px-2 py-1 text-xs rounded bg-cyan-500/20 text-cyan-400">
-                            +{selectedItem.stats.tempDefense}% DEF ({selectedItem.stats.duration}t)
                           </span>
                         )}
                       </div>
@@ -311,50 +288,33 @@ export default function InventoryPanel({
           )}
 
           {activeTab === 'equipment' && (
-            <div className="flex gap-4">
+            <div className="flex flex-col gap-4 sm:flex-row">
               {/* Left side - Stats */}
-              <div className="w-48 space-y-3">
+              <div className="w-full space-y-3 sm:w-1/3">
                 <div className="p-3 border bg-slate-800/50 rounded-xl border-slate-700">
                   <h4 className="mb-3 text-sm font-bold text-amber-300">Estadísticas</h4>
                   
                   {/* Combat Stats */}
                   <div className="space-y-2">
-                    <StatRow icon="†" label="Ataque" value={(player?.baseAttack || 8) + (player?.equipAttack || 0)} color="text-red-400" />
-                    <StatRow icon="⛨" label="Defensa" value={(player?.baseDefense || 3) + (player?.equipDefense || 0)} color="text-cyan-400" />
-                    <StatRow icon="♥" label="Vida" value={`${player?.hp || 0}/${player?.maxHp || 50}`} color="text-pink-400" />
-                    <StatRow icon="◆" label="Maná" value={`${player?.mp || 0}/${player?.maxMp || 30}`} color="text-blue-400" />
+                    <StatRow icon={<Sword className="w-3 h-3"/>} label="Ataque" value={(player?.baseAttack || 8) + (player?.equipAttack || 0)} color="text-red-400" />
+                    <StatRow icon={<Shield className="w-3 h-3"/>} label="Defensa" value={(player?.baseDefense || 3) + (player?.equipDefense || 0)} color="text-cyan-400" />
+                    <StatRow icon={<Heart className="w-3 h-3"/>} label="Vida" value={`${player?.hp || 0}/${player?.maxHp || 50}`} color="text-pink-400" />
+                    <StatRow icon={<Zap className="w-3 h-3"/>} label="Maná" value={`${player?.mp || 0}/${player?.maxMp || 30}`} color="text-blue-400" />
                   </div>
                   
                   <div className="my-3 border-t border-slate-700" />
                   
                   {/* Attributes */}
-                  <h4 className="mb-2 text-xs font-medium text-slate-400">Atributos</h4>
                   <div className="space-y-1">
-                    <StatRow icon="↑" label="Fuerza" value={player?.strength || 0} color="text-red-300" small />
-                    <StatRow icon="»" label="Destreza" value={player?.dexterity || 0} color="text-green-300" small />
-                    <StatRow icon="✧" label="Inteligencia" value={player?.intelligence || 0} color="text-blue-300" small />
-                  </div>
-                  
-                  <div className="my-3 border-t border-slate-700" />
-                  
-                  {/* Equipment Bonuses */}
-                  <h4 className="mb-2 text-xs font-medium text-slate-400">Bonos de Equipo</h4>
-                  <div className="space-y-1">
-                    <StatRow icon="†" label="ATK" value={`+${calculateEquipmentBonus(equipment, 'attack')}`} color="text-red-400" small />
-                    <StatRow icon="⛨" label="DEF" value={`+${calculateEquipmentBonus(equipment, 'defense')}`} color="text-cyan-400" small />
-                    <StatRow icon="♥" label="Vida" value={`+${calculateEquipmentBonus(equipment, 'maxHp')}`} color="text-pink-400" small />
-                    {calculateEquipmentBonus(equipment, 'evasion') > 0 && (
-                      <StatRow icon="»" label="Evasión" value={`+${calculateEquipmentBonus(equipment, 'evasion')}`} color="text-green-400" small />
-                    )}
-                    {calculateEquipmentBonus(equipment, 'critChance') > 0 && (
-                      <StatRow icon="⚡" label="Crítico" value={`+${calculateEquipmentBonus(equipment, 'critChance')}%`} color="text-yellow-400" small />
-                    )}
+                    <StatRow icon="💪" label="Fuerza" value={player?.strength || 0} color="text-red-300" small />
+                    <StatRow icon="🏹" label="Destreza" value={player?.dexterity || 0} color="text-green-300" small />
+                    <StatRow icon="🧠" label="Inteligencia" value={player?.intelligence || 0} color="text-blue-300" small />
                   </div>
                 </div>
                 
                 {/* Gold */}
                 <div className="flex items-center justify-between p-3 border rounded-lg bg-amber-900/20 border-amber-800/50">
-                  <span className="text-lg text-amber-400">●</span>
+                  <Coins className="w-5 h-5 text-amber-400" />
                   <span className="font-bold text-amber-300">{player?.gold || 0} Oro</span>
                 </div>
               </div>
@@ -362,7 +322,6 @@ export default function InventoryPanel({
               {/* Right side - Equipment Slots */}
               <div className="flex-1">
                 <div className="p-4 border bg-slate-800/30 rounded-xl border-slate-700">
-                  <h4 className="mb-4 text-sm font-bold text-center text-amber-300">Equipamiento</h4>
                   
                   <div className="grid max-w-sm grid-cols-3 gap-3 mx-auto">
                     {/* Row 1: Head */}
@@ -409,7 +368,7 @@ function StatRow({ icon, label, value, color, small = false }) {
   return (
     <div className={`flex items-center justify-between ${small ? 'text-xs' : 'text-sm'}`}>
       <div className="flex items-center gap-2">
-        <span className={`${color} ${small ? 'text-xs' : 'text-sm'}`}>{icon}</span>
+        <span className={`${color} ${small ? 'text-xs' : 'text-sm'} flex items-center`}>{icon}</span>
         <span className="text-slate-400">{label}</span>
       </div>
       <span className={`font-bold ${color}`}>{value}</span>
@@ -427,42 +386,54 @@ function calculateEquipmentBonus(equipment, stat) {
   }, 0);
 }
 
-// Equipment slot component with medieval icons
+// Updated EquipSlot with Lucide Icons for empty slots
 function EquipSlot({ slot, equipment, onUnequip, getRarityColor, getRarityTextColor }) {
   const equipped = equipment?.[slot];
-  const icon = SLOT_ICONS?.[slot] || '?';
   const slotName = EQUIPMENT_SLOTS[slot]?.name || slot;
+  const SlotIcon = EQUIPMENT_SLOTS[slot]?.icon; // Get the component
+  const fallbackIcon = SLOT_ICONS[slot]; // Text fallback
   
   return (
     <div 
-      className={`relative rounded-lg border-2 p-2 min-h-[70px] transition-all hover:brightness-110 cursor-pointer ${
-        equipped ? getRarityColor(equipped.rarity) : 'border-slate-600/50 bg-slate-800/30'
+      className={`relative rounded-lg border-2 p-2 min-h-[70px] transition-all hover:brightness-110 cursor-pointer flex flex-col items-center justify-center text-center ${
+        equipped ? getRarityColor(equipped.rarity) : 'border-slate-700/50 bg-slate-900/50'
       }`}
       onClick={() => equipped && onUnequip(slot)}
       title={equipped ? `${equipped.name} - Click para desequipar` : slotName}
     >
-      <div className="flex flex-col items-center justify-center h-full text-center">
-        <div className={`text-2xl mb-1 ${equipped ? '' : 'opacity-40'}`}>
-          {equipped?.symbol || icon}
-        </div>
-        <p className={`text-[10px] truncate w-full font-medium ${equipped ? getRarityTextColor(equipped.rarity) : 'text-slate-500'}`}>
-          {equipped ? equipped.name : slotName}
-        </p>
-        {equipped && equipped.stats && (
-          <div className="flex flex-wrap justify-center gap-1 mt-1">
-            {equipped.stats.attack && <span className="text-[8px] text-orange-400">+{equipped.stats.attack}†</span>}
-            {equipped.stats.defense && <span className="text-[8px] text-cyan-400">+{equipped.stats.defense}⛨</span>}
-            {equipped.stats.maxHp && <span className="text-[8px] text-pink-400">+{equipped.stats.maxHp}♥</span>}
+      {equipped ? (
+        <>
+          <div className="mb-1 text-2xl">
+            {equipped.symbol}
           </div>
-        )}
-      </div>
-      {equipped && (
-        <button 
-          className="absolute top-1 right-1 w-4 h-4 bg-red-900/80 rounded text-red-300 hover:bg-red-800 text-[10px] flex items-center justify-center"
-          onClick={(e) => { e.stopPropagation(); onUnequip(slot); }}
-        >
-          ✕
-        </button>
+          <p className={`text-[10px] truncate w-full font-medium ${getRarityTextColor(equipped.rarity)}`}>
+            {equipped.name}
+          </p>
+          {equipped.stats && (
+            <div className="flex flex-wrap justify-center gap-1 mt-1">
+              {equipped.stats.attack && <span className="text-[8px] text-orange-400">+{equipped.stats.attack}⚔️</span>}
+              {equipped.stats.defense && <span className="text-[8px] text-cyan-400">+{equipped.stats.defense}🛡️</span>}
+              {equipped.stats.maxHp && <span className="text-[8px] text-pink-400">+{equipped.stats.maxHp}♥</span>}
+            </div>
+          )}
+          <button 
+            className="absolute top-1 right-1 flex items-center justify-center w-4 h-4 text-red-300 rounded bg-red-900/80 hover:bg-red-800 text-[10px]"
+            onClick={(e) => { e.stopPropagation(); onUnequip(slot); }}
+          >
+            ✕
+          </button>
+        </>
+      ) : (
+        <>
+          {SlotIcon && typeof SlotIcon !== 'string' ? (
+            <SlotIcon className="w-8 h-8 mb-1 opacity-20 text-slate-400" />
+          ) : (
+            <div className="mb-1 text-2xl opacity-20">{fallbackIcon || '?'}</div>
+          )}
+          <p className="text-[10px] font-medium text-slate-600">
+            {slotName}
+          </p>
+        </>
       )}
     </div>
   );

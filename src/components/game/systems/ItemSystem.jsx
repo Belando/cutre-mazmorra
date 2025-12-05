@@ -1,31 +1,27 @@
-import { Sword, Shield, CircleDot, Heart, Book, Ghost, Footprints } from 'lucide-react';
+import { Sword, Shield, CircleDot, Heart, Book, Ghost, Footprints, Shirt, Hand, Search } from 'lucide-react';
 
-// Equipment slot definitions (extended)
+// Equipment slot definitions (Mejorado con iconos Lucide)
 export const EQUIPMENT_SLOTS = {
   weapon: { icon: Sword, name: 'Arma Principal' },
   offhand: { icon: Shield, name: 'Mano Izq.' },
-  helmet: { icon: Ghost, name: 'Yelmo' },
-  chest: { icon: Shield, name: 'Armadura' },
-  legs: { icon: '∏', name: 'Pantalones' },
+  helmet: { icon: Ghost, name: 'Yelmo' }, // Ghost funciona bien como silueta de casco, o podemos usar otro
+  chest: { icon: Shirt, name: 'Armadura' },
+  legs: { icon: '🦵', name: 'Pantalones', isText: true }, // Lucide no tiene pantalones claros, usamos emoji medieval
   boots: { icon: Footprints, name: 'Botas' },
-  gloves: { icon: '✋', name: 'Guantes' },
+  gloves: { icon: Hand, name: 'Guantes' },
   ring: { icon: CircleDot, name: 'Anillo' },
-  earring: { icon: CircleDot, name: 'Pendiente' },
+  earring: { icon: Search, name: 'Pendiente' }, // Search parece una lupa/monoculo/joya
   necklace: { icon: CircleDot, name: 'Amuleto' },
 };
 
+// Iconos de respaldo (Fallback) más temáticos
 export const SLOT_ICONS = {
-  weapon: '⚔️', offhand: '🛡️', helmet: '⛑️', chest: '🎽',
-  legs: '👖', boots: '👢', gloves: '🧤', ring: '💍',
-  earring: '✨', necklace: '📿',
+  weapon: '⚔️', offhand: '🛡️', helmet: '🪖', chest: '🥋',
+  legs: '🦵', boots: '🥾', gloves: '🧤', ring: '💍',
+  earring: '✨', necklace: '🧿',
 };
 
-export const ITEM_ICONS = {
-  // ... (iconos existentes)
-  shield: '🛡️', tome: '📖', quiver: '🏹',
-};
-
-// ... (Mantener RARITY_REQUIREMENTS, getItemRequiredAttribute, meetsAttributeRequirements, getMissingRequirement sin cambios) ...
+// ... (Mantener RARITY_REQUIREMENTS, etc. sin cambios) ...
 export const RARITY_REQUIREMENTS = {
   common: { strength: 0, dexterity: 0, intelligence: 0 },
   uncommon: { strength: 5, dexterity: 5, intelligence: 5 },
@@ -69,7 +65,6 @@ export function getMissingRequirement(item, player) {
   const attrNames = { strength: 'Fuerza', dexterity: 'Destreza', intelligence: 'Inteligencia' };
   return { attribute: attrNames[requiredAttr], required, current: playerAttr };
 }
-// ...
 
 const RARITY_WEIGHTS = { common: 50, uncommon: 30, rare: 15, epic: 4, legendary: 1 };
 
@@ -105,23 +100,23 @@ export function canClassEquip(item, playerClass, player = null) {
   return true;
 }
 
-// --- PLANTILLAS DE OBJETOS EXPANDIDAS ---
+// --- PLANTILLAS DE OBJETOS ACTUALIZADAS (ICONOS MEDIEVALES) ---
 const ITEM_TEMPLATES = {
-  // --- CONSUMIBLES (Sin cambios) ---
-  health_potion: { name: 'Poción de Vida', category: 'potion', symbol: '♥', description: 'Restaura vida.', stackable: true, baseStats: { health: 25 } },
-  mana_potion: { name: 'Poción de Maná', category: 'potion', symbol: '◆', description: 'Restaura maná.', stackable: true, baseStats: { mana: 20 } },
-  strength_elixir: { name: 'Elixir de Fuerza', category: 'potion', symbol: '↑', description: '+Ataque permanente.', stackable: true, baseStats: { attackBoost: 1 }, rarityMultipliers: { common: 1, uncommon: 2, rare: 3, epic: 4, legendary: 6 } },
-  bread: { name: 'Pan', category: 'food', symbol: '●', description: 'Comida básica.', stackable: true, baseStats: { health: 10 } },
-  gold: { name: 'Oro', category: 'currency', symbol: '●', description: 'Monedas.', stackable: true, baseValue: 10, rarityMultipliers: { common: 1, uncommon: 2, rare: 5, epic: 10, legendary: 25 } },
+  // --- CONSUMIBLES ---
+  health_potion: { name: 'Poción de Vida', category: 'potion', symbol: '🍷', description: 'Restaura vida.', stackable: true, baseStats: { health: 25 } },
+  mana_potion: { name: 'Poción de Maná', category: 'potion', symbol: '🧪', description: 'Restaura maná.', stackable: true, baseStats: { mana: 20 } },
+  strength_elixir: { name: 'Elixir de Fuerza', category: 'potion', symbol: '💪', description: '+Ataque permanente.', stackable: true, baseStats: { attackBoost: 1 }, rarityMultipliers: { common: 1, uncommon: 2, rare: 3, epic: 4, legendary: 6 } },
+  bread: { name: 'Pan', category: 'food', symbol: '🍞', description: 'Comida básica.', stackable: true, baseStats: { health: 10 } },
+  gold: { name: 'Oro', category: 'currency', symbol: '🪙', description: 'Monedas.', stackable: true, baseValue: 10, rarityMultipliers: { common: 1, uncommon: 2, rare: 5, epic: 10, legendary: 25 } },
 
   // --- ARMAS PRINCIPALES ---
-  sword: { name: 'Espada', category: 'weapon', slot: 'weapon', weaponType: 'sword', symbol: '†', baseStats: { attack: 5 }, rarityMultipliers: { common: 1, uncommon: 1.5, rare: 2, epic: 3, legendary: 5 } },
-  axe: { name: 'Hacha', category: 'weapon', slot: 'weapon', weaponType: 'axe', symbol: '⚒', baseStats: { attack: 6 }, rarityMultipliers: { common: 1, uncommon: 1.5, rare: 2, epic: 3, legendary: 5 } },
-  dagger: { name: 'Daga', category: 'weapon', slot: 'weapon', weaponType: 'dagger', symbol: '⚔', baseStats: { attack: 3, critChance: 10 }, rarityMultipliers: { common: 1, uncommon: 1.5, rare: 2, epic: 3, legendary: 5 } },
-  bow: { name: 'Arco', category: 'weapon', slot: 'weapon', weaponType: 'bow', symbol: '⌒', baseStats: { attack: 4, range: 6 }, rarityMultipliers: { common: 1, uncommon: 1.5, rare: 2, epic: 3, legendary: 5 } },
-  staff: { name: 'Bastón', category: 'weapon', slot: 'weapon', weaponType: 'staff', symbol: '⚚', baseStats: { attack: 3, magicPower: 6 }, rarityMultipliers: { common: 1, uncommon: 1.5, rare: 2, epic: 3, legendary: 5 } },
+  sword: { name: 'Espada', category: 'weapon', slot: 'weapon', weaponType: 'sword', symbol: '⚔️', baseStats: { attack: 5 }, rarityMultipliers: { common: 1, uncommon: 1.5, rare: 2, epic: 3, legendary: 5 } },
+  axe: { name: 'Hacha', category: 'weapon', slot: 'weapon', weaponType: 'axe', symbol: '🪓', baseStats: { attack: 6 }, rarityMultipliers: { common: 1, uncommon: 1.5, rare: 2, epic: 3, legendary: 5 } },
+  dagger: { name: 'Daga', category: 'weapon', slot: 'weapon', weaponType: 'dagger', symbol: '🗡️', baseStats: { attack: 3, critChance: 10 }, rarityMultipliers: { common: 1, uncommon: 1.5, rare: 2, epic: 3, legendary: 5 } },
+  bow: { name: 'Arco', category: 'weapon', slot: 'weapon', weaponType: 'bow', symbol: '🏹', baseStats: { attack: 4, range: 6 }, rarityMultipliers: { common: 1, uncommon: 1.5, rare: 2, epic: 3, legendary: 5 } },
+  staff: { name: 'Bastón', category: 'weapon', slot: 'weapon', weaponType: 'staff', symbol: '🪄', baseStats: { attack: 3, magicPower: 6 }, rarityMultipliers: { common: 1, uncommon: 1.5, rare: 2, epic: 3, legendary: 5 } },
   
-  // --- MANO SECUNDARIA (NUEVO) ---
+  // --- MANO SECUNDARIA ---
   shield: {
     name: 'Escudo', category: 'weapon', slot: 'offhand', weaponType: 'shield', symbol: '🛡️',
     baseStats: { defense: 4, blockChance: 5 },
@@ -135,7 +130,7 @@ const ITEM_TEMPLATES = {
     nameVariants: { common: ['Libro Viejo'], uncommon: ['Grimorio'], rare: ['Códice Arcano'], epic: ['Libro de Sombras'], legendary: ['Omninomicón'] }
   },
   quiver: {
-    name: 'Carcaj', category: 'weapon', slot: 'offhand', weaponType: 'quiver', symbol: '🏹',
+    name: 'Carcaj', category: 'weapon', slot: 'offhand', weaponType: 'quiver', symbol: '🎒',
     baseStats: { attack: 2, critChance: 5 },
     rarityMultipliers: { common: 1, uncommon: 1.5, rare: 2, epic: 3, legendary: 4 },
     nameVariants: { common: ['Carcaj de Cuero'], uncommon: ['Carcaj de Caza'], rare: ['Carcaj Élfico'], epic: ['Carcaj Infinito'], legendary: ['Carcaj Solar'] }
@@ -144,30 +139,30 @@ const ITEM_TEMPLATES = {
   // --- ARMADURAS ESPECÍFICAS POR CLASE ---
   
   // GUERRERO (Pesada)
-  heavy_helmet: { name: 'Yelmo', category: 'armor', slot: 'helmet', armorType: 'heavy', symbol: '⛑', baseStats: { defense: 3 }, rarityMultipliers: { common: 1, uncommon: 1.5, rare: 2, epic: 3, legendary: 4 } },
-  heavy_chest: { name: 'Coraza', category: 'armor', slot: 'chest', armorType: 'heavy', symbol: '⛨', baseStats: { defense: 6, maxHp: 10 }, rarityMultipliers: { common: 1, uncommon: 1.5, rare: 2, epic: 3, legendary: 4 } },
-  heavy_legs: { name: 'Grebas', category: 'armor', slot: 'legs', armorType: 'heavy', symbol: '∏', baseStats: { defense: 4 }, rarityMultipliers: { common: 1, uncommon: 1.5, rare: 2, epic: 3, legendary: 4 } },
-  heavy_boots: { name: 'Botas de Placas', category: 'armor', slot: 'boots', armorType: 'heavy', symbol: '👢', baseStats: { defense: 3 }, rarityMultipliers: { common: 1, uncommon: 1.5, rare: 2, epic: 3, legendary: 4 } },
+  heavy_helmet: { name: 'Yelmo', category: 'armor', slot: 'helmet', armorType: 'heavy', symbol: '🪖', baseStats: { defense: 3 }, rarityMultipliers: { common: 1, uncommon: 1.5, rare: 2, epic: 3, legendary: 4 } },
+  heavy_chest: { name: 'Coraza', category: 'armor', slot: 'chest', armorType: 'heavy', symbol: '🛡️', baseStats: { defense: 6, maxHp: 10 }, rarityMultipliers: { common: 1, uncommon: 1.5, rare: 2, epic: 3, legendary: 4 } },
+  heavy_legs: { name: 'Grebas', category: 'armor', slot: 'legs', armorType: 'heavy', symbol: '🦵', baseStats: { defense: 4 }, rarityMultipliers: { common: 1, uncommon: 1.5, rare: 2, epic: 3, legendary: 4 } },
+  heavy_boots: { name: 'Botas de Placas', category: 'armor', slot: 'boots', armorType: 'heavy', symbol: '🥾', baseStats: { defense: 3 }, rarityMultipliers: { common: 1, uncommon: 1.5, rare: 2, epic: 3, legendary: 4 } },
   heavy_gloves: { name: 'Guanteletes', category: 'armor', slot: 'gloves', armorType: 'heavy', symbol: '🧤', baseStats: { defense: 2, attack: 1 }, rarityMultipliers: { common: 1, uncommon: 1.5, rare: 2, epic: 3, legendary: 4 } },
 
   // PÍCARO (Media/Cuero)
-  leather_helmet: { name: 'Capucha', category: 'armor', slot: 'helmet', armorType: 'medium', symbol: '⛑', baseStats: { defense: 2, evasion: 2 }, rarityMultipliers: { common: 1, uncommon: 1.5, rare: 2, epic: 3, legendary: 4 } },
-  leather_chest: { name: 'Jubón', category: 'armor', slot: 'chest', armorType: 'medium', symbol: '◊', baseStats: { defense: 4, evasion: 3 }, rarityMultipliers: { common: 1, uncommon: 1.5, rare: 2, epic: 3, legendary: 4 } },
-  leather_legs: { name: 'Pantalones', category: 'armor', slot: 'legs', armorType: 'medium', symbol: '∏', baseStats: { defense: 3, evasion: 2 }, rarityMultipliers: { common: 1, uncommon: 1.5, rare: 2, epic: 3, legendary: 4 } },
-  leather_boots: { name: 'Botas de Cuero', category: 'armor', slot: 'boots', armorType: 'medium', symbol: '👢', baseStats: { defense: 2, evasion: 3 }, rarityMultipliers: { common: 1, uncommon: 1.5, rare: 2, epic: 3, legendary: 4 } },
+  leather_helmet: { name: 'Capucha', category: 'armor', slot: 'helmet', armorType: 'medium', symbol: '👤', baseStats: { defense: 2, evasion: 2 }, rarityMultipliers: { common: 1, uncommon: 1.5, rare: 2, epic: 3, legendary: 4 } },
+  leather_chest: { name: 'Jubón', category: 'armor', slot: 'chest', armorType: 'medium', symbol: '🧥', baseStats: { defense: 4, evasion: 3 }, rarityMultipliers: { common: 1, uncommon: 1.5, rare: 2, epic: 3, legendary: 4 } },
+  leather_legs: { name: 'Pantalones', category: 'armor', slot: 'legs', armorType: 'medium', symbol: '🦵', baseStats: { defense: 3, evasion: 2 }, rarityMultipliers: { common: 1, uncommon: 1.5, rare: 2, epic: 3, legendary: 4 } },
+  leather_boots: { name: 'Botas de Cuero', category: 'armor', slot: 'boots', armorType: 'medium', symbol: '🥾', baseStats: { defense: 2, evasion: 3 }, rarityMultipliers: { common: 1, uncommon: 1.5, rare: 2, epic: 3, legendary: 4 } },
   leather_gloves: { name: 'Guantes de Cuero', category: 'armor', slot: 'gloves', armorType: 'medium', symbol: '🧤', baseStats: { defense: 1, critChance: 2 }, rarityMultipliers: { common: 1, uncommon: 1.5, rare: 2, epic: 3, legendary: 4 } },
 
   // MAGO (Ligera/Tela)
-  light_helmet: { name: 'Sombrero', category: 'armor', slot: 'helmet', armorType: 'light', symbol: '⛑', baseStats: { defense: 1, magicPower: 3 }, rarityMultipliers: { common: 1, uncommon: 1.5, rare: 2, epic: 3, legendary: 4 } },
-  light_chest: { name: 'Túnica', category: 'armor', slot: 'chest', armorType: 'light', symbol: '∴', baseStats: { defense: 2, magicPower: 6, maxMp: 10 }, rarityMultipliers: { common: 1, uncommon: 1.5, rare: 2, epic: 3, legendary: 4 } },
-  light_legs: { name: 'Faldas', category: 'armor', slot: 'legs', armorType: 'light', symbol: '∏', baseStats: { defense: 1, magicPower: 4 }, rarityMultipliers: { common: 1, uncommon: 1.5, rare: 2, epic: 3, legendary: 4 } },
-  light_boots: { name: 'Zapatos', category: 'armor', slot: 'boots', armorType: 'light', symbol: '👢', baseStats: { defense: 1, magicPower: 2 }, rarityMultipliers: { common: 1, uncommon: 1.5, rare: 2, epic: 3, legendary: 4 } },
+  light_helmet: { name: 'Sombrero', category: 'armor', slot: 'helmet', armorType: 'light', symbol: '🎩', baseStats: { defense: 1, magicPower: 3 }, rarityMultipliers: { common: 1, uncommon: 1.5, rare: 2, epic: 3, legendary: 4 } },
+  light_chest: { name: 'Túnica', category: 'armor', slot: 'chest', armorType: 'light', symbol: '👘', baseStats: { defense: 2, magicPower: 6, maxMp: 10 }, rarityMultipliers: { common: 1, uncommon: 1.5, rare: 2, epic: 3, legendary: 4 } },
+  light_legs: { name: 'Faldas', category: 'armor', slot: 'legs', armorType: 'light', symbol: '🦵', baseStats: { defense: 1, magicPower: 4 }, rarityMultipliers: { common: 1, uncommon: 1.5, rare: 2, epic: 3, legendary: 4 } },
+  light_boots: { name: 'Zapatos', category: 'armor', slot: 'boots', armorType: 'light', symbol: '👞', baseStats: { defense: 1, magicPower: 2 }, rarityMultipliers: { common: 1, uncommon: 1.5, rare: 2, epic: 3, legendary: 4 } },
   light_gloves: { name: 'Vendas', category: 'armor', slot: 'gloves', armorType: 'light', symbol: '🧤', baseStats: { defense: 1, magicPower: 2 }, rarityMultipliers: { common: 1, uncommon: 1.5, rare: 2, epic: 3, legendary: 4 } },
 
   // ACCESORIOS (Universal)
-  ring: { name: 'Anillo', category: 'accessory', slot: 'ring', symbol: '○', baseStats: { attack: 1 }, rarityMultipliers: { common: 1, uncommon: 2, rare: 3, epic: 4, legendary: 5 } },
-  necklace: { name: 'Collar', category: 'accessory', slot: 'necklace', symbol: '◎', baseStats: { maxHp: 10 }, rarityMultipliers: { common: 1, uncommon: 1.5, rare: 2, epic: 3, legendary: 4 } },
-  earring: { name: 'Pendiente', category: 'accessory', slot: 'earring', symbol: '◇', baseStats: { evasion: 2 }, rarityMultipliers: { common: 1, uncommon: 1.5, rare: 2, epic: 3, legendary: 5 } },
+  ring: { name: 'Anillo', category: 'accessory', slot: 'ring', symbol: '💍', baseStats: { attack: 1 }, rarityMultipliers: { common: 1, uncommon: 2, rare: 3, epic: 4, legendary: 5 } },
+  necklace: { name: 'Collar', category: 'accessory', slot: 'necklace', symbol: '🧿', baseStats: { maxHp: 10 }, rarityMultipliers: { common: 1, uncommon: 1.5, rare: 2, epic: 3, legendary: 4 } },
+  earring: { name: 'Pendiente', category: 'accessory', slot: 'earring', symbol: '✨', baseStats: { evasion: 2 }, rarityMultipliers: { common: 1, uncommon: 1.5, rare: 2, epic: 3, legendary: 5 } },
 };
 
 export function generateRarity(dungeonLevel) {
@@ -258,7 +253,6 @@ export function generateItem(dungeonLevel, forceType = null) {
   return item;
 }
 
-// ... (Mantener generateLevelItems, addToInventory, useItem, equipItem, unequipItem, calculatePlayerStats, canAssignToQuickSlot sin cambios) ...
 export function generateLevelItems(dungeonLevel, rooms, map, excludeRoomIndices = []) {
   const items = [];
   const itemCount = 2 + Math.floor(dungeonLevel / 3) + Math.floor(Math.random() * 2);
@@ -373,7 +367,6 @@ export function equipItem(inventory, index, equipment, player) {
   };
 }
 
-// --- FUNCIÓN DESEQUIPAR REFACTORIZADA (INMUTABLE) ---
 export function unequipItem(equipment, slot, inventory, player, maxSlots = 20) {
   const item = equipment[slot];
   if (!item) return { success: false, message: 'Nada que desequipar' };

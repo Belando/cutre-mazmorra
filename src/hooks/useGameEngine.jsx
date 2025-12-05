@@ -241,92 +241,137 @@ export function useGameEngine() {
     
     executeTurn(nextPlayerState);
 },
+// --- NUEVAS ACCIONES PARA NPC Y MISIONES ---
+    buyItem: (item) => {
+      if (player.gold >= item.price) {
+        // Usamos addItem del hook useInventory que ya tienes importado
+        const success = addItem(item); 
+        if (success) {
+           updatePlayer({ gold: player.gold - item.price });
+           addMessage(`Comprado: ${item.name}`, 'pickup');
+           soundManager.play('pickup');
+        } else {
+           addMessage("Inventario lleno", 'info');
+        }
+      } else {
+        addMessage("Oro insuficiente", 'info');
+      }
+    },
+    
+    sellItem: (index, price) => {
+      const newInv = [...inventory];
+      const item = newInv[index];
+      if (!item) return;
+      
+      newInv.splice(index, 1);
+      setInventory(newInv);
+      updatePlayer({ gold: player.gold + price });
+      addMessage(`Vendido: ${item.name} (+${price} oro)`, 'pickup');
+      soundManager.play('pickup');
+    },
 
+    acceptQuest: (quest) => {
+      if (!activeQuests.includes(quest.id) && !completedQuests.includes(quest.id)) {
+        setActiveQuests(prev => [...prev, quest.id]);
+        addMessage(`Misión aceptada: ${quest.name}`, 'info');
+        soundManager.play('buff'); 
+      }
+    },
+
+    completeQuest: (quest) => {
+      // Dar recompensas
+      let rewardText = "";
+      
+      if (quest.reward) {
+        if (quest.reward.gold) {
+           updatePlayer({ gold: player.gold + quest.reward.gold });
+           rewardText += ` +${quest.reward.gold} Oro`;
+        }
+        if (quest.reward.exp) {
+           gainExp(quest.reward.exp);
+           rewardText += ` +${quest.reward.exp} XP`;
+        }
+        if (quest.reward.item) {
+           addItem(quest.reward.item);
+           rewardText += ` +${quest.reward.item.name}`;
+        }
+      }
+
+      // Actualizar listas de misiones
+      setActiveQuests(prev => prev.filter(q => q !== quest.id));
+      setCompletedQuests(prev => [...prev, quest.id]);
+      
+      addMessage(`¡Misión completada!${rewardText}`, 'levelup');
+      soundManager.play('levelUp');
+    },
     interact: () => {
-    // Buscamos en las 4 direcciones adyacentes al jugador
-    const dirs = [[0, 1], [0, -1], [1, 0], [-1, 0]];
+      const dirs = [[0, 1], [0, -1], [1, 0], [-1, 0]];
 
-    for (const [dx, dy] of dirs) {
+      for (const [dx, dy] of dirs) {
         const tx = player.x + dx;
         const ty = player.y + dy;
 
-        // --- 1. INTERACCIÓN CON COFRES ---
+        // --- INTERACCIÓN CON COFRES ---
         const chestIdx = dungeon.chests.findIndex(c => c.x === tx && c.y === ty);
 
         if (chestIdx !== -1) {
-            const chest = dungeon.chests[chestIdx];
+          const chest = dungeon.chests[chestIdx];
 
-            // A) Si el cofre YA está abierto, no hacemos nada o avisamos
-            if (chest.isOpen) {
-                addMessage("Este cofre ya está vacío.", 'info');
-                return;
-            }
+          if (chest.isOpen) {
+            addMessage("Este cofre ya está vacío.", 'info');
+            return null;
+          }
 
-            // B) Abrir cofre (Lógica visual y sonora)
-            soundManager.play('chest'); 
-            effectsManager.current.addSparkles(tx, ty, '#fbbf24');
+          soundManager.play('chest'); 
+          effectsManager.current.addSparkles(tx, ty, '#fbbf24');
 
-            // C) Lógica de Loot (Tu lógica original)
-            const isGold = Math.random() > 0.3;
-
-            if (isGold) {
-                const goldAmount = 15 + Math.floor(Math.random() * 50);
-                updatePlayer({ gold: player.gold + goldAmount });
-                addMessage(`Cofre abierto: +${goldAmount} Oro`, 'pickup');
-                effectsManager.current.addText(tx, ty, `+${goldAmount}`, '#fbbf24');
-            } else {
-                const potion = {
-                    id: Date.now(),
-                    name: 'Poción de Vida',
-                    type: 'potion',
-                    effect: 'heal',
-                    value: 30,
-                    icon: 'potion_red',
-                    description: 'Recupera 30 HP'
-                };
-                addItem(potion);
-                addMessage(`Encontraste: ${potion.name}`, 'pickup');
-                effectsManager.current.addText(tx, ty, 'ITEM!', '#fff');
-            }
-
-            // D) ACTUALIZAR EL ESTADO DEL COFRE (Sin borrarlo)
-            // Creamos una copia del array de cofres y modificamos solo el que tocamos
-            setDungeon(prev => ({
-                ...prev,
-                chests: prev.chests.map((c, i) => 
-                    i === chestIdx ? { ...c, isOpen: true } : c
-                )
-            }));
-
-            // Nota: En tu componente de Renderizado (Map/Grid), asegúrate de pintar 
-            // el sprite de 'cofre abierto' si c.isOpen es true.
+          const item = chest.item;
+          
+          // Preparar actualizaciones
+          let newItems = [...dungeon.items];
+          
+          if (item) {
+            // Intentamos cogerlo
+            const added = addItem(item);
             
-            return; // Terminamos la interacción
+            if (added) {
+                addMessage(`Encontraste: ${item.name}`, 'pickup');
+                effectsManager.current.addText(tx, ty, item.symbol || 'ITEM', '#fff');
+            } else {
+                // CORRECCIÓN: Si no cabe, cae al suelo
+                addMessage("Inventario lleno. El objeto cayó al suelo.", 'info');
+                // Añadir al suelo en la posición del cofre
+                newItems.push({ ...item, x: tx, y: ty });
+            }
+          } else {
+            addMessage("El cofre estaba vacío...", 'info');
+          }
+
+          // ACTUALIZAR ESTADO (Abrir cofre Y actualizar items de suelo si corresponde)
+          setDungeon(prev => ({
+            ...prev,
+            items: newItems, // Lista de items actualizada (puede tener el nuevo o no)
+            chests: prev.chests.map((c, i) => 
+              i === chestIdx ? { ...c, isOpen: true } : c
+            )
+          }));
+          
+          return { type: 'chest' };
         }
 
-        // --- 2. INTERACCIÓN CON NPC ---
+        // --- INTERACCIÓN CON NPC ---
         const npc = dungeon.npcs.find(n => n.x === tx && n.y === ty);
         
         if (npc) {
-            // Reproducir sonido opcional
-            soundManager.play('speech'); // O el sonido que prefieras
-
-            // A) Mostrar mensaje inicial (opcional)
-            addMessage(`Hablando con ${npc.name}...`, 'info');
-
-            // B) ABRIR LA UI DEL DIÁLOGO
-            // Asumo que tienes un estado para controlar qué NPC se muestra y si el modal está abierto
-            // Ejemplo:
-            setCurrentNpc(npc);      // Guardamos con QUIÉN hablamos
-            setIsDialogActive(true); // Abrimos la ventana/modal
-            
-            return;
+          soundManager.play('speech');
+          addMessage(`Hablando con ${npc.name}...`, 'info');
+          return { type: 'npc', data: npc };
         }
-    }
+      }
 
-    // Si no encontró nada alrededor
-    addMessage("No hay nada aquí para interactuar.", 'info');
-},
+      addMessage("No hay nada aquí para interactuar.", 'info');
+      return null;
+    },
 
     wait: () => {
     if (selectedSkill && SKILLS[selectedSkill]) {
@@ -469,7 +514,7 @@ export function useGameEngine() {
       addMessage("Juego guardado", 'info');
     },
     
-    selectCharacter: (k, a) => { setPlayerName(playerName || 'Héroe'); setSelectedAppearance(k); setPlayerClass(a.class); setGameStarted(true); },
+    selectCharacter: (k, a) => { soundManager.play('start_adventure'); setPlayerName(playerName || 'Héroe'); setSelectedAppearance(k); setPlayerClass(a.class); setGameStarted(true); },
     setPlayerName, setSelectedSkill, setRangedMode, setRangedTargets, 
     
     restart: () => { 

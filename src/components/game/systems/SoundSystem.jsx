@@ -96,7 +96,32 @@ class SoundSystem {
         case 'magic': 
           this.playTone(800, 'triangle', 0.3); 
           break;
-        
+
+        // --- CORRECCIÓN: SONIDO DE MUERTE (GAME OVER) ---
+        case 'gameOver':
+          // Secuencia descendente triste
+          this.playTone(300, 'sine', 0.2);
+          setTimeout(() => this.playTone(250, 'sine', 0.2), 300);
+          setTimeout(() => this.playTone(200, 'sine', 0.2), 600);
+          setTimeout(() => this.playTone(150, 'square', 0.4), 900); // Tono final más largo y grave
+          break;
+
+          // --- CORRECCIÓN: SONIDO ÉPICO DE INICIO ---
+        case 'start_adventure':
+          // Acorde ascendente (La Mayor: A - C# - E - A)
+          this.playTone(220, 'sawtooth', 0.6); // A3 (Grave)
+          
+          setTimeout(() => this.playTone(277, 'sawtooth', 0.6), 100); // C#4
+          setTimeout(() => this.playTone(329, 'sawtooth', 0.6), 200); // E4
+          
+          // Nota final larga y potente + "Platillo" (Ruido)
+          setTimeout(() => {
+            this.playTone(440, 'square', 1.5); // A4 (Agudo y fuerte)
+            this.playNoise(0.8, 0.2); // Efecto de impacto/platillo
+          }, 300);
+          break;
+      
+      
         // --- UI / EVENTOS ---
         case 'levelUp': 
           setTimeout(() => this.playTone(440, 'sine', 0.1), 0);
@@ -113,6 +138,20 @@ class SoundSystem {
         case 'step': 
           this.playNoise(0.03, 0.02); 
           break;
+          // --- CORRECCIÓN: AÑADIR SONIDO DE COFRE ---
+        // --- CORRECCIÓN: SONIDO DE COFRE MEJORADO ---
+        case 'chest': 
+          // 1. Click del cerrojo (Metálico, rápido)
+          this.playTone(600, 'square', 0.05, 0.1);
+          
+          // 2. Apertura de madera (Grave, rasgado, con un pequeño retraso)
+          setTimeout(() => this.playTone(100, 'sawtooth', 0.3, 0.2), 50);
+          
+          // 3. Brillo del tesoro (Agudo, limpio, doble tono)
+          setTimeout(() => this.playTone(1200, 'sine', 0.2, 0.1), 250);
+          setTimeout(() => this.playTone(1800, 'sine', 0.4, 0.1), 350);
+          break;
+          
       }
     } catch (e) {
       console.warn("Audio error:", e);

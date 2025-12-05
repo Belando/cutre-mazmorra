@@ -63,8 +63,10 @@ export default function Game() {
   }
 
   // 3. INTERFAZ DE JUEGO PRINCIPAL
-  const isInteractable = gameState && !activeNPC && gameState.player && (gameState.npcs?.some(n => Math.abs(n.x-gameState.player.x)+Math.abs(n.y-gameState.player.y)<=1) || gameState.chests?.some(c => Math.abs(c.x-gameState.player.x)+Math.abs(c.y-gameState.player.y)<=1 && !c.opened));
-
+  const isInteractable = gameState && !activeNPC && gameState.player && (
+    gameState.npcs?.some(n => Math.abs(n.x-gameState.player.x)+Math.abs(n.y-gameState.player.y)<=1) || 
+    gameState.chests?.some(c => Math.abs(c.x-gameState.player.x)+Math.abs(c.y-gameState.player.y)<=1 && !c.isOpen)
+  );
   return (
     <div className="min-h-screen p-2 bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950">
       <div className="max-w-7xl mx-auto h-[calc(100vh-16px)] flex gap-2">
