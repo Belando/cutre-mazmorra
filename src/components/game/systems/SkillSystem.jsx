@@ -1,7 +1,7 @@
 // Enhanced Skill System with Class Evolution
 import { BASE_CLASSES, CLASS_EVOLUTIONS, SKILL_TREES, SKILLS } from '@/data/skills';
 
-// Initialize player skills based on class
+// Actualizamos initializeSkills para que no se rompa nada
 export function initializeSkills(playerClass = 'warrior') {
   const startingSkills = {
     warrior: ['power_strike', 'shield_bash'],
@@ -13,7 +13,7 @@ export function initializeSkills(playerClass = 'warrior') {
     class: playerClass,
     evolvedClass: null,
     learned: [...(startingSkills[playerClass] || ['power_strike', 'heal'])],
-    skillLevels: {}, // Track individual skill levels
+    skillLevels: {}, 
     skillPoints: 0,
     cooldowns: {},
     buffs: [],
@@ -68,14 +68,11 @@ export function upgradeSkill(skills, skillId) {
   if (!skill) return { success: false, message: 'Habilidad no encontrada' };
   if (!skills.learned.includes(skillId)) return { success: false, message: 'Habilidad no aprendida' };
   if (skills.skillPoints <= 0) return { success: false, message: 'Sin puntos de habilidad' };
-  
   const currentLevel = skills.skillLevels?.[skillId] || 1;
   if (currentLevel >= (skill.maxLevel || 5)) return { success: false, message: 'Nivel máximo alcanzado' };
-  
   skills.skillPoints--;
   skills.skillLevels = skills.skillLevels || {};
   skills.skillLevels[skillId] = currentLevel + 1;
-  
   return { success: true, message: `${skill.name} subió a nivel ${currentLevel + 1}!` };
 }
 
@@ -103,12 +100,15 @@ export function canUseSkill(skillId, cooldowns) {
   return !cooldowns[skillId] || cooldowns[skillId] <= 0;
 }
 
-// Use a skill
+// --- ACTUALIZADO: useSkill usa stats calculados ---
 export function useSkill(skillId, player, playerStats, target, enemies, visible) {
   const skill = SKILLS[skillId];
   if (!skill) return { success: false, message: 'Habilidad desconocida' };
   
   const skillLevel = player.skills?.skillLevels?.[skillId] || 1;
+  
+  // USAMOS LA FUNCIÓN DE ESCALADO
+  const { cooldown } = getSkillEffectiveStats(skill, skillLevel);
   
   const result = {
     success: true,
@@ -149,7 +149,8 @@ export function useSkill(skillId, player, playerStats, target, enemies, visible)
     visibleEnemies.forEach(enemy => result.damages.push({ target: enemy, damage: effect.damage }));
   }
   
-  result.cooldown = skill.cooldown;
+  // APLICAMOS EL COOLDOWN CALCULADO
+  result.cooldown = cooldown;
   return result;
 }
 
@@ -191,4 +192,20 @@ export function learnSkill(skills, skillId) {
     return { success: true, message: `¡Aprendiste ${SKILLS[skillId].name}!` };
   }
   return { success: false, message: 'Habilidad ya aprendida o inválida' };
+}
+
+// --- NUEVO: Calcular estadísticas efectivas según el nivel ---
+export function getSkillEffectiveStats(skill, level) {
+  if (!skill) return { cooldown: 0, manaCost: 0 };
+
+  // 1. Enfriamiento: Se reduce 1 turno cada 3 niveles (ej. lv1->0 red, lv4->1 red)
+  // Se puede personalizar en cada skill con la propiedad 'cooldownScale'
+  const scaleFactor = skill.cooldownScale || 3; 
+  const reduction = Math.floor((level - 1) / scaleFactor);
+  const cooldown = Math.max(1, (skill.cooldown || 0) - reduction);
+
+  // 2. Maná: Por ahora fijo, pero aquí podríamos hacer que suba con el nivel
+  const manaCost = skill.manaCost || 0;
+
+  return { cooldown, manaCost };
 }

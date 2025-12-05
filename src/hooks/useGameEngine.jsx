@@ -14,10 +14,11 @@ import { SKILLS } from '@/data/skills';
 import { MATERIAL_TYPES, generateMaterialDrop, generateBossDrop, craftItem, upgradeItem } from '@/components/game/systems/CraftingSystem';
 import { useItem as useItemLogic, equipItem as equipItemLogic, unequipItem as unequipItemLogic, calculatePlayerStats } from '@/components/game/systems/ItemSystem';
 import { useQuickSlot as processQuickSlot, assignToQuickSlot } from '@/components/game/ui/QuickSlots';
-import { canUseSkill, learnSkill, upgradeSkill, evolveClass, calculateBuffBonuses, useSkill } from '../components/game/systems/SkillSystem';
+import { canUseSkill, learnSkill, upgradeSkill, evolveClass, calculateBuffBonuses, useSkill, getSkillEffectiveStats } from '../components/game/systems/SkillSystem';
 import { QUESTS } from '@/components/game/systems/NPCSystem';
 import { saveGame as saveSystem, loadGame as loadSystem } from '@/components/game/systems/SaveSystem';
 import { EffectsManager } from '../components/game/systems/EffectSystem'; // <--- IMPORTADO AHORA QUE EXISTE
+
 
 const LOG_LENGTH = 50;
 
@@ -158,6 +159,23 @@ export function useGameEngine() {
     const enemyIdx = dungeon.enemies.findIndex(e => e.x === nx && e.y === ny);
     if (enemyIdx !== -1) {
         const enemy = dungeon.enemies[enemyIdx];
+
+        // 1. NUEVA LÓGICA: Verificar si hay habilidad Melee seleccionada
+        if (selectedSkill && SKILLS[selectedSkill]) {
+            const skill = SKILLS[selectedSkill];
+            if (skill.type === 'melee') {
+                // Verificar cooldown
+                if (canUseSkill(selectedSkill, player.skills.cooldowns)) {
+                    // Usar la función centralizada de ejecución de skills
+                    const success = executeSkillAction(selectedSkill, enemy);
+                    if (success) return; // Si funcionó, terminamos aquí (no hacemos ataque básico)
+                } else {
+                    addMessage("¡Habilidad en enfriamiento!", 'info');
+                    return; // No atacamos si fallamos el CD (opcional, o podrías dejar pasar el básico)
+                }
+            }
+        }
+
         const pStats = calculatePlayerStats(player);
         const buffs = calculateBuffBonuses(player.skills.buffs, pStats);
         
@@ -378,104 +396,40 @@ export function useGameEngine() {
         const skill = SKILLS[selectedSkill];
         
         // Verificamos tipo de skill
-        if (['self', 'aoe', 'ultimate'].includes(skill.type)) {
+        if (['self', 'aoe', 'ultimate', 'ranged'].includes(skill.type)) {
             
             // Verificamos Cooldown
             if (canUseSkill(selectedSkill, player.skills.cooldowns)) {
-                const pStats = calculatePlayerStats(player);
-                const res = useSkill(selectedSkill, player, pStats, null, dungeon.enemies, dungeon.visible);
                 
-                if (res.success) {
-                    soundManager.play('magic'); // Sonido base
+                // LÓGICA ESPECÍFICA PARA RANGED (Auto-aim al más cercano)
+                let targetEnemy = null;
+                if (skill.type === 'ranged') {
+                    // Buscar enemigos visibles dentro de rango
+                    const targets = dungeon.enemies.filter(e => {
+                        const dist = Math.abs(e.x - player.x) + Math.abs(e.y - player.y);
+                        return dist <= skill.range && dungeon.visible[e.y]?.[e.x];
+                    }).sort((a, b) => {
+                        // Ordenar por distancia
+                        const distA = Math.abs(a.x - player.x) + Math.abs(a.y - player.y);
+                        const distB = Math.abs(b.x - player.x) + Math.abs(b.y - player.y);
+                        return distA - distB;
+                    });
 
-                    // 1. Coste de Maná
-                    if(skill.manaCost) {
-                        updatePlayer({ mp: player.mp - skill.manaCost });
-                    }
-
-                    // 2. Actualizar Cooldowns
-                    const newCooldowns = { ...player.skills.cooldowns, [selectedSkill]: res.cooldown };
-                    updatePlayer({ skills: { ...player.skills, cooldowns: newCooldowns } });
-                    
-                    // 3. Efectos de Curación (Self)
-                    if (res.heal) {
-                        updatePlayer({ hp: Math.min(player.maxHp, player.hp + res.heal) });
-                        // Texto verde flotante
-                        effectsManager.current.addText(player.x, player.y, `+${res.heal}`, '#4ade80');
-                        // Brillitos verdes
-                        effectsManager.current.addSparkles(player.x, player.y, '#4ade80');
-                    }
-
-                    // 4. Efectos de Buff (Self)
-                    if (res.buff) {
-                        const newBuffs = [...(player.skills.buffs || []), res.buff];
-                        updatePlayer({ skills: { ...player.skills, buffs: newBuffs } });
-                        // Brillitos dorados para indicar Buff
-                        effectsManager.current.addSparkles(player.x, player.y, '#fbbf24');
-                        effectsManager.current.addText(player.x, player.y, 'BUFF', '#fbbf24');
-                    }
-
-                    // 5. Visuales de Área (Explosiones)
-                    // Hacemos esto antes del cálculo de daño para que el efecto visual salga primero
-                    if (res.damages) {
-                        res.damages.forEach(d => {
-                            // Explosión mágica púrpura en cada objetivo
-                            effectsManager.current.addExplosion(d.target.x, d.target.y, '#a855f7');
-                        });
-                    }
-                    
-                    // 6. Aplicación de Daño y Lógica de Muerte
-                    if (res.damages && res.damages.length > 0) {
-                        const newEnemies = [...dungeon.enemies];
-                        let currentEnemiesList = newEnemies;
-                        
-                        res.damages.forEach(dmgInfo => {
-                            const idx = currentEnemiesList.indexOf(dmgInfo.target);
-                            
-                            if (idx !== -1) {
-                                const enemy = currentEnemiesList[idx];
-                                enemy.hp -= dmgInfo.damage;
-
-                                // --- NUEVOS EFECTOS AQUÍ ---
-                                // 1. Sangre al recibir daño
-                                effectsManager.current.addBlood(enemy.x, enemy.y);
-                                
-                                // 2. Texto de daño (usando el nuevo sistema de críticos)
-                                // Asumimos que dmgInfo.isCritical viene del useSkill, si no, es false
-                                effectsManager.current.addText(
-                                    enemy.x, 
-                                    enemy.y, 
-                                    dmgInfo.damage, 
-                                    '#a855f7', // Color morado mágico
-                                    dmgInfo.isCritical || false 
-                                );
-                                
-                                if (dmgInfo.stun) enemy.stunned = dmgInfo.stun;
-                                
-                                // Muerte del enemigo
-                                if (enemy.hp <= 0) {
-                                    currentEnemiesList = handleEnemyDeath(idx);
-                                }
-                            }
-                        });
-
-                        // Ejecutamos turno pasando la lista actualizada de enemigos
-                        executeTurn(player, currentEnemiesList);
-
+                    if (targets.length > 0) {
+                        targetEnemy = targets[0]; // Seleccionar el más cercano
                     } else {
-                        // Si fue solo buff/heal sin daño, ejecutamos turno normal
-                        executeTurn(player);
+                        addMessage("No hay enemigos en rango", 'info');
+                        return;
                     }
-                    
-                    addMessage(res.message, 'player_damage');
-                    setSelectedSkill(null);
-                    return; // Fin del turno
-                    
-                } else {
-                    // Fallo o requerimientos no cumplidos (mensaje de info)
-                    addMessage(res.message, 'info');
-                    return;
                 }
+
+                // Usamos la función executeSkillAction que ya gestiona todo
+                // Nota: para 'self'/'aoe', targetEnemy será null, lo cual es correcto
+                const success = executeSkillAction(selectedSkill, targetEnemy);
+                
+                // Si tuvo éxito, terminamos el turno (wait)
+                if (success) return; 
+
             } else {
                 addMessage("Habilidad no lista", 'info');
                 return;
@@ -680,6 +634,17 @@ export function useGameEngine() {
   const executeSkillAction = (skillId, targetEnemy = null) => {
     const skill = SKILLS[skillId];
     if (!skill) return false;
+
+    // Obtener nivel y stats efectivos
+    const level = player.skills?.skillLevels?.[skillId] || 1;
+    const { manaCost } = getSkillEffectiveStats(skill, level);
+
+    // 1. CHEQUEO DE MANÁ
+    if (manaCost > 0 && player.mp < manaCost) {
+        addMessage(`¡Falta Maná! (Req: ${manaCost})`, 'info');
+        effectsManager.current.addText(player.x, player.y, "No MP", '#94a3b8');
+        return false;
+    }
 
     // 1. Calcular stats efectivos (con buffs)
     const pStats = calculatePlayerStats(player);

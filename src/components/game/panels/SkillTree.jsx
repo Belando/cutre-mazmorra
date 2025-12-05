@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, ChevronRight, Star, Zap, ChevronDown } from 'lucide-react';
 import { Button } from '../ui/button';
-import { getClassSkills, getSkillLevel, canEvolve, getEvolutionOptions } from '../systems/SkillSystem'; // <-- CORREGIDO: ../systems/
+import { getClassSkills, getSkillLevel, canEvolve, getEvolutionOptions, getSkillEffectiveStats } from '../systems/SkillSystem'; // <-- CORREGIDO: ../systems/
 import { SKILLS, SKILL_TREES, CLASS_EVOLUTIONS } from '@/data/skills';
 
 export default function SkillTree({ 
@@ -14,9 +14,9 @@ export default function SkillTree({
   skillLevels = {},
   skillPoints = 0,
   evolvedClass = null,
-  onLearnSkill,
+  onEvolve,
+  onLearnSkill,  
   onUpgradeSkill,
-  onEvolve
 }) {
   const [selectedSkill, setSelectedSkill] = useState(null);
   const [showEvolution, setShowEvolution] = useState(false);
@@ -294,7 +294,7 @@ export default function SkillTree({
           </div>
         </div>
         
-        {/* Selected Skill Details */}
+        {/* Selected Skill Details (ACTUALIZADO) */}
         <AnimatePresence>
           {selectedSkill && (
             <motion.div
@@ -314,17 +314,24 @@ export default function SkillTree({
                     </div>
                     <div>
                       <h3 className="text-lg font-bold text-white">{selectedSkill.name}</h3>
-                      <div className="flex items-center gap-2 text-xs text-slate-400">
-                        <span className="px-2 py-0.5 rounded bg-slate-700">
-                          {selectedSkill.type === 'melee' && '⚔️ Cuerpo a cuerpo'}
-                          {selectedSkill.type === 'ranged' && '🏹 A distancia'}
-                          {selectedSkill.type === 'self' && '✨ Personal'}
-                          {selectedSkill.type === 'aoe' && '💥 Área'}
-                          {selectedSkill.type === 'ultimate' && '⚡ Definitiva'}
-                        </span>
-                        <span>⏱️ {selectedSkill.cooldown} turnos</span>
-                        {selectedSkill.manaCost && <span>💧 {selectedSkill.manaCost} maná</span>}
-                      </div>
+                      {/* --- AQUÍ CALCULAMOS LOS VALORES REALES --- */}
+                      {(() => {
+                        const currentLvl = skillLevels[selectedSkill.id] || 1;
+                        const { cooldown, manaCost } = getSkillEffectiveStats(selectedSkill, currentLvl);
+                        return (
+                          <div className="flex items-center gap-2 text-xs text-slate-400">
+                            <span className="px-2 py-0.5 rounded bg-slate-700">
+                              {selectedSkill.type === 'melee' && '⚔️ Cuerpo a cuerpo'}
+                              {selectedSkill.type === 'ranged' && '🏹 A distancia'}
+                              {selectedSkill.type === 'self' && '✨ Personal'}
+                              {selectedSkill.type === 'aoe' && '💥 Área'}
+                              {selectedSkill.type === 'ultimate' && '⚡ Definitiva'}
+                            </span>
+                            <span className="text-blue-300">⏱️ {cooldown} turnos</span>
+                            {manaCost > 0 && <span className="text-cyan-400">💧 {manaCost} MP</span>}
+                          </div>
+                        );
+                      })()}
                     </div>
                   </div>
                   <Button
@@ -341,27 +348,46 @@ export default function SkillTree({
                   {selectedSkill.description}
                 </p>
                 
-                <div className="flex gap-3">
-                  {!learnedSkills.includes(selectedSkill.id) && selectedSkill.unlockLevel <= playerLevel && (
+                <div className="flex gap-3 mt-4">
+                  {/* CASO 1: No tienes la habilidad -> Botón APRENDER */}
+                  {!learnedSkills.includes(selectedSkill.id) && (
                     <Button
-                      className="bg-emerald-600 hover:bg-emerald-500"
+                      className={`
+                        ${selectedSkill.unlockLevel <= playerLevel 
+                          ? 'bg-emerald-600 hover:bg-emerald-500' 
+                          : 'bg-slate-700 text-slate-500 cursor-not-allowed'}
+                      `}
+                      disabled={selectedSkill.unlockLevel > playerLevel}
                       onClick={() => {
                         onLearnSkill(selectedSkill.id);
                         setSelectedSkill(null);
                       }}
                     >
-                      ✅ Aprender
+                      {selectedSkill.unlockLevel > playerLevel 
+                        ? `Bloqueado (Nivel ${selectedSkill.unlockLevel})` 
+                        : '✅ Aprender'}
                     </Button>
                   )}
-                  {learnedSkills.includes(selectedSkill.id) && 
-                   (skillLevels[selectedSkill.id] || 1) < (selectedSkill.maxLevel || 5) && 
-                   skillPoints > 0 && (
+
+                  {/* CASO 2: Ya tienes la habilidad -> Botón MEJORAR (Siempre visible) */}
+                  {learnedSkills.includes(selectedSkill.id) && (
                     <Button
-                      className="bg-amber-600 hover:bg-amber-500"
+                      className={`
+                        ${skillPoints > 0 && (skillLevels[selectedSkill.id] || 1) < (selectedSkill.maxLevel || 5)
+                          ? 'bg-amber-600 hover:bg-amber-500 text-white shadow-lg shadow-amber-900/20' 
+                          : 'bg-slate-800 text-slate-500 border border-slate-700 cursor-not-allowed'}
+                      `}
+                      disabled={skillPoints <= 0 || (skillLevels[selectedSkill.id] || 1) >= (selectedSkill.maxLevel || 5)}
                       onClick={() => onUpgradeSkill(selectedSkill.id)}
                     >
-                      <Zap className="w-4 h-4 mr-1" />
-                      Mejorar al Nv.{(skillLevels[selectedSkill.id] || 1) + 1}
+                      <Zap className={`w-4 h-4 mr-2 ${skillPoints > 0 ? 'text-yellow-300' : 'text-slate-600'}`} />
+                      
+                      {/* Texto que te explica la situación */}
+                      {(skillLevels[selectedSkill.id] || 1) >= (selectedSkill.maxLevel || 5) 
+                        ? 'Nivel Máximo Alcanzado' 
+                        : skillPoints <= 0 
+                          ? 'Necesitas Puntos de Habilidad' 
+                          : `Mejorar al Nivel ${(skillLevels[selectedSkill.id] || 1) + 1}`}
                     </Button>
                   )}
                 </div>

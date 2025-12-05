@@ -1,3 +1,5 @@
+// src/data/skills.jsx
+
 export const BASE_CLASSES = ['warrior', 'mage', 'rogue'];
 
 export const CLASS_EVOLUTIONS = {
@@ -21,13 +23,14 @@ export const SKILL_TREES = {
 };
 
 export const SKILLS = {
-  // ============ WARRIOR BASE SKILLS ============
+  // ============ WARRIOR BASE SKILLS (Coste bajo: 3-8 MP) ============
   power_strike: {
     id: 'power_strike',
     name: 'Golpe Poderoso',
     description: 'Inflige 150% + (25% x nivel) de daño',
     icon: '⚔️',
     cooldown: 3,
+    manaCost: 3, // NUEVO: Coste bajo
     type: 'melee',
     tree: 'warrior',
     unlockLevel: 1,
@@ -44,6 +47,7 @@ export const SKILLS = {
     description: 'Aturde 2 turnos e inflige 75% daño',
     icon: '🛡️',
     cooldown: 5,
+    manaCost: 4, // NUEVO: Coste bajo
     type: 'melee',
     tree: 'warrior',
     unlockLevel: 1,
@@ -59,7 +63,7 @@ export const SKILLS = {
     description: 'Ataca a todos los enemigos adyacentes',
     icon: '🌀',
     cooldown: 6,
-    manaCost: 8,
+    manaCost: 8, // Mantenido (es AoE, un poco más caro)
     type: 'aoe',
     tree: 'warrior',
     unlockLevel: 3,
@@ -75,6 +79,7 @@ export const SKILLS = {
     description: '+50% ataque y defensa por 5 turnos',
     icon: '📯',
     cooldown: 10,
+    manaCost: 5, // NUEVO
     type: 'self',
     tree: 'warrior',
     unlockLevel: 5,
@@ -88,13 +93,14 @@ export const SKILLS = {
     }
   },
 
-  // ============ KNIGHT EVOLUTION SKILLS ============
+  // ============ KNIGHT SKILLS (Coste bajo-medio: 5-6 MP) ============
   iron_fortress: {
     id: 'iron_fortress',
     name: 'Fortaleza de Hierro',
     description: 'Reduce daño 70% por 4 turnos',
     icon: '🏰',
     cooldown: 15,
+    manaCost: 6, // NUEVO
     type: 'self',
     tree: 'knight',
     unlockLevel: 10,
@@ -112,6 +118,7 @@ export const SKILLS = {
     description: '200% daño + cura 30% del daño',
     icon: '✝️',
     cooldown: 6,
+    manaCost: 5, // NUEVO
     type: 'melee',
     tree: 'knight',
     unlockLevel: 12,
@@ -123,13 +130,14 @@ export const SKILLS = {
     }
   },
 
-  // ============ BERSERKER EVOLUTION SKILLS ============
+  // ============ BERSERKER SKILLS (Coste bajo-medio: 5-6 MP) ============
   blood_rage: {
     id: 'blood_rage',
     name: 'Furia Sangrienta',
     description: '+100% daño, -30% defensa por 6 turnos',
     icon: '🩸',
     cooldown: 12,
+    manaCost: 6, // NUEVO
     type: 'self',
     tree: 'berserker',
     unlockLevel: 10,
@@ -147,6 +155,7 @@ export const SKILLS = {
     description: '500% daño a enemigos bajo 30% vida',
     icon: '💀',
     cooldown: 8,
+    manaCost: 5, // NUEVO
     type: 'melee',
     tree: 'berserker',
     unlockLevel: 12,
@@ -159,13 +168,14 @@ export const SKILLS = {
     }
   },
 
-  // ============ MAGE BASE SKILLS ============
+  // ============ MAGE SKILLS (Coste alto: 6-25 MP) ============
   heal: {
     id: 'heal',
     name: 'Curación',
     description: 'Restaura 30% + (5% x nivel) de vida máxima',
     icon: '💚',
     cooldown: 7,
+    manaCost: 8, // NUEVO: Coste medio-alto
     type: 'self',
     tree: 'mage',
     unlockLevel: 1,
@@ -216,6 +226,7 @@ export const SKILLS = {
     description: 'Absorbe 50% del daño',
     icon: '🔮',
     cooldown: 12,
+    manaCost: 10, // NUEVO
     type: 'self',
     tree: 'mage',
     unlockLevel: 5,
@@ -228,7 +239,7 @@ export const SKILLS = {
     }
   },
 
-  // ============ ARCANE EVOLUTION SKILLS ============
+  // ============ ARCANE/DRUID SKILLS (Coste muy alto) ============
   meteor: {
     id: 'meteor',
     name: 'Meteoro',
@@ -251,6 +262,7 @@ export const SKILLS = {
     description: 'Reduce enfriamiento de habilidades',
     icon: '📖',
     cooldown: 20,
+    manaCost: 15, // NUEVO
     type: 'self',
     tree: 'arcane',
     unlockLevel: 12,
@@ -262,14 +274,13 @@ export const SKILLS = {
       };
     }
   },
-
-  // ============ DRUID EVOLUTION SKILLS ============
   rejuvenation: {
     id: 'rejuvenation',
     name: 'Rejuvenecimiento',
     description: 'Cura 10% HP por turno durante 5 turnos',
     icon: '🌸',
     cooldown: 12,
+    manaCost: 12, // NUEVO
     type: 'self',
     tree: 'druid',
     unlockLevel: 10,
@@ -299,13 +310,14 @@ export const SKILLS = {
     }
   },
 
-  // ============ ROGUE BASE SKILLS ============
+  // ============ ROGUE SKILLS (Coste medio: 4-8 MP) ============
   backstab: {
     id: 'backstab',
     name: 'Puñalada Trasera',
     description: '250% daño a enemigos aturdidos/lentos',
     icon: '🗡️',
     cooldown: 4,
+    manaCost: 5, // NUEVO
     type: 'melee',
     tree: 'rogue',
     unlockLevel: 1,
@@ -323,6 +335,7 @@ export const SKILLS = {
     description: 'Invisibilidad por 3 turnos',
     icon: '💨',
     cooldown: 10,
+    manaCost: 8, // NUEVO
     type: 'self',
     tree: 'rogue',
     unlockLevel: 1,
@@ -357,6 +370,7 @@ export const SKILLS = {
     description: '+100% evasión por 3 turnos',
     icon: '💫',
     cooldown: 8,
+    manaCost: 6, // NUEVO
     type: 'self',
     tree: 'rogue',
     unlockLevel: 5,
@@ -369,13 +383,14 @@ export const SKILLS = {
     }
   },
 
-  // ============ ASSASSIN EVOLUTION SKILLS ============
+  // ============ ASSASSIN/ARCHER SKILLS (Coste medio-alto) ============
   death_mark: {
     id: 'death_mark',
     name: 'Marca de Muerte',
     description: 'Todo daño al objetivo x2',
     icon: '💀',
     cooldown: 15,
+    manaCost: 8, // NUEVO
     type: 'melee',
     tree: 'assassin',
     unlockLevel: 10,
@@ -395,6 +410,7 @@ export const SKILLS = {
     description: 'Teletransporte + 200% daño',
     icon: '👤',
     cooldown: 10,
+    manaCost: 8, // NUEVO
     type: 'melee',
     tree: 'assassin',
     unlockLevel: 12,
@@ -404,8 +420,6 @@ export const SKILLS = {
       return { damage, teleportBehind: true, message: `¡Paso Sombrío! ${damage}!` };
     }
   },
-
-  // ============ ARCHER EVOLUTION SKILLS ============
   multishot: {
     id: 'multishot',
     name: 'Disparo Múltiple',
