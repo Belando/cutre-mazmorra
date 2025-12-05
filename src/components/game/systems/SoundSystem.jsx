@@ -59,36 +59,59 @@ class SoundSystem {
 
   // --- EFECTOS PREDEFINIDOS ---
 
+  // --- EFECTOS PREDEFINIDOS ACTUALIZADOS ---
   play(effectName) {
     try {
       switch (effectName) {
-        case 'attack': // Golpe seco
-          this.playNoise(0.1, 0.15);
+        // --- COMBATE BÁSICO ---
+        case 'attack': 
+          this.playNoise(0.1, 0.15); 
           break;
-        case 'hit': // Daño recibido (tono bajo descendente)
-          this.playTone(150, 'sawtooth', 0.2);
+        case 'hit': 
+          this.playTone(150, 'sawtooth', 0.2); 
           break;
-        case 'kill': // Enemigo muerto (explosión pequeña)
-          this.playNoise(0.2, 0.2);
-          this.playTone(100, 'square', 0.2);
+        case 'kill': 
+          this.playNoise(0.2, 0.2); 
+          this.playTone(100, 'square', 0.2); 
           break;
-        case 'levelUp': // Arpegio feliz
+        
+        // --- NUEVOS SONIDOS DE HABILIDADES ---
+        case 'fireball': 
+          this.playNoise(0.3, 0.1); // Ruido de explosión
+          this.playTone(150, 'sawtooth', 0.3); 
+          break;
+        case 'ice': 
+          this.playTone(800, 'sine', 0.1); 
+          setTimeout(() => this.playTone(1200, 'sine', 0.2), 50); // Sonido cristalino
+          break;
+        case 'heal': 
+          this.playTone(300, 'sine', 0.2); 
+          setTimeout(() => this.playTone(450, 'sine', 0.2), 100); 
+          setTimeout(() => this.playTone(600, 'sine', 0.2), 200); // Acorde ascendente
+          break;
+        case 'buff': 
+          this.playTone(200, 'square', 0.1); 
+          setTimeout(() => this.playTone(300, 'square', 0.1), 100); // Power up
+          break;
+        case 'magic': 
+          this.playTone(800, 'triangle', 0.3); 
+          break;
+        
+        // --- UI / EVENTOS ---
+        case 'levelUp': 
           setTimeout(() => this.playTone(440, 'sine', 0.1), 0);
           setTimeout(() => this.playTone(554, 'sine', 0.1), 100);
           setTimeout(() => this.playTone(659, 'sine', 0.2), 200);
           break;
-        case 'pickup': // Moneda/Item (tono alto agudo)
+        case 'pickup': 
           this.playTone(1200, 'sine', 0.1, 0.05);
           setTimeout(() => this.playTone(1800, 'sine', 0.1, 0.05), 50);
           break;
-        case 'step': // Pasos (ruido muy corto y grave)
-          this.playNoise(0.03, 0.02);
+        case 'equip': 
+          this.playTone(300, 'square', 0.05); 
           break;
-        case 'magic': // Magia (vibrato extraño)
-          this.playTone(800, 'triangle', 0.3);
-          break;
-        case 'equip': // Sonido metálico
-          this.playTone(300, 'square', 0.05);
+        case 'step': 
+          this.playNoise(0.03, 0.02); 
           break;
       }
     } catch (e) {

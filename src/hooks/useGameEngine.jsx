@@ -142,45 +142,57 @@ export function useGameEngine() {
   // --- ACCIONES ---
   const actions = {
     move: (dx, dy) => {
-      const nx = player.x + dx;
-      const ny = player.y + dy;
-      
-      // Colisiones Mapa
-      if (nx < 0 || nx >= dungeon.map[0].length || ny < 0 || ny >= dungeon.map.length || dungeon.map[ny][nx] === TILE.WALL) return;
-      
-      // Colisión Cofres
-      if (dungeon.chests.some(c => c.x === nx && c.y === ny)) {
+    const nx = player.x + dx;
+    const ny = player.y + dy;
+    
+    // Colisiones Mapa
+    if (nx < 0 || nx >= dungeon.map[0].length || ny < 0 || ny >= dungeon.map.length || dungeon.map[ny][nx] === TILE.WALL) return;
+    
+    // Colisión Cofres
+    if (dungeon.chests.some(c => c.x === nx && c.y === ny)) {
         addMessage("Un cofre bloquea el camino (Usa 'E')", 'info');
         return;
-      }
-      
-      // Colisión Enemigos (Combate)
-      const enemyIdx = dungeon.enemies.findIndex(e => e.x === nx && e.y === ny);
-      if (enemyIdx !== -1) {
+    }
+    
+    // --- COLISIÓN ENEMIGOS (COMBATE) ---
+    const enemyIdx = dungeon.enemies.findIndex(e => e.x === nx && e.y === ny);
+    if (enemyIdx !== -1) {
         const enemy = dungeon.enemies[enemyIdx];
         const pStats = calculatePlayerStats(player);
         const buffs = calculateBuffBonuses(player.skills.buffs, pStats);
-        const dmg = Math.max(1, (pStats.attack + buffs.attackBonus) - enemy.defense + Math.floor(Math.random()*3));
-
-        // --- AÑADIR EFECTOS VISUALES Y SONOROS AQUÍ ---
-        soundManager.play('attack'); // Sonido de golpe
-        effectsManager.current.addBlood(nx, ny); // Sangre en la posición del enemigo
         
-        // Actualizamos HP localmente para comprobar muerte
+        // Cálculo de daño
+        const dmg = Math.max(1, (pStats.attack + buffs.attackBonus) - enemy.defense + Math.floor(Math.random()*3));
+        const isCrit = dmg > pStats.attack * 1.5; // Definimos criterio de crítico
+
+        // 1. Sonido
+        soundManager.play(isCrit ? 'critical' : 'attack'); // (Opcional: sonido distinto si tienes uno)
+
+        // 2. Sangre (Visual)
+        effectsManager.current.addBlood(nx, ny);
+
+        // 3. Texto de Daño (Visual) - REEMPLAZADO
+        effectsManager.current.addText(
+            nx, 
+            ny, 
+            dmg, 
+            isCrit ? '#ef4444' : '#fff', // Rojo vivo si es crit, blanco si no
+            isCrit // Pasamos el flag para que el texto salte más
+        );
+        
+        // Actualizamos HP localmente
         const newEnemies = [...dungeon.enemies];
         newEnemies[enemyIdx].hp -= dmg;
         setDungeon(prev => ({ ...prev, enemies: newEnemies }));
         
         addMessage(`Atacas a ${ENEMY_STATS[enemy.type].name}: ${dmg} daño`, 'player_damage');
         
-        // Efecto visual de daño
-        const isCrit = dmg > pStats.attack * 1.5;
-        showFloatingText(nx, ny, dmg, isCrit ? '#ef4444' : '#fff');
-
+        // Lógica de Muerte
         if (newEnemies[enemyIdx].hp <= 0) {
-            // Si muere, obtenemos la lista limpia y la pasamos al turno
             soundManager.play('kill');
-            effectsManager.current.addExplosion(nx, ny, '#52525b'); // Explosión gris de polvo/humo
+            // Explosión de polvo al morir
+            effectsManager.current.addExplosion(nx, ny, '#52525b'); 
+            
             const aliveEnemies = handleEnemyDeath(enemyIdx);
             executeTurn(player, aliveEnemies);
         } else {
@@ -188,146 +200,244 @@ export function useGameEngine() {
             executeTurn(player);
         }
         return;
-      }
-      
-      // Colisión NPC
-      if (dungeon.npcs.some(n => n.x === nx && n.y === ny)) {
+    }
+    
+    // Colisión NPC
+    if (dungeon.npcs.some(n => n.x === nx && n.y === ny)) {
         addMessage("Un NPC bloquea el camino", 'info');
         return;
-      }
-      
-      // Movimiento Exitoso
-      const nextPlayerState = { ...player, x: nx, y: ny };
-      updatePlayer({ x: nx, y: ny });
-      
-      // Recoger items
-      const itemIdx = dungeon.items.findIndex(i => i.x === nx && i.y === ny);
-      if (itemIdx !== -1) {
+    }
+    
+    // --- MOVIMIENTO EXITOSO ---
+    const nextPlayerState = { ...player, x: nx, y: ny };
+    updatePlayer({ x: nx, y: ny });
+    
+    // --- RECOGER ITEMS ---
+    const itemIdx = dungeon.items.findIndex(i => i.x === nx && i.y === ny);
+    if (itemIdx !== -1) {
         const item = dungeon.items[itemIdx];
+        
         if (item.category === 'currency') {
-          soundManager.play('pickup'); // Sonido moneda
-          updatePlayer({ gold: player.gold + item.value });
-          addMessage(`+${item.value} Oro`, 'pickup');
-          showFloatingText(nx, ny, `+${item.value}`, '#fbbf24');
+            soundManager.play('pickup');
+            updatePlayer({ gold: player.gold + item.value });
+            addMessage(`+${item.value} Oro`, 'pickup');
+            
+            // Texto flotante de Oro - REEMPLAZADO
+            effectsManager.current.addText(nx, ny, `+${item.value}`, '#fbbf24');
+            
         } else {
-          soundManager.play('pickup'); // Sonido item
-          effectsManager.current.addSparkles(nx, ny); // Brillos
-          addItem(item);
-          addMessage(`Recogiste: ${item.name}`, 'pickup');
+            soundManager.play('pickup');
+            // Brillitos al recoger equipo/pociones
+            effectsManager.current.addSparkles(nx, ny);
+            
+            addItem(item);
+            addMessage(`Recogiste: ${item.name}`, 'pickup');
         }
+        
         const newItems = [...dungeon.items];
         newItems.splice(itemIdx, 1);
         setDungeon(prev => ({ ...prev, items: newItems }));
-      }
-      
-      executeTurn(nextPlayerState);
-    },
+    }
+    
+    executeTurn(nextPlayerState);
+},
 
     interact: () => {
-      const npc = dungeon.npcs.find(n => Math.abs(n.x - player.x) + Math.abs(n.y - player.y) <= 1);
-      if (npc) {
-        addMessage(`Hablas con ${npc.name}`, 'info');
-        return { type: 'npc', data: npc };
-      }
-      
-      const chestIdx = dungeon.chests.findIndex(c => Math.abs(c.x - player.x) + Math.abs(c.y - player.y) <= 1 && !c.opened);
-      if (chestIdx !== -1) {
-        soundManager.play('equip'); // Sonido de cofre abriéndose
-        effectsManager.current.addSparkles(chest.x, chest.y, '#fbbf24');
-        const newChests = [...dungeon.chests];
-        const chest = newChests[chestIdx];
-        chest.opened = true;
-        setDungeon(prev => ({ ...prev, chests: newChests }));
-        
-        const res = addItem(chest.item);
-        if (res) {
-            addMessage(`Abriste cofre: ${chest.item.name}`, 'pickup');
-            showFloatingText(chest.x, chest.y, chest.item.symbol, '#facc15');
-        } else {
-          const droppedItem = { ...chest.item, x: chest.x, y: chest.y };
-          setDungeon(prev => ({ ...prev, items: [...prev.items, droppedItem] }));
-          addMessage("Inventario lleno, item al suelo", 'info');
+    // Buscamos en las 4 direcciones adyacentes al jugador
+    const dirs = [[0, 1], [0, -1], [1, 0], [-1, 0]];
+
+    for (const [dx, dy] of dirs) {
+        const tx = player.x + dx;
+        const ty = player.y + dy;
+
+        // --- 1. INTERACCIÓN CON COFRES ---
+        const chestIdx = dungeon.chests.findIndex(c => c.x === tx && c.y === ty);
+
+        if (chestIdx !== -1) {
+            const chest = dungeon.chests[chestIdx];
+
+            // A) Si el cofre YA está abierto, no hacemos nada o avisamos
+            if (chest.isOpen) {
+                addMessage("Este cofre ya está vacío.", 'info');
+                return;
+            }
+
+            // B) Abrir cofre (Lógica visual y sonora)
+            soundManager.play('chest'); 
+            effectsManager.current.addSparkles(tx, ty, '#fbbf24');
+
+            // C) Lógica de Loot (Tu lógica original)
+            const isGold = Math.random() > 0.3;
+
+            if (isGold) {
+                const goldAmount = 15 + Math.floor(Math.random() * 50);
+                updatePlayer({ gold: player.gold + goldAmount });
+                addMessage(`Cofre abierto: +${goldAmount} Oro`, 'pickup');
+                effectsManager.current.addText(tx, ty, `+${goldAmount}`, '#fbbf24');
+            } else {
+                const potion = {
+                    id: Date.now(),
+                    name: 'Poción de Vida',
+                    type: 'potion',
+                    effect: 'heal',
+                    value: 30,
+                    icon: 'potion_red',
+                    description: 'Recupera 30 HP'
+                };
+                addItem(potion);
+                addMessage(`Encontraste: ${potion.name}`, 'pickup');
+                effectsManager.current.addText(tx, ty, 'ITEM!', '#fff');
+            }
+
+            // D) ACTUALIZAR EL ESTADO DEL COFRE (Sin borrarlo)
+            // Creamos una copia del array de cofres y modificamos solo el que tocamos
+            setDungeon(prev => ({
+                ...prev,
+                chests: prev.chests.map((c, i) => 
+                    i === chestIdx ? { ...c, isOpen: true } : c
+                )
+            }));
+
+            // Nota: En tu componente de Renderizado (Map/Grid), asegúrate de pintar 
+            // el sprite de 'cofre abierto' si c.isOpen es true.
+            
+            return; // Terminamos la interacción
         }
-        return { type: 'chest' };
-      }
-      
-      addMessage("No hay nada aquí", 'info');
-      return { type: 'none' };
-    },
+
+        // --- 2. INTERACCIÓN CON NPC ---
+        const npc = dungeon.npcs.find(n => n.x === tx && n.y === ty);
+        
+        if (npc) {
+            // Reproducir sonido opcional
+            soundManager.play('speech'); // O el sonido que prefieras
+
+            // A) Mostrar mensaje inicial (opcional)
+            addMessage(`Hablando con ${npc.name}...`, 'info');
+
+            // B) ABRIR LA UI DEL DIÁLOGO
+            // Asumo que tienes un estado para controlar qué NPC se muestra y si el modal está abierto
+            // Ejemplo:
+            setCurrentNpc(npc);      // Guardamos con QUIÉN hablamos
+            setIsDialogActive(true); // Abrimos la ventana/modal
+            
+            return;
+        }
+    }
+
+    // Si no encontró nada alrededor
+    addMessage("No hay nada aquí para interactuar.", 'info');
+},
 
     wait: () => {
-      if (selectedSkill && SKILLS[selectedSkill]) {
-         const skill = SKILLS[selectedSkill];
-         if (['self', 'aoe', 'ultimate'].includes(skill.type)) {
-             if (canUseSkill(selectedSkill, player.skills.cooldowns)) {
-                 const pStats = calculatePlayerStats(player);
-                 const res = useSkill(selectedSkill, player, pStats, null, dungeon.enemies, dungeon.visible);
-                 
-                 if (res.success) {
-                  soundManager.play('magic'); // Sonido magia
-                     if(skill.manaCost) updatePlayer({ mp: player.mp - skill.manaCost });
-                     const newCooldowns = { ...player.skills.cooldowns, [selectedSkill]: res.cooldown };
-                     updatePlayer({ skills: { ...player.skills, cooldowns: newCooldowns } });
-                     
-                     if (res.heal) {
-                         updatePlayer({ hp: Math.min(player.maxHp, player.hp + res.heal) });
-                         showFloatingText(player.x, player.y, `+${res.heal}`, '#4ade80');
-                     }
-                     if (res.buff) {
-                         const newBuffs = [...(player.skills.buffs || []), res.buff];
-                         updatePlayer({ skills: { ...player.skills, buffs: newBuffs } });
-                     }
-                     // Si es área, poner explosiones
-          if (res.damages) {
-             res.damages.forEach(d => {
-                 effectsManager.current.addExplosion(d.target.x, d.target.y, '#a855f7'); // Explosión púrpura
-                 effectsManager.current.addBlood(d.target.x, d.target.y);
-             });
-          }
-                     
-                     if (res.damages && res.damages.length > 0) {
-                         const newEnemies = [...dungeon.enemies];
-                         // Usar la lista local para controlar muertes en AOE
-                         let currentEnemiesList = newEnemies;
-                         
-                         res.damages.forEach(dmgInfo => {
-                             const idx = currentEnemiesList.indexOf(dmgInfo.target);
-                             if (idx !== -1) {
-                                 const enemy = currentEnemiesList[idx];
-                                 enemy.hp -= dmgInfo.damage;
-                                 showFloatingText(enemy.x, enemy.y, dmgInfo.damage, '#a855f7'); // Morado para daño mágico/habilidad
-                                 
-                                 if (dmgInfo.stun) enemy.stunned = dmgInfo.stun;
-                                 
-                                 if (enemy.hp <= 0) {
-                                     // Si muere por skill, también lo quitamos para el turno
-                                     currentEnemiesList = handleEnemyDeath(idx);
-                                 }
-                             }
-                         });
-                         // Pasamos la lista resultante al turno
-                         executeTurn(player, currentEnemiesList);
-                     } else {
-                         executeTurn(player);
-                     }
-                     
-                     addMessage(res.message, 'player_damage');
-                     setSelectedSkill(null);
-                     return; // Salimos, ya ejecutamos turno
-                 } else {
-                     addMessage(res.message, 'info');
-                     return;
-                 }
-             } else {
-                 addMessage("Habilidad no lista", 'info');
-                 return;
-             }
-         }
-      } else {
-         addMessage("Esperas...", 'info');
-      }
-      executeTurn(player);
-    },
+    if (selectedSkill && SKILLS[selectedSkill]) {
+        const skill = SKILLS[selectedSkill];
+        
+        // Verificamos tipo de skill
+        if (['self', 'aoe', 'ultimate'].includes(skill.type)) {
+            
+            // Verificamos Cooldown
+            if (canUseSkill(selectedSkill, player.skills.cooldowns)) {
+                const pStats = calculatePlayerStats(player);
+                const res = useSkill(selectedSkill, player, pStats, null, dungeon.enemies, dungeon.visible);
+                
+                if (res.success) {
+                    soundManager.play('magic'); // Sonido base
+
+                    // 1. Coste de Maná
+                    if(skill.manaCost) {
+                        updatePlayer({ mp: player.mp - skill.manaCost });
+                    }
+
+                    // 2. Actualizar Cooldowns
+                    const newCooldowns = { ...player.skills.cooldowns, [selectedSkill]: res.cooldown };
+                    updatePlayer({ skills: { ...player.skills, cooldowns: newCooldowns } });
+                    
+                    // 3. Efectos de Curación (Self)
+                    if (res.heal) {
+                        updatePlayer({ hp: Math.min(player.maxHp, player.hp + res.heal) });
+                        // Texto verde flotante
+                        effectsManager.current.addText(player.x, player.y, `+${res.heal}`, '#4ade80');
+                        // Brillitos verdes
+                        effectsManager.current.addSparkles(player.x, player.y, '#4ade80');
+                    }
+
+                    // 4. Efectos de Buff (Self)
+                    if (res.buff) {
+                        const newBuffs = [...(player.skills.buffs || []), res.buff];
+                        updatePlayer({ skills: { ...player.skills, buffs: newBuffs } });
+                        // Brillitos dorados para indicar Buff
+                        effectsManager.current.addSparkles(player.x, player.y, '#fbbf24');
+                        effectsManager.current.addText(player.x, player.y, 'BUFF', '#fbbf24');
+                    }
+
+                    // 5. Visuales de Área (Explosiones)
+                    // Hacemos esto antes del cálculo de daño para que el efecto visual salga primero
+                    if (res.damages) {
+                        res.damages.forEach(d => {
+                            // Explosión mágica púrpura en cada objetivo
+                            effectsManager.current.addExplosion(d.target.x, d.target.y, '#a855f7');
+                        });
+                    }
+                    
+                    // 6. Aplicación de Daño y Lógica de Muerte
+                    if (res.damages && res.damages.length > 0) {
+                        const newEnemies = [...dungeon.enemies];
+                        let currentEnemiesList = newEnemies;
+                        
+                        res.damages.forEach(dmgInfo => {
+                            const idx = currentEnemiesList.indexOf(dmgInfo.target);
+                            
+                            if (idx !== -1) {
+                                const enemy = currentEnemiesList[idx];
+                                enemy.hp -= dmgInfo.damage;
+
+                                // --- NUEVOS EFECTOS AQUÍ ---
+                                // 1. Sangre al recibir daño
+                                effectsManager.current.addBlood(enemy.x, enemy.y);
+                                
+                                // 2. Texto de daño (usando el nuevo sistema de críticos)
+                                // Asumimos que dmgInfo.isCritical viene del useSkill, si no, es false
+                                effectsManager.current.addText(
+                                    enemy.x, 
+                                    enemy.y, 
+                                    dmgInfo.damage, 
+                                    '#a855f7', // Color morado mágico
+                                    dmgInfo.isCritical || false 
+                                );
+                                
+                                if (dmgInfo.stun) enemy.stunned = dmgInfo.stun;
+                                
+                                // Muerte del enemigo
+                                if (enemy.hp <= 0) {
+                                    currentEnemiesList = handleEnemyDeath(idx);
+                                }
+                            }
+                        });
+
+                        // Ejecutamos turno pasando la lista actualizada de enemigos
+                        executeTurn(player, currentEnemiesList);
+
+                    } else {
+                        // Si fue solo buff/heal sin daño, ejecutamos turno normal
+                        executeTurn(player);
+                    }
+                    
+                    addMessage(res.message, 'player_damage');
+                    setSelectedSkill(null);
+                    return; // Fin del turno
+                    
+                } else {
+                    // Fallo o requerimientos no cumplidos (mensaje de info)
+                    addMessage(res.message, 'info');
+                    return;
+                }
+            } else {
+                addMessage("Habilidad no lista", 'info');
+                return;
+            }
+        }
+    }
+},
 
     descend: (goUp) => {
       if (goUp && dungeon.stairsUp && player.x === dungeon.stairsUp.x && player.y === dungeon.stairsUp.y) {

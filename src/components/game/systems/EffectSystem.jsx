@@ -1,5 +1,3 @@
-// src/components/game/systems/EffectSystem.jsx
-
 export class EffectsManager {
   constructor() {
     this.effects = [];
@@ -7,17 +5,21 @@ export class EffectsManager {
   }
 
   // --- TEXTO FLOTANTE (Daño, info) ---
-  addText(x, y, text, color = '#fff') {
+  // Acepta un parámetro extra 'isCritical'
+  addText(x, y, text, color = '#fff', isCritical = false) {
     this.effects.push({
       id: this.idCounter++,
       type: 'text',
       x, y,
       text,
       color,
-      life: 60,
-      maxLife: 60,
-      vx: (Math.random() - 0.5) * 0.05,
-      vy: -0.05 - Math.random() * 0.05,
+      isCritical, // Guardamos si es crítico
+      life: isCritical ? 90 : 60, // Dura más si es crítico
+      maxLife: isCritical ? 90 : 60,
+      // Si es crítico, salta más explosivamente hacia los lados
+      vx: isCritical ? (Math.random() - 0.5) * 0.15 : (Math.random() - 0.5) * 0.05,
+      // Si es crítico, salta más alto inicialmente
+      vy: isCritical ? -0.1 : -0.05 - Math.random() * 0.05,
       offsetY: 0
     });
   }
@@ -77,7 +79,7 @@ export class EffectsManager {
       this.effects.push({
         id: this.idCounter++,
         type: 'particle',
-        style: 'star', // Dibujaremos como cruz
+        style: 'star',
         x: x + 0.2 + Math.random() * 0.6,
         y: y + 0.2 + Math.random() * 0.6,
         vx: 0,
@@ -108,6 +110,11 @@ export class EffectsManager {
       } else if (effect.type === 'text') {
         effect.x += effect.vx;
         effect.y += effect.vy;
+        
+        // Easing / Fricción para el texto:
+        // Hace que suba rápido al principio y luego "flote" suavemente
+        effect.vy *= 0.9; 
+        
         effect.offsetY += effect.vy; 
       }
       
@@ -120,42 +127,70 @@ export class EffectsManager {
   // --- RENDERIZADO ---
   draw(ctx, offsetX, offsetY, tileSize) {
     ctx.save();
-    
-    this.effects.forEach(effect => {
+
+    // Separamos en dos grupos para dibujar en orden
+    // Esto es más eficiente que ordenar el array entero cada frame
+    const particles = [];
+    const texts = [];
+
+    this.effects.forEach(e => {
+      if (e.type === 'particle') particles.push(e);
+      else if (e.type === 'text') texts.push(e);
+    });
+
+    // 1. DIBUJAR PARTÍCULAS (FONDO)
+    particles.forEach(effect => {
       const screenX = (effect.x - offsetX) * tileSize;
       const screenY = (effect.y - offsetY) * tileSize;
-      
-      // No dibujar si está fuera de pantalla (optimización básica)
+
+      // Cull check
       if (screenX < -tileSize || screenY < -tileSize || 
           screenX > ctx.canvas.width || screenY > ctx.canvas.height) return;
 
-      const alpha = Math.max(0, effect.life / 20); // Fade out final
+      const alpha = Math.max(0, effect.life / 20);
       ctx.globalAlpha = alpha > 1 ? 1 : alpha;
       ctx.fillStyle = effect.color;
 
-      if (effect.type === 'text') {
-        ctx.font = 'bold 14px monospace';
-        ctx.textAlign = 'center';
-        ctx.strokeStyle = 'black';
-        ctx.lineWidth = 3;
-        ctx.strokeText(effect.text, screenX + tileSize/2, screenY + tileSize/2);
-        ctx.fillText(effect.text, screenX + tileSize/2, screenY + tileSize/2);
-      } 
-      else if (effect.type === 'particle') {
-        const size = effect.size * tileSize;
-        
-        if (effect.style === 'rect') {
-          ctx.fillRect(screenX, screenY, size, size);
-        } else if (effect.style === 'circle') {
-          ctx.beginPath();
-          ctx.arc(screenX, screenY, size, 0, Math.PI * 2);
-          ctx.fill();
-        } else if (effect.style === 'star') {
-          // Dibujar pequeña cruz brillante
-          ctx.fillRect(screenX - size, screenY, size*3, size/2);
-          ctx.fillRect(screenX, screenY - size, size/2, size*3);
-        }
+      const size = effect.size * tileSize;
+      
+      if (effect.style === 'rect') {
+        ctx.fillRect(screenX, screenY, size, size);
+      } else if (effect.style === 'circle') {
+        ctx.beginPath();
+        ctx.arc(screenX, screenY, size, 0, Math.PI * 2);
+        ctx.fill();
+      } else if (effect.style === 'star') {
+        ctx.fillRect(screenX - size, screenY, size*3, size/2);
+        ctx.fillRect(screenX, screenY - size, size/2, size*3);
       }
+    });
+
+    // 2. DIBUJAR TEXTOS (FRENTE)
+    texts.forEach(effect => {
+      const screenX = (effect.x - offsetX) * tileSize;
+      const screenY = (effect.y - offsetY) * tileSize;
+
+      // Cull check
+      if (screenX < -tileSize || screenY < -tileSize || 
+          screenX > ctx.canvas.width || screenY > ctx.canvas.height) return;
+
+      const alpha = Math.max(0, effect.life / 20);
+      ctx.globalAlpha = alpha > 1 ? 1 : alpha;
+      ctx.fillStyle = effect.color;
+
+      // Configuración según si es Crítico o Normal
+      const fontSize = effect.isCritical ? 20 : 14;
+      const fontWeight = 'bold';
+      
+      ctx.font = `${fontWeight} ${fontSize}px monospace`;
+      ctx.textAlign = 'center';
+      
+      // Borde negro para legibilidad
+      ctx.strokeStyle = 'black';
+      ctx.lineWidth = effect.isCritical ? 4 : 3;
+      
+      ctx.strokeText(effect.text, screenX + tileSize/2, screenY + tileSize/2);
+      ctx.fillText(effect.text, screenX + tileSize/2, screenY + tileSize/2);
     });
 
     ctx.restore();

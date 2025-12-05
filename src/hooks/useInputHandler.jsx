@@ -5,7 +5,7 @@ import { getUnlockedSkills } from '@/components/game/systems/SkillSystem';
 
 // Tiempo mínimo entre acciones en milisegundos
 // 150ms es un buen equilibrio: se siente ágil pero evita errores por "doble pulsación"
-const INPUT_COOLDOWN = 180; 
+const INPUT_COOLDOWN = 150; 
 
 // Hook personalizado para manejar la entrada del teclado
 export function useInputHandler({ 
