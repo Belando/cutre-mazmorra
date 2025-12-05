@@ -9,7 +9,7 @@ import { TILE, ENTITY } from '@/data/constants';
 import { ENEMY_STATS } from '@/data/enemies';
 import { SKILLS } from '@/data/skills'; 
 
-// --- IMPORTACIONES DE SISTEMAS (Rutas actualizadas) ---
+// --- IMPORTACIONES DE SISTEMAS ---
 import { MATERIAL_TYPES, generateMaterialDrop, generateBossDrop, craftItem, upgradeItem } from '@/components/game/systems/CraftingSystem';
 import { useItem as useItemLogic, equipItem as equipItemLogic, unequipItem as unequipItemLogic, calculatePlayerStats } from '@/components/game/systems/ItemSystem';
 import { useQuickSlot as processQuickSlot, assignToQuickSlot } from '@/components/game/ui/QuickSlots';
@@ -26,7 +26,7 @@ export function useGameEngine() {
   const { inventory, setInventory, equipment, setEquipment, materials, setMaterials, quickSlots, setQuickSlots, initInventory, addItem, addMaterial } = useInventory();
   const { processTurn } = useTurnSystem();
 
-  // --- ESTADOS GLOBALES ---
+  // --- ESTADOS GLOBALES UI ---
   const [gameStarted, setGameStarted] = useState(false);
   const [gameOver, setGameOver] = useState(false);
   const [messages, setMessages] = useState([]);
@@ -52,23 +52,16 @@ export function useGameEngine() {
 
   // --- GAME LOOP / INICIALIZACIÓN ---
   const initGame = useCallback((level = 1, existingPlayer = null) => {
-    // 1. Inicializar/Cargar Player
     if (!existingPlayer && !player) {
       initPlayer(null, playerClass, playerName);
     } else if (existingPlayer) {
-      // Si venimos de un save o cambio de piso con datos previos
-      setPlayer({ ...existingPlayer, x: 0, y: 0 }); // Posición temporal, se corrige tras generar dungeon
+      setPlayer({ ...existingPlayer, x: 0, y: 0 });
     }
 
-    // 2. Generar Dungeon
-    // Necesitamos el nivel del jugador para escalar enemigos, si el player aún no está listo usamos 1
     const pLevel = existingPlayer?.level || 1; 
     const newDungeon = generateLevel(level, pLevel);
     
-    // 3. Colocar Jugador en el mapa
     updatePlayer({ x: newDungeon.playerStart.x, y: newDungeon.playerStart.y, floor: level });
-    
-    // 4. Calcular FOV inicial
     updateMapFOV(newDungeon.playerStart.x, newDungeon.playerStart.y);
 
     if (level === 1 && !existingPlayer) addMessage(`¡Bienvenido, ${playerName || 'Héroe'}!`, 'info');
@@ -77,55 +70,64 @@ export function useGameEngine() {
   }, [playerClass, playerName, generateLevel, initPlayer, updatePlayer, updateMapFOV, addMessage, player]);
 
   // --- LOGICA DE TURNO ---
-  const endTurn = useCallback(() => {
+  // CORRECCIÓN: Ahora acepta 'enemiesOverride' para manejar muertes en el mismo turno
+  const executeTurn = useCallback((currentPlayerState = player, enemiesOverride = null) => {
     // 1. Regenerar Jugador
     regenPlayer();
     
-    // 2. Procesar Enemigos
+    // 2. Construir estado del dungeon actualizado (si hay override, usamos esa lista de enemigos)
+    const dungeonState = enemiesOverride ? { ...dungeon, enemies: enemiesOverride } : dungeon;
+
+    // 3. Procesar Enemigos
     processTurn({
-      dungeon, setDungeon,
-      player, setPlayer,
+      dungeon: dungeonState, 
+      setDungeon,
+      player: currentPlayerState,
+      setPlayer,
       addMessage,
       setGameOver
     });
     
-    // 3. Actualizar FOV (por si el jugador fue empujado o movido por eventos)
-    updateMapFOV(player.x, player.y);
+    // 4. Actualizar FOV
+    updateMapFOV(currentPlayerState.x, currentPlayerState.y);
 
   }, [dungeon, player, regenPlayer, processTurn, updateMapFOV, addMessage, setPlayer, setDungeon]);
 
   // --- COMBATE ---
   const handleEnemyDeath = (enemyIdx) => {
     const enemy = dungeon.enemies[enemyIdx];
+    if (!enemy) return dungeon.enemies; // Retornar lista actual si falla
+
     const info = ENEMY_STATS[enemy.type];
     
-    // Eliminar enemigo
+    // Eliminar enemigo y obtener la nueva lista
     const newEnemies = [...dungeon.enemies];
     newEnemies.splice(enemyIdx, 1);
+    
+    // Actualizar estado (para renderizado futuro)
     setDungeon(prev => ({ ...prev, enemies: newEnemies }));
     
-    // XP y Mensajes
     gainExp(info.exp);
     addMessage(`${info.name} derrotado! +${info.exp} XP`, 'death');
     
-    // Drops
     const drops = enemy.isBoss ? generateBossDrop(enemy.type, dungeon.level) : generateMaterialDrop(enemy.type, dungeon.level);
     drops.forEach(d => {
       addMaterial(d.type, d.count);
       addMessage(`Botín: ${d.count} ${MATERIAL_TYPES[d.type]?.name}`, 'pickup');
     });
 
-    // Misiones y Boss Flag
     if(enemy.isBoss) {
       setDungeon(prev => ({ ...prev, bossDefeated: true }));
       addMessage("¡Jefe de piso eliminado!", 'levelup');
     }
     
-    // Actualizar stats globales
     setStats(prev => ({ ...prev, kills: prev.kills + 1 }));
+    
+    // CORRECCIÓN: Devolvemos la lista nueva para usarla inmediatamente en executeTurn
+    return newEnemies;
   };
 
-  // --- ACCIONES DE JUEGO (MOVIMIENTO, ETC) ---
+  // --- ACCIONES ---
   const actions = {
     move: (dx, dy) => {
       const nx = player.x + dx;
@@ -148,15 +150,21 @@ export function useGameEngine() {
         const buffs = calculateBuffBonuses(player.skills.buffs, pStats);
         const dmg = Math.max(1, (pStats.attack + buffs.attackBonus) - enemy.defense + Math.floor(Math.random()*3));
         
-        // Actualizar HP Enemigo
+        // Actualizamos HP localmente para comprobar muerte
         const newEnemies = [...dungeon.enemies];
         newEnemies[enemyIdx].hp -= dmg;
         setDungeon(prev => ({ ...prev, enemies: newEnemies }));
         
         addMessage(`Atacas a ${ENEMY_STATS[enemy.type].name}: ${dmg} daño`, 'player_damage');
         
-        if (newEnemies[enemyIdx].hp <= 0) handleEnemyDeath(enemyIdx);
-        endTurn();
+        if (newEnemies[enemyIdx].hp <= 0) {
+            // Si muere, obtenemos la lista limpia y la pasamos al turno
+            const aliveEnemies = handleEnemyDeath(enemyIdx);
+            executeTurn(player, aliveEnemies);
+        } else {
+            // Si vive, turno normal
+            executeTurn(player);
+        }
         return;
       }
       
@@ -167,10 +175,10 @@ export function useGameEngine() {
       }
       
       // Movimiento Exitoso
+      const nextPlayerState = { ...player, x: nx, y: ny };
       updatePlayer({ x: nx, y: ny });
-      updateMapFOV(nx, ny); // Actualizar visión inmediatamente
       
-      // Recoger items suelo
+      // Recoger items
       const itemIdx = dungeon.items.findIndex(i => i.x === nx && i.y === ny);
       if (itemIdx !== -1) {
         const item = dungeon.items[itemIdx];
@@ -181,24 +189,21 @@ export function useGameEngine() {
           addItem(item);
           addMessage(`Recogiste: ${item.name}`, 'pickup');
         }
-        // Quitar del suelo
         const newItems = [...dungeon.items];
         newItems.splice(itemIdx, 1);
         setDungeon(prev => ({ ...prev, items: newItems }));
       }
       
-      endTurn();
+      executeTurn(nextPlayerState);
     },
 
     interact: () => {
-      // NPC
       const npc = dungeon.npcs.find(n => Math.abs(n.x - player.x) + Math.abs(n.y - player.y) <= 1);
       if (npc) {
         addMessage(`Hablas con ${npc.name}`, 'info');
         return { type: 'npc', data: npc };
       }
       
-      // Cofres
       const chestIdx = dungeon.chests.findIndex(c => Math.abs(c.x - player.x) + Math.abs(c.y - player.y) <= 1 && !c.opened);
       if (chestIdx !== -1) {
         const newChests = [...dungeon.chests];
@@ -209,7 +214,6 @@ export function useGameEngine() {
         const res = addItem(chest.item);
         if (res) addMessage(`Abriste cofre: ${chest.item.name}`, 'pickup');
         else {
-          // Inventario lleno -> Al suelo
           const droppedItem = { ...chest.item, x: chest.x, y: chest.y };
           setDungeon(prev => ({ ...prev, items: [...prev.items, droppedItem] }));
           addMessage("Inventario lleno, item al suelo", 'info');
@@ -222,48 +226,54 @@ export function useGameEngine() {
     },
 
     wait: () => {
-      // Lógica de habilidades self/aoe si hay seleccionada
       if (selectedSkill && SKILLS[selectedSkill]) {
          const skill = SKILLS[selectedSkill];
          if (['self', 'aoe', 'ultimate'].includes(skill.type)) {
              if (canUseSkill(selectedSkill, player.skills.cooldowns)) {
-                 // Ejecutar habilidad
                  const pStats = calculatePlayerStats(player);
                  const res = useSkill(selectedSkill, player, pStats, null, dungeon.enemies, dungeon.visible);
                  
                  if (res.success) {
-                     // Aplicar costes
                      if(skill.manaCost) updatePlayer({ mp: player.mp - skill.manaCost });
-                     // Aplicar cooldown
                      const newCooldowns = { ...player.skills.cooldowns, [selectedSkill]: res.cooldown };
                      updatePlayer({ skills: { ...player.skills, cooldowns: newCooldowns } });
                      
-                     // Aplicar efectos (daño, cura, buffs)
                      if (res.heal) updatePlayer({ hp: Math.min(player.maxHp, player.hp + res.heal) });
                      if (res.buff) {
                          const newBuffs = [...(player.skills.buffs || []), res.buff];
                          updatePlayer({ skills: { ...player.skills, buffs: newBuffs } });
                      }
                      
-                     // Aplicar daño a enemigos
                      if (res.damages && res.damages.length > 0) {
                          const newEnemies = [...dungeon.enemies];
+                         // Usar la lista local para controlar muertes en AOE
+                         let currentEnemiesList = newEnemies;
+                         
                          res.damages.forEach(dmgInfo => {
-                             const idx = newEnemies.indexOf(dmgInfo.target);
+                             const idx = currentEnemiesList.indexOf(dmgInfo.target);
                              if (idx !== -1) {
-                                 newEnemies[idx].hp -= dmgInfo.damage;
-                                 if (dmgInfo.stun) newEnemies[idx].stunned = dmgInfo.stun;
-                                 if (newEnemies[idx].hp <= 0) handleEnemyDeath(idx);
+                                 const enemy = currentEnemiesList[idx];
+                                 enemy.hp -= dmgInfo.damage;
+                                 if (dmgInfo.stun) enemy.stunned = dmgInfo.stun;
+                                 
+                                 if (enemy.hp <= 0) {
+                                     // Si muere por skill, también lo quitamos para el turno
+                                     currentEnemiesList = handleEnemyDeath(idx);
+                                 }
                              }
                          });
-                         setDungeon(prev => ({ ...prev, enemies: newEnemies }));
+                         // Pasamos la lista resultante al turno
+                         executeTurn(player, currentEnemiesList);
+                     } else {
+                         executeTurn(player);
                      }
                      
                      addMessage(res.message, 'player_damage');
                      setSelectedSkill(null);
+                     return; // Salimos, ya ejecutamos turno
                  } else {
                      addMessage(res.message, 'info');
-                     return; // No pasar turno si falla
+                     return;
                  }
              } else {
                  addMessage("Habilidad no lista", 'info');
@@ -273,7 +283,7 @@ export function useGameEngine() {
       } else {
          addMessage("Esperas...", 'info');
       }
-      endTurn();
+      executeTurn(player);
     },
 
     descend: (goUp) => {
@@ -288,14 +298,12 @@ export function useGameEngine() {
       }
     },
 
-    // Wrappers de Inventario
     useItem: (index) => {
       const newInv = [...inventory];
       const res = useItemLogic(newInv, index, player);
-      
       if (res.success) {
         setInventory(newInv);
-        setPlayer({ ...player }); // Forzar update porque useItemLogic muta player
+        setPlayer({ ...player }); 
         res.effects.forEach(m => addMessage(m, 'heal'));
       } else {
         addMessage(res.message, 'info');
@@ -308,7 +316,14 @@ export function useGameEngine() {
     },
     
     selectCharacter: (k, a) => { setPlayerName(playerName || 'Héroe'); setSelectedAppearance(k); setPlayerClass(a.class); setGameStarted(true); },
-    setPlayerName, setSelectedSkill, setRangedMode, setRangedTargets, restart: () => { setGameStarted(false); setGameOver(false); setPlayer(null); },
+    setPlayerName, setSelectedSkill, setRangedMode, setRangedTargets, 
+    
+    restart: () => { 
+      setGameStarted(false); 
+      setGameOver(false); 
+      setPlayer(null); // Resetear jugador
+      setMessages([]);
+    },
     
     equipItem: (idx) => {
         const newInv = [...inventory];
@@ -357,7 +372,6 @@ export function useGameEngine() {
             addMessage(res.message, 'levelup');
         } else addMessage(res.message, 'info');
     },
-    
     assignQuickSlot: (idx, itemId) => setQuickSlots(prev => assignToQuickSlot(prev, idx, itemId)),
     useQuickSlot: (idx) => {
         const newInv = [...inventory];
@@ -370,7 +384,6 @@ export function useGameEngine() {
             }
         }
     },
-    
     learnSkill: (id) => {
         const newSkills = JSON.parse(JSON.stringify(player.skills));
         const res = learnSkill(newSkills, id);
@@ -421,6 +434,7 @@ export function useGameEngine() {
     }
   }, [gameStarted, player, initGame]);
 
+  // Construir gameState para la UI
   const gameState = {
     player,
     map: dungeon.map,

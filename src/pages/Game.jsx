@@ -101,7 +101,7 @@ export default function Game() {
         <div className="flex flex-col w-48 gap-2">
           <PlayerStats player={gameState?.player} dungeonLevel={gameState?.level} onOpenInventory={() => setInventoryOpen(true)} inventoryCount={gameState?.inventory?.length} appearance={playerInfo.appearance} playerClass={playerInfo.class} />
           <MiniMap gameState={gameState} />
-          <div className="flex flex-col gap-1 mt-auto">
+          <div className="flex flex-col gap-1 mt-2">
             <Button onClick={() => setCraftingOpen(true)} className="h-8 text-xs border bg-amber-900/80 hover:bg-amber-800 border-amber-700/50">⚒ Artesanía [C]</Button>
             <Button onClick={() => setSkillTreeOpen(true)} className="h-8 text-xs border bg-purple-900/80 hover:bg-purple-800 border-purple-700/50">✦ Habilidades [T]</Button>
             <Button onClick={actions.saveGame} className="h-8 text-xs border bg-slate-800 hover:bg-slate-700 border-slate-600">💾 Guardar [G]</Button>
