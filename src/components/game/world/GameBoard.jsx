@@ -247,17 +247,19 @@ export default function GameBoard({ gameState, viewportWidth = 21, viewportHeigh
     const psx = (player.x - offsetX) * TILE_SIZE;
     const psy = (player.y - offsetY) * TILE_SIZE;
     
-    // Player glow
+    // Player glow (Efecto de luz del jugador mejorado)
+    const glowSize = TILE_SIZE * 2 + Math.sin(frameRef.current * 0.1) * 5; // Luz pulsante
     const gradient = ctx.createRadialGradient(
       psx + TILE_SIZE/2, psy + TILE_SIZE/2, 0,
-      psx + TILE_SIZE/2, psy + TILE_SIZE/2, TILE_SIZE
+      psx + TILE_SIZE/2, psy + TILE_SIZE/2, glowSize
     );
-    gradient.addColorStop(0, 'rgba(59, 130, 246, 0.3)');
+    gradient.addColorStop(0, 'rgba(59, 130, 246, 0.4)');
     gradient.addColorStop(1, 'rgba(59, 130, 246, 0)');
     ctx.fillStyle = gradient;
-    ctx.fillRect(psx - TILE_SIZE/2, psy - TILE_SIZE/2, TILE_SIZE * 2, TILE_SIZE * 2);
+    ctx.fillRect(psx - TILE_SIZE*1.5, psy - TILE_SIZE*1.5, TILE_SIZE * 4, TILE_SIZE * 4);
 
-    drawPlayer(ctx, psx, psy, TILE_SIZE, player.appearance, player.class);
+    // CORRECCIÓN: Pasamos frameRef.current como último parámetro
+    drawPlayer(ctx, psx, psy, TILE_SIZE, player.appearance, player.class, frameRef.current);
     
     // 4. DIBUJAR NPCs
     npcs?.forEach(npc => {

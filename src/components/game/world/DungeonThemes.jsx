@@ -70,78 +70,54 @@ export function drawThemedWall(ctx, x, y, size, floor, isVisible) {
   const theme = getThemeForFloor(floor);
   const s = size;
   
-  // Base wall
-  ctx.fillStyle = isVisible ? theme.wall : adjustBrightness(theme.wall, -40);
+  // Base
+  ctx.fillStyle = isVisible ? theme.wall : adjustBrightness(theme.wall, -60);
   ctx.fillRect(x, y, s, s);
   
-  // Wall detail
-  ctx.fillStyle = isVisible ? theme.wallDetail : adjustBrightness(theme.wallDetail, -40);
-  ctx.fillRect(x + 2, y + 2, s - 4, s - 4);
-  
   if (isVisible) {
-    // Brick pattern
-    ctx.fillStyle = theme.wall;
-    ctx.fillRect(x + 4, y + 6, s - 10, 2);
-    ctx.fillRect(x + 4, y + 14, s - 10, 2);
-    ctx.fillRect(x + s/2 - 1, y + 2, 2, 5);
-    ctx.fillRect(x + s/2 - 1, y + 15, 2, 5);
+    // TEXTURA DE LADRILLOS
+    ctx.fillStyle = theme.wallDetail; // Un color ligeramente más claro u oscuro
     
-    // Volcanic/Inferno cracks with glow
-    if (theme.lavaGlow && Math.random() < 0.15) {
-      ctx.strokeStyle = '#ef4444';
-      ctx.shadowColor = '#ef4444';
-      ctx.shadowBlur = 4;
-      ctx.lineWidth = 1;
-      ctx.beginPath();
-      ctx.moveTo(x + s*0.3, y + s*0.2);
-      ctx.lineTo(x + s*0.5, y + s*0.5);
-      ctx.lineTo(x + s*0.4, y + s*0.8);
-      ctx.stroke();
-      ctx.shadowBlur = 0;
+    // Ladrillo 1 (Arriba)
+    ctx.fillRect(x + 2, y + 2, s - 4, s/2 - 3);
+    // Ladrillo 2 (Abajo izquierda)
+    ctx.fillRect(x + 2, y + s/2 + 1, s/2 - 3, s/2 - 3);
+    // Ladrillo 3 (Abajo derecha)
+    ctx.fillRect(x + s/2 + 1, y + s/2 + 1, s/2 - 3, s/2 - 3);
+    
+    // Grietas ocasionales (basado en coordenadas para que sea determinista)
+    if ((x + y) % 7 === 0) {
+        ctx.strokeStyle = '#000';
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.moveTo(x + s*0.2, y + s*0.2);
+        ctx.lineTo(x + s*0.4, y + s*0.4);
+        ctx.stroke();
     }
+  } else {
+      // Niebla de guerra en muros vistos pero no visibles
+      ctx.fillStyle = 'rgba(0,0,0,0.5)';
+      ctx.fillRect(x, y, s, s);
   }
 }
 
-// Draw themed floor with details
 export function drawThemedFloor(ctx, x, y, size, floor, isVisible, seed) {
   const theme = getThemeForFloor(floor);
   const s = size;
   
-  // Base floor
-  ctx.fillStyle = isVisible ? theme.floor : adjustBrightness(theme.floor, -40);
+  ctx.fillStyle = isVisible ? theme.floor : adjustBrightness(theme.floor, -60);
   ctx.fillRect(x, y, s, s);
   
   if (isVisible) {
-    // Floor texture
+    // Textura de suelo (puntos/piedras)
     ctx.fillStyle = theme.floorDetail;
-    if (seed % 2 === 0) {
-      ctx.fillRect(x + 10, y + 10, 4, 4);
-    }
     
-    // Volcanic lava pools
-    if (theme.lavaGlow && seed % 20 < 2) {
-      ctx.fillStyle = 'rgba(239, 68, 68, 0.4)';
-      ctx.shadowColor = '#ef4444';
-      ctx.shadowBlur = 8;
-      ctx.beginPath();
-      ctx.ellipse(x + s*0.5, y + s*0.6, s*0.3, s*0.15, 0, 0, Math.PI * 2);
-      ctx.fill();
-      ctx.shadowBlur = 0;
+    // Patrón aleatorio determinista
+    if (seed % 3 === 0) {
+        ctx.fillRect(x + s*0.3, y + s*0.3, 2, 2);
     }
-    
-    // Embers in inferno
-    if (theme.embers && seed % 30 < 3) {
-      ctx.fillStyle = '#fbbf24';
-      ctx.shadowColor = '#f59e0b';
-      ctx.shadowBlur = 4;
-      for (let i = 0; i < 3; i++) {
-        const ex = x + s*(0.2 + (seed * i) % 60 / 100);
-        const ey = y + s*(0.3 + (seed * i * 2) % 50 / 100);
-        ctx.beginPath();
-        ctx.arc(ex, ey, 1 + (i % 2), 0, Math.PI * 2);
-        ctx.fill();
-      }
-      ctx.shadowBlur = 0;
+    if (seed % 5 === 0) {
+        ctx.fillRect(x + s*0.7, y + s*0.6, 3, 3);
     }
   }
 }

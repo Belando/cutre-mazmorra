@@ -1,167 +1,136 @@
-export function drawPlayer(ctx, x, y, size, appearance = null, playerClass = null) {
-  // Si no hay apariencia, usa la lógica default
-  if (appearance || playerClass) {
-      drawCustomPlayer(ctx, x, y, size, appearance || { 
-          colors: { tunic: '#3b82f6', hair: '#8b5a2b', skin: '#fcd5b8' },
-          class: playerClass || 'warrior'
-      }, playerClass);
-  } else {
-      // Fallback a sprite básico
-      const s = size;
-      ctx.fillStyle = '#3b82f6';
-      ctx.fillRect(x + s*0.3, y + s*0.35, s*0.4, s*0.4);
-      ctx.fillStyle = '#fcd5b8';
-      ctx.beginPath();
-      ctx.arc(x + s*0.5, y + s*0.25, s*0.18, 0, Math.PI * 2);
-      ctx.fill();
-  }
+// src/renderer/player.jsx
+
+export function drawPlayer(ctx, x, y, size, appearance = null, playerClass = null, frame = 0) {
+  const app = appearance || { colors: { tunic: '#3b82f6', hair: '#8b5a2b', skin: '#fcd5b8' }, class: 'warrior' };
+  drawCustomPlayer(ctx, x, y, size, app, playerClass || app.class, frame);
 }
-// Draw player with custom appearance
-function drawCustomPlayer(ctx, x, y, size, appearance, playerClass = null) {
+
+function drawCustomPlayer(ctx, x, y, size, appearance, playerClass, frame) {
   const s = size;
   const colors = appearance.colors;
-  const classToUse = playerClass || appearance.class;
   
-  // Body (tunic)
+  // Animación de respiración/flotación (Idle)
+  const breath = Math.sin(frame * 0.1) * (s * 0.03); // Sube y baja 3%
+  const yAnim = y + breath; // Posición Y animada
+  
+  // Sombra (fija en el suelo, se encoge cuando el jugador sube)
+  ctx.fillStyle = 'rgba(0,0,0,0.4)';
+  ctx.beginPath();
+  const shadowScale = 1 - (breath / s); 
+  ctx.ellipse(x + s*0.5, y + s*0.85, s*0.3 * shadowScale, s*0.1 * shadowScale, 0, 0, Math.PI*2);
+  ctx.fill();
+
+  // --- CUERPO ---
+  // Túnica/Cuerpo
   ctx.fillStyle = colors.tunic;
-  ctx.fillRect(x + s*0.3, y + s*0.35, s*0.4, s*0.4);
-  
-  // Head
+  // Forma un poco más redondeada/orgánica
+  ctx.beginPath();
+  ctx.moveTo(x + s*0.3, yAnim + s*0.4);
+  ctx.lineTo(x + s*0.7, yAnim + s*0.4);
+  ctx.lineTo(x + s*0.75, yAnim + s*0.75); // Más ancho abajo
+  ctx.lineTo(x + s*0.25, yAnim + s*0.75);
+  ctx.fill();
+
+  // --- CABEZA ---
   ctx.fillStyle = colors.skin;
   ctx.beginPath();
-  ctx.arc(x + s*0.5, y + s*0.25, s*0.18, 0, Math.PI * 2);
+  ctx.arc(x + s*0.5, yAnim + s*0.25, s*0.18, 0, Math.PI * 2);
   ctx.fill();
-  
-  // Class-specific items and appearance
-  if (classToUse === 'warrior') {
-    // Warrior hair
-    ctx.fillStyle = colors.hair;
+
+  // --- CLASE ESPECÍFICA ---
+  if (playerClass === 'warrior') {
+    // Casco mejorado
+    ctx.fillStyle = '#52525b'; // Gris oscuro metal
     ctx.beginPath();
-    ctx.arc(x + s*0.5, y + s*0.2, s*0.15, Math.PI, Math.PI * 2);
+    ctx.arc(x + s*0.5, yAnim + s*0.2, s*0.19, Math.PI, Math.PI * 2); // Cúpula
+    ctx.lineTo(x + s*0.7, yAnim + s*0.35);
+    ctx.lineTo(x + s*0.3, yAnim + s*0.35);
     ctx.fill();
-    ctx.fillRect(x + s*0.35, y + s*0.12, s*0.3, s*0.1);
     
-    // Eyes
-    ctx.fillStyle = '#1e293b';
-    ctx.fillRect(x + s*0.4, y + s*0.22, s*0.06, s*0.06);
-    ctx.fillRect(x + s*0.54, y + s*0.22, s*0.06, s*0.06);
-    
-    // Sword
-    ctx.fillStyle = '#94a3b8';
-    ctx.fillRect(x + s*0.7, y + s*0.25, s*0.08, s*0.35);
-    ctx.fillStyle = '#fbbf24';
-    ctx.fillRect(x + s*0.65, y + s*0.55, s*0.18, s*0.06);
-    // Shield
+    // Espada (Animada: se balancea ligeramente)
+    ctx.save();
+    ctx.translate(x + s*0.75, yAnim + s*0.4);
+    ctx.rotate(Math.sin(frame * 0.05) * 0.1); // Balanceo suave
+    ctx.fillStyle = '#94a3b8'; // Hoja
+    ctx.fillRect(-s*0.04, -s*0.2, s*0.08, s*0.5);
+    ctx.fillStyle = '#fbbf24'; // Empuñadura dorada
+    ctx.fillRect(-s*0.06, 0.15*s, s*0.12, s*0.04);
+    ctx.restore();
+
+    // Escudo
+    ctx.fillStyle = '#1e40af';
+    ctx.beginPath();
+    ctx.arc(x + s*0.25, yAnim + s*0.45, s*0.15, 0, Math.PI*2);
+    ctx.fill();
+    ctx.strokeStyle = '#fbbf24'; // Borde dorado
+    ctx.lineWidth = 2;
+    ctx.stroke();
+
+  } else if (playerClass === 'mage') {
+    // Sombrero de Mago
     ctx.fillStyle = colors.tunic;
     ctx.beginPath();
-    ctx.moveTo(x + s*0.1, y + s*0.35);
-    ctx.lineTo(x + s*0.28, y + s*0.35);
-    ctx.lineTo(x + s*0.28, y + s*0.55);
-    ctx.lineTo(x + s*0.19, y + s*0.65);
-    ctx.lineTo(x + s*0.1, y + s*0.55);
-    ctx.closePath();
-    ctx.fill();
-    // Shield emblem
-    ctx.fillStyle = '#fbbf24';
-    ctx.beginPath();
-    ctx.arc(x + s*0.19, y + s*0.48, s*0.05, 0, Math.PI * 2);
-    ctx.fill();
-  } else if (classToUse === 'mage') {
-    // Mage hood/hat
-    ctx.fillStyle = colors.tunic;
-    ctx.beginPath();
-    ctx.moveTo(x + s*0.5, y + s*0.02);
-    ctx.lineTo(x + s*0.72, y + s*0.25);
-    ctx.lineTo(x + s*0.28, y + s*0.25);
-    ctx.closePath();
+    ctx.moveTo(x + s*0.2, yAnim + s*0.25);
+    ctx.lineTo(x + s*0.8, yAnim + s*0.25);
+    ctx.lineTo(x + s*0.5, yAnim - s*0.1 + (Math.sin(frame*0.1)*2)); // La punta se mueve
     ctx.fill();
     
-    // Hair under hood
-    ctx.fillStyle = colors.hair;
-    ctx.fillRect(x + s*0.35, y + s*0.22, s*0.3, s*0.06);
-    
-    // Eyes with glow
-    ctx.fillStyle = '#a855f7';
-    ctx.shadowColor = '#a855f7';
-    ctx.shadowBlur = 4;
-    ctx.fillRect(x + s*0.4, y + s*0.24, s*0.06, s*0.05);
-    ctx.fillRect(x + s*0.54, y + s*0.24, s*0.06, s*0.05);
-    ctx.shadowBlur = 0;
-    
-    // Staff with glowing orb
+    // Bastón con orbe brillante
     ctx.fillStyle = '#78350f';
-    ctx.fillRect(x + s*0.72, y + s*0.15, s*0.05, s*0.55);
+    ctx.fillRect(x + s*0.75, yAnim + s*0.1, s*0.05, s*0.6);
+    // Orbe pulsante
     ctx.fillStyle = '#a855f7';
     ctx.shadowColor = '#a855f7';
-    ctx.shadowBlur = 8;
+    ctx.shadowBlur = 10 + Math.sin(frame * 0.2) * 5;
     ctx.beginPath();
-    ctx.arc(x + s*0.745, y + s*0.12, s*0.08, 0, Math.PI * 2);
+    ctx.arc(x + s*0.77, yAnim + s*0.1, s*0.08, 0, Math.PI * 2);
     ctx.fill();
     ctx.shadowBlur = 0;
-    
-    // Book in other hand
-    ctx.fillStyle = '#7c3aed';
-    ctx.fillRect(x + s*0.1, y + s*0.4, s*0.15, s*0.18);
-    ctx.fillStyle = '#fbbf24';
-    ctx.fillRect(x + s*0.12, y + s*0.42, s*0.02, s*0.14);
-  } else if (classToUse === 'rogue') {
-    // Hood covering head
+
+    // Capa (detrás)
+    ctx.fillStyle = colors.tunic;
+    ctx.globalCompositeOperation = 'destination-over'; // Dibujar detrás
+    ctx.beginPath();
+    ctx.moveTo(x + s*0.35, yAnim + s*0.3);
+    ctx.lineTo(x + s*0.65, yAnim + s*0.3);
+    // Ondeo de la capa
+    const wave = Math.sin(frame * 0.2) * s * 0.05;
+    ctx.lineTo(x + s*0.7 + wave, yAnim + s*0.8);
+    ctx.lineTo(x + s*0.3 + wave, yAnim + s*0.8);
+    ctx.fill();
+    ctx.globalCompositeOperation = 'source-over';
+
+  } else if (playerClass === 'rogue') {
+    // Capucha y antifaz
     ctx.fillStyle = colors.tunic;
     ctx.beginPath();
-    ctx.arc(x + s*0.5, y + s*0.2, s*0.2, Math.PI, Math.PI * 2);
-    ctx.fill();
-    ctx.fillRect(x + s*0.3, y + s*0.2, s*0.4, s*0.12);
-    
-    // Shadow on face
-    ctx.fillStyle = 'rgba(0,0,0,0.3)';
-    ctx.beginPath();
-    ctx.arc(x + s*0.5, y + s*0.25, s*0.12, 0, Math.PI * 2);
+    ctx.arc(x + s*0.5, yAnim + s*0.25, s*0.2, Math.PI, 0); // Capucha arriba
     ctx.fill();
     
-    // Eyes glinting in shadow
-    ctx.fillStyle = '#fbbf24';
-    ctx.shadowColor = '#fbbf24';
-    ctx.shadowBlur = 3;
-    ctx.fillRect(x + s*0.42, y + s*0.24, s*0.05, s*0.04);
-    ctx.fillRect(x + s*0.54, y + s*0.24, s*0.05, s*0.04);
-    ctx.shadowBlur = 0;
-    
-    // Dual daggers
-    ctx.fillStyle = '#71717a';
-    // Right dagger
+    // Dagas duales (Posición de combate)
+    ctx.fillStyle = '#cbd5e1';
+    // Daga 1
     ctx.beginPath();
-    ctx.moveTo(x + s*0.75, y + s*0.3);
-    ctx.lineTo(x + s*0.78, y + s*0.55);
-    ctx.lineTo(x + s*0.72, y + s*0.55);
-    ctx.closePath();
+    ctx.moveTo(x + s*0.2, yAnim + s*0.5);
+    ctx.lineTo(x + s*0.1, yAnim + s*0.3);
+    ctx.lineTo(x + s*0.25, yAnim + s*0.4);
     ctx.fill();
-    // Left dagger
+    // Daga 2
     ctx.beginPath();
-    ctx.moveTo(x + s*0.25, y + s*0.35);
-    ctx.lineTo(x + s*0.28, y + s*0.55);
-    ctx.lineTo(x + s*0.22, y + s*0.55);
-    ctx.closePath();
+    ctx.moveTo(x + s*0.8, yAnim + s*0.5);
+    ctx.lineTo(x + s*0.9, yAnim + s*0.3);
+    ctx.lineTo(x + s*0.75, yAnim + s*0.4);
     ctx.fill();
-    
-    // Cape flowing
-    ctx.fillStyle = colors.tunic;
-    ctx.globalAlpha = 0.7;
-    ctx.beginPath();
-    ctx.moveTo(x + s*0.3, y + s*0.35);
-    ctx.quadraticCurveTo(x + s*0.1, y + s*0.6, x + s*0.15, y + s*0.85);
-    ctx.lineTo(x + s*0.25, y + s*0.75);
-    ctx.closePath();
-    ctx.fill();
-    ctx.globalAlpha = 1;
   }
-  
-  // Legs
-  ctx.fillStyle = '#1e293b';
-  ctx.fillRect(x + s*0.32, y + s*0.72, s*0.14, s*0.18);
-  ctx.fillRect(x + s*0.54, y + s*0.72, s*0.14, s*0.18);
-  
-  // Boots
-  ctx.fillStyle = '#78350f';
-  ctx.fillRect(x + s*0.3, y + s*0.85, s*0.18, s*0.1);
-  ctx.fillRect(x + s*0.52, y + s*0.85, s*0.18, s*0.1);
+
+  // Ojos (común) - Parpadeo
+  if (frame % 200 < 190) { // Parpadea cada 200 frames
+    ctx.fillStyle = '#1e293b';
+    ctx.fillRect(x + s*0.42, yAnim + s*0.22, s*0.05, s*0.05);
+    ctx.fillRect(x + s*0.53, yAnim + s*0.22, s*0.05, s*0.05);
+  } else {
+    ctx.fillStyle = '#1e293b'; // Ojos cerrados
+    ctx.fillRect(x + s*0.42, yAnim + s*0.24, s*0.05, s*0.01);
+    ctx.fillRect(x + s*0.53, yAnim + s*0.24, s*0.05, s*0.01);
+  }
 }

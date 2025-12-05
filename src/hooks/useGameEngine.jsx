@@ -676,6 +676,82 @@ export function useGameEngine() {
     effectsManager: effectsManager.current // <--- EXPORTADO
   };
 
+  // --- LÓGICA CENTRAL DE EJECUCIÓN DE HABILIDADES ---
+  const executeSkillAction = (skillId, targetEnemy = null) => {
+    const skill = SKILLS[skillId];
+    if (!skill) return false;
+
+    // 1. Calcular stats efectivos (con buffs)
+    const pStats = calculatePlayerStats(player);
+    const buffBonuses = calculateBuffBonuses(player.skills.buffs || [], pStats);
+    const effectiveStats = {
+        ...pStats,
+        attack: pStats.attack + buffBonuses.attackBonus,
+        defense: pStats.defense + buffBonuses.defenseBonus
+    };
+
+    // 2. Ejecutar habilidad
+    const res = useSkill(skillId, player, effectiveStats, targetEnemy, dungeon.enemies, dungeon.visible);
+
+    if (res.success) {
+        soundManager.play('magic');
+
+        // Coste de Maná
+        if(skill.manaCost) updatePlayer({ mp: player.mp - skill.manaCost });
+
+        // Cooldowns
+        const newCooldowns = { ...player.skills.cooldowns, [skillId]: res.cooldown };
+        updatePlayer({ skills: { ...player.skills, cooldowns: newCooldowns } });
+
+        // Efectos Personales (Heal/Buff)
+        if (res.heal) {
+            updatePlayer({ hp: Math.min(player.maxHp, player.hp + res.heal) });
+            effectsManager.current.addText(player.x, player.y, `+${res.heal}`, '#4ade80');
+            effectsManager.current.addSparkles(player.x, player.y, '#4ade80');
+        }
+        if (res.buff) {
+            const newBuffs = [...(player.skills.buffs || []), res.buff];
+            updatePlayer({ skills: { ...player.skills, buffs: newBuffs } });
+            effectsManager.current.addSparkles(player.x, player.y, '#fbbf24');
+            effectsManager.current.addText(player.x, player.y, 'BUFF', '#fbbf24');
+        }
+
+        // Efectos de Daño (Melee, Ranged, AoE)
+        let currentEnemiesList = [...dungeon.enemies];
+        if (res.damages && res.damages.length > 0) {
+            res.damages.forEach(dmgInfo => {
+                const idx = currentEnemiesList.indexOf(dmgInfo.target);
+                if (idx !== -1) {
+                    const enemy = currentEnemiesList[idx];
+                    
+                    // Daño y Efectos
+                    enemy.hp -= dmgInfo.damage;
+                    effectsManager.current.addExplosion(enemy.x, enemy.y, '#a855f7');
+                    effectsManager.current.addText(enemy.x, enemy.y, dmgInfo.damage, '#a855f7', true);
+                    
+                    if (dmgInfo.stun) enemy.stunned = dmgInfo.stun;
+                    if (dmgInfo.slow) enemy.slowed = dmgInfo.slow;
+
+                    // Muerte
+                    if (enemy.hp <= 0) {
+                        currentEnemiesList = handleEnemyDeath(idx);
+                        soundManager.play('kill');
+                        effectsManager.current.addExplosion(enemy.x, enemy.y, '#52525b');
+                    }
+                }
+            });
+        }
+
+        addMessage(res.message, 'player_damage');
+        setSelectedSkill(null); // Deseleccionar tras uso
+        executeTurn(player, currentEnemiesList); // Pasar turno
+        return true;
+    } else {
+        addMessage(res.message, 'info');
+        return false;
+    }
+  };
+
   return {
     gameState,
     gameStarted,

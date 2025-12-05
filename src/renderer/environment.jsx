@@ -116,60 +116,50 @@ export const ENV_SPRITES = {
   },
   stairs: {
     draw: (ctx, x, y, size) => {
-      const s = size;
-      ctx.fillStyle = '#0a0a0f';
-      ctx.beginPath();
-      ctx.ellipse(x + s*0.5, y + s*0.55, s*0.4, s*0.25, 0, 0, Math.PI * 2);
-      ctx.fill();
-      ctx.fillStyle = '#1e293b';
-      ctx.fillRect(x + s*0.2, y + s*0.35, s*0.6, s*0.1);
-      ctx.fillStyle = '#334155';
-      ctx.fillRect(x + s*0.25, y + s*0.45, s*0.5, s*0.08);
-      ctx.fillStyle = '#1e293b';
-      ctx.fillRect(x + s*0.3, y + s*0.53, s*0.4, s*0.06);
-      const gradient = ctx.createRadialGradient(
-        x + s*0.5, y + s*0.6, 0,
-        x + s*0.5, y + s*0.6, s*0.35
-      );
-      gradient.addColorStop(0, 'rgba(0,0,0,0.8)');
-      gradient.addColorStop(1, 'rgba(0,0,0,0)');
-      ctx.fillStyle = gradient;
-      ctx.beginPath();
-      ctx.ellipse(x + s*0.5, y + s*0.55, s*0.35, s*0.22, 0, 0, Math.PI * 2);
-      ctx.fill();
-      ctx.fillStyle = 'rgba(239, 68, 68, 0.3)';
-      ctx.beginPath();
-      ctx.ellipse(x + s*0.5, y + s*0.6, s*0.2, s*0.12, 0, 0, Math.PI * 2);
-      ctx.fill();
+        const s = size;
+        ctx.fillStyle = '#171717'; // Hueco oscuro
+        ctx.fillRect(x + s*0.2, y + s*0.2, s*0.6, s*0.6);
+        
+        // Peldaños
+        ctx.fillStyle = '#404040';
+        for(let i=0; i<3; i++) {
+            ctx.fillRect(x + s*0.2, y + s*0.2 + (i*s*0.15), s*0.6, s*0.1);
+        }
     }
   },
   wallTorch: {
     draw: (ctx, x, y, size, frame = 0) => {
       const s = size;
+      // Soporte
       ctx.fillStyle = '#44403c';
-      ctx.fillRect(x + s*0.4, y + s*0.6, s*0.2, s*0.25);
-      ctx.fillRect(x + s*0.3, y + s*0.55, s*0.4, s*0.1);
-      ctx.fillStyle = '#78350f';
-      ctx.fillRect(x + s*0.45, y + s*0.35, s*0.1, s*0.25);
-      const flicker = Math.sin(frame * 0.4) * 0.03;
-      const flicker2 = Math.cos(frame * 0.3) * 0.02;
-      ctx.fillStyle = '#fbbf24';
+      ctx.fillRect(x + s*0.45, y + s*0.5, s*0.1, s*0.3);
+      
+      // Fuego (3 capas para dar profundidad)
+      const flicker = Math.sin(frame * 0.5) * s*0.05;
+      
+      // Halo de luz
+      const gradient = ctx.createRadialGradient(x+s*0.5, y+s*0.4, 0, x+s*0.5, y+s*0.4, s*0.6);
+      gradient.addColorStop(0, 'rgba(251, 191, 36, 0.4)');
+      gradient.addColorStop(1, 'rgba(251, 191, 36, 0)');
+      ctx.fillStyle = gradient;
+      ctx.beginPath(); ctx.arc(x+s*0.5, y+s*0.4, s*0.6, 0, Math.PI*2); ctx.fill();
+
+      // Núcleo rojo
+      ctx.fillStyle = '#ef4444';
       ctx.beginPath();
-      ctx.moveTo(x + s*0.5, y + s*0.08 + flicker * s);
-      ctx.quadraticCurveTo(x + s*0.68 + flicker2 * s, y + s*0.2, x + s*0.62, y + s*0.35);
-      ctx.lineTo(x + s*0.38, y + s*0.35);
-      ctx.quadraticCurveTo(x + s*0.32 - flicker2 * s, y + s*0.2, x + s*0.5, y + s*0.08 + flicker * s);
+      ctx.ellipse(x + s*0.5, y + s*0.4, s*0.15, s*0.2, 0, 0, Math.PI*2);
       ctx.fill();
-      ctx.fillStyle = '#fb923c';
+      
+      // Centro naranja
+      ctx.fillStyle = '#f59e0b';
       ctx.beginPath();
-      ctx.moveTo(x + s*0.5, y + s*0.15);
-      ctx.quadraticCurveTo(x + s*0.6, y + s*0.24, x + s*0.56, y + s*0.33);
-      ctx.lineTo(x + s*0.44, y + s*0.33);
-      ctx.quadraticCurveTo(x + s*0.4, y + s*0.24, x + s*0.5, y + s*0.15);
+      ctx.ellipse(x + s*0.5 + flicker*0.5, y + s*0.38, s*0.1, s*0.15, 0, 0, Math.PI*2);
       ctx.fill();
+      
+      // Punta amarilla
       ctx.fillStyle = '#fef3c7';
       ctx.beginPath();
-      ctx.ellipse(x + s*0.5, y + s*0.28, s*0.06, s*0.08, 0, 0, Math.PI * 2);
+      ctx.arc(x + s*0.5 + flicker, y + s*0.35, s*0.06, 0, Math.PI*2);
       ctx.fill();
     }
   },
@@ -318,30 +308,6 @@ export const ENV_SPRITES = {
       ctx.stroke();
     }
   },
-  mushroom: {
-    draw: (ctx, x, y, size) => {
-      const s = size;
-      ctx.fillStyle = '#fef3c7';
-      ctx.fillRect(x + s*0.45, y + s*0.55, s*0.1, s*0.25);
-      ctx.fillStyle = '#dc2626';
-      ctx.beginPath();
-      ctx.ellipse(x + s*0.5, y + s*0.55, s*0.18, s*0.12, 0, Math.PI, Math.PI * 2);
-      ctx.fill();
-      ctx.beginPath();
-      ctx.arc(x + s*0.5, y + s*0.45, s*0.18, 0, Math.PI * 2);
-      ctx.fill();
-      ctx.fillStyle = '#fef3c7';
-      ctx.beginPath();
-      ctx.arc(x + s*0.42, y + s*0.42, s*0.04, 0, Math.PI * 2);
-      ctx.fill();
-      ctx.beginPath();
-      ctx.arc(x + s*0.58, y + s*0.45, s*0.03, 0, Math.PI * 2);
-      ctx.fill();
-      ctx.beginPath();
-      ctx.arc(x + s*0.5, y + s*0.52, s*0.025, 0, Math.PI * 2);
-      ctx.fill();
-    }
-  },
   waterPool: {
     draw: (ctx, x, y, size, frame = 0) => {
       const s = size;
@@ -356,6 +322,7 @@ export const ENV_SPRITES = {
       ctx.fill();
     }
   }
+  
 };
 
 export function drawEnvironmentSprite(ctx, type, x, y, size, ...args) {

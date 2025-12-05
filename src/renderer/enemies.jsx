@@ -2,163 +2,217 @@ import { ENEMY_STATS } from '@/data/enemies';
 
 // Normal enemies and bosses drawing logic
 const SPRITES = {
+  // RATA: Pequeña animación de correteo/respiración rápida
   rat: {
-    draw: (ctx, x, y, size) => {
+    draw: (ctx, x, y, size, frame) => {
       const s = size;
-      // Body - brown furry
+      const bounce = Math.abs(Math.sin(frame * 0.2)) * (s * 0.05);
+      const yAnim = y + s*0.2 - bounce; // Más pegada al suelo
+      
+      // Cuerpo
       ctx.fillStyle = '#78716c';
       ctx.beginPath();
-      ctx.ellipse(x + s*0.45, y + s*0.55, s*0.28, s*0.16, 0, 0, Math.PI * 2);
+      ctx.ellipse(x + s*0.5, yAnim + s*0.5, s*0.25, s*0.15, 0, 0, Math.PI * 2);
       ctx.fill();
-      // Head
-      ctx.fillStyle = '#a8a29e';
-      ctx.beginPath();
-      ctx.ellipse(x + s*0.72, y + s*0.52, s*0.14, s*0.12, 0.2, 0, Math.PI * 2);
-      ctx.fill();
-      // Ears
-      ctx.fillStyle = '#fecaca';
-      ctx.beginPath();
-      ctx.arc(x + s*0.78, y + s*0.42, s*0.06, 0, Math.PI * 2);
-      ctx.fill();
-      ctx.beginPath();
-      ctx.arc(x + s*0.68, y + s*0.42, s*0.05, 0, Math.PI * 2);
-      ctx.fill();
-      // Eye
-      ctx.fillStyle = '#ef4444';
-      ctx.beginPath();
-      ctx.arc(x + s*0.76, y + s*0.5, s*0.03, 0, Math.PI * 2);
-      ctx.fill();
-      // Nose
-      ctx.fillStyle = '#f87171';
-      ctx.beginPath();
-      ctx.arc(x + s*0.84, y + s*0.54, s*0.025, 0, Math.PI * 2);
-      ctx.fill();
-      // Tail
+      
+      // Cola (se mueve)
       ctx.strokeStyle = '#a8a29e';
       ctx.lineWidth = 2;
       ctx.beginPath();
-      ctx.moveTo(x + s*0.18, y + s*0.55);
-      ctx.quadraticCurveTo(x + s*0.05, y + s*0.5, x + s*0.08, y + s*0.7);
+      ctx.moveTo(x + s*0.25, yAnim + s*0.5);
+      const tailWag = Math.sin(frame * 0.3) * s*0.1;
+      ctx.quadraticCurveTo(x + s*0.1, yAnim + s*0.4, x + s*0.05, yAnim + s*0.3 + tailWag);
       ctx.stroke();
-      // Legs
-      ctx.fillStyle = '#78716c';
-      ctx.fillRect(x + s*0.3, y + s*0.68, s*0.08, s*0.12);
-      ctx.fillRect(x + s*0.55, y + s*0.68, s*0.08, s*0.12);
-    }
-  },
-  bat: {
-    draw: (ctx, x, y, size) => {
-      const s = size;
-      // Wings spread
-      ctx.fillStyle = '#27272a';
-      // Left wing
+      
+      // Cabeza
+      ctx.fillStyle = '#a8a29e';
       ctx.beginPath();
-      ctx.moveTo(x + s*0.38, y + s*0.5);
-      ctx.quadraticCurveTo(x + s*0.15, y + s*0.25, x + s*0.05, y + s*0.35);
-      ctx.quadraticCurveTo(x + s*0.1, y + s*0.45, x + s*0.15, y + s*0.55);
-      ctx.quadraticCurveTo(x + s*0.25, y + s*0.5, x + s*0.38, y + s*0.55);
+      ctx.arc(x + s*0.75, yAnim + s*0.5, s*0.1, 0, Math.PI * 2);
       ctx.fill();
-      // Right wing
-      ctx.beginPath();
-      ctx.moveTo(x + s*0.62, y + s*0.5);
-      ctx.quadraticCurveTo(x + s*0.85, y + s*0.25, x + s*0.95, y + s*0.35);
-      ctx.quadraticCurveTo(x + s*0.9, y + s*0.45, x + s*0.85, y + s*0.55);
-      ctx.quadraticCurveTo(x + s*0.75, y + s*0.5, x + s*0.62, y + s*0.55);
-      ctx.fill();
-      // Body
-      ctx.fillStyle = '#3f3f46';
-      ctx.beginPath();
-      ctx.ellipse(x + s*0.5, y + s*0.52, s*0.14, s*0.18, 0, 0, Math.PI * 2);
-      ctx.fill();
-      // Head
-      ctx.fillStyle = '#52525b';
-      ctx.beginPath();
-      ctx.arc(x + s*0.5, y + s*0.38, s*0.1, 0, Math.PI * 2);
-      ctx.fill();
-      // Ears
-      ctx.fillStyle = '#3f3f46';
-      ctx.beginPath();
-      ctx.moveTo(x + s*0.4, y + s*0.35);
-      ctx.lineTo(x + s*0.35, y + s*0.2);
-      ctx.lineTo(x + s*0.45, y + s*0.32);
-      ctx.fill();
-      ctx.beginPath();
-      ctx.moveTo(x + s*0.6, y + s*0.35);
-      ctx.lineTo(x + s*0.65, y + s*0.2);
-      ctx.lineTo(x + s*0.55, y + s*0.32);
-      ctx.fill();
-      // Eyes - red glowing
+      
+      // Ojo rojo brillante
       ctx.fillStyle = '#ef4444';
-      ctx.shadowColor = '#ef4444';
-      ctx.shadowBlur = 4;
       ctx.beginPath();
-      ctx.arc(x + s*0.44, y + s*0.36, s*0.03, 0, Math.PI * 2);
+      ctx.arc(x + s*0.78, yAnim + s*0.48, s*0.03, 0, Math.PI * 2);
       ctx.fill();
-      ctx.beginPath();
-      ctx.arc(x + s*0.56, y + s*0.36, s*0.03, 0, Math.PI * 2);
-      ctx.fill();
-      ctx.shadowBlur = 0;
     }
   },
-  skeleton: {
-    draw: (ctx, x, y, size) => {
+
+  // MURCIÉLAGO: Aleteo constante
+  bat: {
+    draw: (ctx, x, y, size, frame) => {
       const s = size;
-      // Skull
-      ctx.fillStyle = '#f5f5f4';
+      const hover = Math.sin(frame * 0.1) * (s * 0.1); // Flota verticalmente
+      const yAnim = y + hover;
+      const wingFlap = Math.sin(frame * 0.5); // Aleteo rápido
+
+      ctx.fillStyle = '#27272a';
+      
+      // Alas (se encogen y estiran para simular aleteo)
+      const wingY = wingFlap > 0 ? s*0.1 : -s*0.1;
+      
+      // Ala Izq
       ctx.beginPath();
-      ctx.arc(x + s*0.5, y + s*0.22, s*0.16, 0, Math.PI * 2);
+      ctx.moveTo(x + s*0.5, yAnim + s*0.5);
+      ctx.quadraticCurveTo(x + s*0.2, yAnim + s*0.2 + wingY, x + s*0.1, yAnim + s*0.4 + wingY);
+      ctx.lineTo(x + s*0.4, yAnim + s*0.6);
       ctx.fill();
-      // Eye sockets
-      ctx.fillStyle = '#1c1917';
+      
+      // Ala Der
       ctx.beginPath();
-      ctx.ellipse(x + s*0.42, y + s*0.2, s*0.05, s*0.06, 0, 0, Math.PI * 2);
+      ctx.moveTo(x + s*0.5, yAnim + s*0.5);
+      ctx.quadraticCurveTo(x + s*0.8, yAnim + s*0.2 + wingY, x + s*0.9, yAnim + s*0.4 + wingY);
+      ctx.lineTo(x + s*0.6, yAnim + s*0.6);
       ctx.fill();
+
+      // Cuerpo
       ctx.beginPath();
-      ctx.ellipse(x + s*0.58, y + s*0.2, s*0.05, s*0.06, 0, 0, Math.PI * 2);
+      ctx.arc(x + s*0.5, yAnim + s*0.5, s*0.12, 0, Math.PI * 2);
       ctx.fill();
-      // Nose hole
-      ctx.beginPath();
-      ctx.moveTo(x + s*0.5, y + s*0.26);
-      ctx.lineTo(x + s*0.46, y + s*0.3);
-      ctx.lineTo(x + s*0.54, y + s*0.3);
-      ctx.closePath();
-      ctx.fill();
-      // Teeth
-      ctx.fillStyle = '#f5f5f4';
-      ctx.fillRect(x + s*0.4, y + s*0.32, s*0.2, s*0.06);
-      ctx.fillStyle = '#1c1917';
-      for (let i = 0; i < 4; i++) {
-        ctx.fillRect(x + s*0.42 + i*s*0.045, y + s*0.33, s*0.02, s*0.04);
-      }
-      // Spine and ribs
-      ctx.fillStyle = '#e7e5e4';
-      ctx.fillRect(x + s*0.47, y + s*0.38, s*0.06, s*0.32);
-      // Ribs
-      for (let i = 0; i < 3; i++) {
-        ctx.beginPath();
-        ctx.moveTo(x + s*0.47, y + s*0.42 + i*s*0.1);
-        ctx.quadraticCurveTo(x + s*0.3, y + s*0.44 + i*s*0.1, x + s*0.28, y + s*0.48 + i*s*0.1);
-        ctx.lineWidth = 2;
-        ctx.strokeStyle = '#e7e5e4';
-        ctx.stroke();
-        ctx.beginPath();
-        ctx.moveTo(x + s*0.53, y + s*0.42 + i*s*0.1);
-        ctx.quadraticCurveTo(x + s*0.7, y + s*0.44 + i*s*0.1, x + s*0.72, y + s*0.48 + i*s*0.1);
-        ctx.stroke();
-      }
-      // Pelvis
-      ctx.fillStyle = '#e7e5e4';
-      ctx.beginPath();
-      ctx.ellipse(x + s*0.5, y + s*0.72, s*0.14, s*0.06, 0, 0, Math.PI * 2);
-      ctx.fill();
-      // Legs
-      ctx.fillRect(x + s*0.38, y + s*0.75, s*0.05, s*0.18);
-      ctx.fillRect(x + s*0.57, y + s*0.75, s*0.05, s*0.18);
-      // Arms
-      ctx.fillRect(x + s*0.25, y + s*0.42, s*0.05, s*0.22);
-      ctx.fillRect(x + s*0.7, y + s*0.42, s*0.05, s*0.22);
+      
+      // Ojos
+      ctx.fillStyle = '#ef4444';
+      ctx.fillRect(x + s*0.45, yAnim + s*0.48, s*0.04, s*0.04);
+      ctx.fillRect(x + s*0.51, yAnim + s*0.48, s*0.04, s*0.04);
     }
   },
+
+  // SLIME: Efecto gelatina (Squash & Stretch)
+  slime: {
+    draw: (ctx, x, y, size, frame) => {
+      const s = size;
+      // Pulso: se aplasta y ensancha
+      const pulse = Math.sin(frame * 0.15); 
+      const stretchX = 1 + pulse * 0.1;
+      const stretchY = 1 - pulse * 0.1;
+      
+      const centerX = x + s*0.5;
+      const centerY = y + s*0.6; // Base más baja
+
+      const gradient = ctx.createRadialGradient(centerX, centerY - s*0.1, 0, centerX, centerY, s*0.4);
+      gradient.addColorStop(0, '#67e8f9');
+      gradient.addColorStop(1, '#0891b2');
+      
+      ctx.fillStyle = gradient;
+      
+      ctx.save();
+      ctx.translate(centerX, centerY);
+      ctx.scale(stretchX, stretchY);
+      
+      // Cuerpo (semicírculo deformado)
+      ctx.beginPath();
+      ctx.arc(0, 0, s*0.35, Math.PI, 0); // Top
+      // Base irregular
+      ctx.bezierCurveTo(s*0.35, s*0.1, -s*0.35, s*0.1, -s*0.35, 0);
+      ctx.fill();
+      
+      // Ojos flotando dentro
+      ctx.fillStyle = '#164e63';
+      ctx.beginPath();
+      ctx.arc(-s*0.1, -s*0.1, s*0.05, 0, Math.PI*2);
+      ctx.arc(s*0.1, -s*0.1, s*0.05, 0, Math.PI*2);
+      ctx.fill();
+      
+      ctx.restore();
+    }
+  },
+
+  // GOBLIN: Salta un poco (agresivo)
+  goblin: {
+    draw: (ctx, x, y, size, frame) => {
+      const s = size;
+      const jump = Math.abs(Math.sin(frame * 0.15)) * (s * 0.05); // Saltito nervioso
+      const yAnim = y + jump;
+
+      // Piel verde
+      ctx.fillStyle = '#22c55e';
+      // Cabeza grande y orejas
+      ctx.beginPath();
+      ctx.ellipse(x + s*0.5, yAnim + s*0.4, s*0.25, s*0.2, 0, 0, Math.PI*2);
+      ctx.fill();
+      
+      // Orejas puntiagudas
+      ctx.beginPath();
+      ctx.moveTo(x + s*0.25, yAnim + s*0.4);
+      ctx.lineTo(x + s*0.05, yAnim + s*0.25);
+      ctx.lineTo(x + s*0.3, yAnim + s*0.3);
+      ctx.fill();
+      ctx.beginPath();
+      ctx.moveTo(x + s*0.75, yAnim + s*0.4);
+      ctx.lineTo(x + s*0.95, yAnim + s*0.25);
+      ctx.lineTo(x + s*0.7, yAnim + s*0.3);
+      ctx.fill();
+
+      // Ojos amarillos malignos
+      ctx.fillStyle = '#facc15';
+      ctx.beginPath();
+      ctx.arc(x + s*0.4, yAnim + s*0.35, s*0.06, 0, Math.PI*2);
+      ctx.arc(x + s*0.6, yAnim + s*0.35, s*0.06, 0, Math.PI*2);
+      ctx.fill();
+
+      // Daga en mano
+      ctx.fillStyle = '#a1a1aa';
+      ctx.save();
+      ctx.translate(x + s*0.8, yAnim + s*0.5);
+      ctx.rotate(Math.sin(frame * 0.2) * 0.5); // Mueve la daga
+      ctx.fillRect(-s*0.05, -s*0.2, s*0.1, s*0.4);
+      ctx.restore();
+    }
+  },
+
+  // ESQUELETO: Rígido pero tiembla
+  skeleton: {
+    draw: (ctx, x, y, size, frame) => {
+      const s = size;
+      const rattle = Math.sin(frame * 0.8) * (s * 0.01); // Temblor de huesos
+
+      ctx.fillStyle = '#e5e5e5';
+      // Cráneo
+      ctx.beginPath();
+      ctx.arc(x + s*0.5 + rattle, y + s*0.3, s*0.18, 0, Math.PI*2);
+      ctx.fill();
+      // Ojos huecos
+      ctx.fillStyle = '#171717';
+      ctx.beginPath();
+      ctx.arc(x + s*0.45 + rattle, y + s*0.3, s*0.05, 0, Math.PI*2);
+      ctx.arc(x + s*0.55 + rattle, y + s*0.3, s*0.05, 0, Math.PI*2);
+      ctx.fill();
+      
+      // Costillas
+      ctx.strokeStyle = '#e5e5e5';
+      ctx.lineWidth = 3;
+      ctx.beginPath();
+      ctx.moveTo(x + s*0.5 + rattle, y + s*0.5);
+      ctx.lineTo(x + s*0.5 + rattle, y + s*0.8);
+      // Costillas horiz
+      ctx.moveTo(x + s*0.35 + rattle, y + s*0.55); ctx.lineTo(x + s*0.65 + rattle, y + s*0.55);
+      ctx.moveTo(x + s*0.38 + rattle, y + s*0.65); ctx.lineTo(x + s*0.62 + rattle, y + s*0.65);
+      ctx.stroke();
+    }
+  },
+  
+  // DRAGÓN / BOSS (Fallback genérico mejorado)
+  generic: {
+    draw: (ctx, x, y, size, frame, color = '#ef4444') => {
+        const s = size;
+        const breath = Math.sin(frame * 0.05) * s * 0.05;
+        
+        ctx.fillStyle = color;
+        // Cuerpo grande
+        ctx.beginPath();
+        ctx.arc(x + s*0.5, y + s*0.5 + breath, s*0.35, 0, Math.PI*2);
+        ctx.fill();
+        
+        // Ojos brillantes
+        ctx.shadowColor = color;
+        ctx.shadowBlur = 10;
+        ctx.fillStyle = '#fff';
+        ctx.fillRect(x + s*0.35, y + s*0.4 + breath, s*0.1, s*0.1);
+        ctx.fillRect(x + s*0.55, y + s*0.4 + breath, s*0.1, s*0.1);
+        ctx.shadowBlur = 0;
+    }
+  },
+
   spider: {
     draw: (ctx, x, y, size) => {
       const s = size;
@@ -605,91 +659,6 @@ const SPRITES = {
       ctx.fillRect(x + s*0.52, y + s*0.85, s*0.18, s*0.1);
     }
   },
-  goblin: {
-    draw: (ctx, x, y, size) => {
-      const s = size;
-      // Body - small and hunched
-      ctx.fillStyle = '#22c55e';
-      ctx.beginPath();
-      ctx.ellipse(x + s*0.5, y + s*0.55, s*0.18, s*0.2, 0, 0, Math.PI * 2);
-      ctx.fill();
-      // Loincloth
-      ctx.fillStyle = '#78350f';
-      ctx.fillRect(x + s*0.38, y + s*0.65, s*0.24, s*0.12);
-      // Head - big for body
-      ctx.fillStyle = '#4ade80';
-      ctx.beginPath();
-      ctx.arc(x + s*0.5, y + s*0.32, s*0.2, 0, Math.PI * 2);
-      ctx.fill();
-      // Big pointy ears
-      ctx.beginPath();
-      ctx.moveTo(x + s*0.32, y + s*0.32);
-      ctx.lineTo(x + s*0.08, y + s*0.15);
-      ctx.lineTo(x + s*0.25, y + s*0.38);
-      ctx.closePath();
-      ctx.fill();
-      ctx.beginPath();
-      ctx.moveTo(x + s*0.68, y + s*0.32);
-      ctx.lineTo(x + s*0.92, y + s*0.15);
-      ctx.lineTo(x + s*0.75, y + s*0.38);
-      ctx.closePath();
-      ctx.fill();
-      // Big nose
-      ctx.fillStyle = '#16a34a';
-      ctx.beginPath();
-      ctx.ellipse(x + s*0.5, y + s*0.38, s*0.08, s*0.06, 0, 0, Math.PI * 2);
-      ctx.fill();
-      // Evil yellow eyes
-      ctx.fillStyle = '#fef08a';
-      ctx.beginPath();
-      ctx.ellipse(x + s*0.4, y + s*0.28, s*0.06, s*0.07, 0, 0, Math.PI * 2);
-      ctx.fill();
-      ctx.beginPath();
-      ctx.ellipse(x + s*0.6, y + s*0.28, s*0.06, s*0.07, 0, 0, Math.PI * 2);
-      ctx.fill();
-      // Pupils
-      ctx.fillStyle = '#dc2626';
-      ctx.beginPath();
-      ctx.arc(x + s*0.42, y + s*0.28, s*0.025, 0, Math.PI * 2);
-      ctx.fill();
-      ctx.beginPath();
-      ctx.arc(x + s*0.62, y + s*0.28, s*0.025, 0, Math.PI * 2);
-      ctx.fill();
-      // Grin with teeth
-      ctx.fillStyle = '#1c1917';
-      ctx.beginPath();
-      ctx.arc(x + s*0.5, y + s*0.42, s*0.1, 0, Math.PI);
-      ctx.fill();
-      ctx.fillStyle = '#fef9c3';
-      ctx.beginPath();
-      ctx.moveTo(x + s*0.42, y + s*0.42);
-      ctx.lineTo(x + s*0.45, y + s*0.48);
-      ctx.lineTo(x + s*0.48, y + s*0.42);
-      ctx.fill();
-      ctx.beginPath();
-      ctx.moveTo(x + s*0.52, y + s*0.42);
-      ctx.lineTo(x + s*0.55, y + s*0.48);
-      ctx.lineTo(x + s*0.58, y + s*0.42);
-      ctx.fill();
-      // Arms with dagger
-      ctx.fillStyle = '#4ade80';
-      ctx.fillRect(x + s*0.15, y + s*0.45, s*0.18, s*0.08);
-      ctx.fillRect(x + s*0.67, y + s*0.45, s*0.18, s*0.08);
-      // Rusty dagger
-      ctx.fillStyle = '#78350f';
-      ctx.fillRect(x + s*0.82, y + s*0.4, s*0.04, s*0.1);
-      ctx.fillStyle = '#a8a29e';
-      ctx.beginPath();
-      ctx.moveTo(x + s*0.84, y + s*0.4);
-      ctx.lineTo(x + s*0.84, y + s*0.2);
-      ctx.lineTo(x + s*0.88, y + s*0.35);
-      ctx.fill();
-      // Legs
-      ctx.fillStyle = '#22c55e';
-      ctx.fillRect(x + s*0.35, y + s*0.75, s*0.1, s*0.18);
-      ctx.fillRect(x + s*0.55, y + s*0.75, s*0.1, s*0.18);
-    }
-  },
   orc: {
     draw: (ctx, x, y, size) => {
       const s = size;
@@ -807,50 +776,6 @@ const SPRITES = {
       ctx.fillStyle = '#6b21a8';
       ctx.fillRect(x + s*0.25, y + s*0.72, s*0.2, s*0.22);
       ctx.fillRect(x + s*0.55, y + s*0.72, s*0.2, s*0.22);
-    }
-  },
-  slime: {
-    draw: (ctx, x, y, size) => {
-      const s = size;
-      // Body - gelatinous blob
-      const gradient = ctx.createRadialGradient(x + s*0.5, y + s*0.5, 0, x + s*0.5, y + s*0.6, s*0.35);
-      gradient.addColorStop(0, '#67e8f9');
-      gradient.addColorStop(0.7, '#22d3ee');
-      gradient.addColorStop(1, '#0891b2');
-      ctx.fillStyle = gradient;
-      ctx.beginPath();
-      ctx.ellipse(x + s*0.5, y + s*0.58, s*0.32, s*0.25, 0, 0, Math.PI * 2);
-      ctx.fill();
-      // Top bulge
-      ctx.beginPath();
-      ctx.arc(x + s*0.5, y + s*0.42, s*0.2, 0, Math.PI * 2);
-      ctx.fill();
-      // Eyes - cute but menacing
-      ctx.fillStyle = '#0c4a6e';
-      ctx.beginPath();
-      ctx.ellipse(x + s*0.4, y + s*0.42, s*0.06, s*0.08, 0, 0, Math.PI * 2);
-      ctx.fill();
-      ctx.beginPath();
-      ctx.ellipse(x + s*0.6, y + s*0.42, s*0.06, s*0.08, 0, 0, Math.PI * 2);
-      ctx.fill();
-      // Eye highlights
-      ctx.fillStyle = '#fff';
-      ctx.beginPath();
-      ctx.arc(x + s*0.42, y + s*0.4, s*0.025, 0, Math.PI * 2);
-      ctx.fill();
-      ctx.beginPath();
-      ctx.arc(x + s*0.62, y + s*0.4, s*0.025, 0, Math.PI * 2);
-      ctx.fill();
-      // Body highlights
-      ctx.fillStyle = 'rgba(255,255,255,0.4)';
-      ctx.beginPath();
-      ctx.ellipse(x + s*0.35, y + s*0.35, s*0.08, s*0.06, -0.5, 0, Math.PI * 2);
-      ctx.fill();
-      // Drip effect
-      ctx.fillStyle = '#22d3ee';
-      ctx.beginPath();
-      ctx.ellipse(x + s*0.25, y + s*0.75, s*0.06, s*0.08, 0, 0, Math.PI * 2);
-      ctx.fill();
     }
   },
   wolf: {
@@ -1216,30 +1141,50 @@ const ENEMY_SPRITES_MAP = {
 };
 
 export function drawEnemy(ctx, enemyType, x, y, size, frame = 0) {
-  const spriteName = ENEMY_SPRITES_MAP[enemyType];
+  const spriteKey = ENEMY_SPRITES_MAP[enemyType];
   
-  if (spriteName && SPRITES[spriteName]) {
-    SPRITES[spriteName].draw(ctx, x, y, size, frame);
+  if (spriteKey && SPRITES[spriteKey]) {
+    SPRITES[spriteKey].draw(ctx, x, y, size, frame);
   } else {
-    // Fallback text
+    // Usar el renderizador genérico con el color del enemigo
     const stats = ENEMY_STATS[enemyType];
-    if (stats) {
-        ctx.fillStyle = stats.color;
-        ctx.font = 'bold 16px monospace';
-        ctx.textAlign = 'center';
-        ctx.textBaseline = 'middle';
-        ctx.fillText(stats.symbol, x + size/2, y + size/2);
+    const color = stats ? stats.color : '#ef4444';
+    SPRITES.generic.draw(ctx, x, y, size, frame, color);
+    
+    // Si es un boss, añadir corona
+    if (stats && stats.isBoss) {
+        const s = size;
+        ctx.fillStyle = '#fbbf24'; // Oro
+        ctx.beginPath();
+        ctx.moveTo(x + s*0.3, y + s*0.2);
+        ctx.lineTo(x + s*0.4, y + s*0.05);
+        ctx.lineTo(x + s*0.5, y + s*0.2);
+        ctx.lineTo(x + s*0.6, y + s*0.05);
+        ctx.lineTo(x + s*0.7, y + s*0.2);
+        ctx.fill();
     }
   }
 }
 
 export function drawLargeEnemy(ctx, spriteName, x, y, size, frame = 0) {
-    // Large bosses have suffix or specialized names
-    const largeName = spriteName + '_large'; // Mapping convention
-    if (SPRITES[largeName]) {
-        SPRITES[largeName].draw(ctx, x, y, size, frame);
-    } else if (SPRITES[spriteName]) {
-        // Fallback to normal sprite scaled up
-        SPRITES[spriteName].draw(ctx, x, y, size, frame);
-    }
+    // Implementación simplificada para jefes grandes:
+    // Solo un rectángulo grande palpitante por ahora, o reutilizar sprites
+    const s = size;
+    const pulse = Math.sin(frame * 0.05) * 0.02 + 1;
+    
+    ctx.save();
+    ctx.translate(x + s/2, y + s/2);
+    ctx.scale(pulse, pulse);
+    ctx.fillStyle = '#7f1d1d'; // Rojo oscuro boss
+    ctx.beginPath();
+    ctx.arc(0, 0, s*0.4, 0, Math.PI*2);
+    ctx.fill();
+    
+    // Ojos malignos
+    ctx.fillStyle = '#fbbf24';
+    ctx.beginPath();
+    ctx.arc(-s*0.15, -s*0.1, s*0.05, 0, Math.PI*2);
+    ctx.arc(s*0.15, -s*0.1, s*0.05, 0, Math.PI*2);
+    ctx.fill();
+    ctx.restore();
 }
