@@ -25,54 +25,34 @@ function getTileColors(floor) {
 }
 
 export default function GameBoard({ gameState, viewportWidth = 21, viewportHeight = 15 }) {
-  const canvasRef = useRef(null);
+  // Usamos dos referencias de canvas para separar capas
+  const staticCanvasRef = useRef(null);
+  const dynamicCanvasRef = useRef(null);
+  
   const frameRef = useRef(0);
   const animationFrameId = useRef(null);
   
-  // Usamos una referencia para tener siempre el estado más reciente dentro del bucle de animación
-  // sin tener que reiniciar el bucle cada vez que cambia el estado.
+  // Referencia al estado para el bucle de animación
   const gameStateRef = useRef(gameState);
+  
+  // Referencia para detectar cambios que requieran redibujar la capa estática
+  const viewStateRef = useRef({ x: -1, y: -1, level: -1, mapVersion: 0 });
 
   useEffect(() => {
     gameStateRef.current = gameState;
   }, [gameState]);
 
-  // --- FUNCIÓN DE DIBUJADO PRINCIPAL (BUCLE) ---
-  const render = () => {
-    const canvas = canvasRef.current;
-    // Si no hay canvas o el juego no ha cargado, paramos
-    if (!canvas || !gameStateRef.current) return;
-    
-    const ctx = canvas.getContext('2d');
-    const currentState = gameStateRef.current;
-    
-    // Desestructuramos del estado ACTUAL (Ref)
-    const { map, enemies, player, items, visible, explored, torches = [], chests = [], level = 1, npcs = [], effectsManager } = currentState;
-    
-    // Incrementar frame global para animaciones de entorno
-    frameRef.current++;
-    
+  // --- FUNCIÓN DE DIBUJADO DE CAPA ESTÁTICA (Suelo y Paredes) ---
+  // Solo se llama cuando el jugador se mueve o cambia el mapa
+  const drawStaticLayer = (ctx, state, offsetX, offsetY) => {
+    const { map, visible, explored, level } = state;
     const TILE_COLORS = getTileColors(level);
     const theme = getThemeForFloor(level);
-    
-    // Viewport calculation (Centrar cámara en el jugador)
-    const halfViewW = Math.floor(viewportWidth / 2);
-    const halfViewH = Math.floor(viewportHeight / 2);
-    
-    let offsetX = player.x - halfViewW;
-    let offsetY = player.y - halfViewH;
-    
-    // Clamp (Evitar salirnos de los bordes del mapa)
-    if (map && map.length > 0) {
-      offsetX = Math.max(0, Math.min(offsetX, map[0].length - viewportWidth));
-      offsetY = Math.max(0, Math.min(offsetY, map.length - viewportHeight));
-    }
-    
-    // Limpiar Canvas
+
+    // Limpiar capa estática
     ctx.fillStyle = '#0a0a0f';
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
-    
-    // 1. DIBUJAR MAPA (TILES)
+    ctx.fillRect(0, 0, ctx.canvas.width, ctx.canvas.height);
+
     for (let y = 0; y < viewportHeight; y++) {
       for (let x = 0; x < viewportWidth; x++) {
         const mapX = x + offsetX;
@@ -101,13 +81,13 @@ export default function GameBoard({ gameState, viewportWidth = 21, viewportHeigh
                 ctx.fillStyle = theme.wall;
                 ctx.fillRect(screenX + 4, screenY + 6, TILE_SIZE - 10, 2);
                 
-                // Decorations
+                // Decorations (Static ones)
                 const wallSeed = (mapX * 11 + mapY * 17) % 100;
                 if (wallSeed < (level <= 4 ? 8 : 3)) {
                   drawEnvironmentSprite(ctx, 'cobweb', screenX, screenY, TILE_SIZE);
                 }
                 
-                // Lava cracks
+                // Lava cracks (Static part)
                 if (theme.lavaGlow && wallSeed >= 90) {
                    ctx.strokeStyle = '#ef4444';
                    ctx.lineWidth = 1;
@@ -118,15 +98,12 @@ export default function GameBoard({ gameState, viewportWidth = 21, viewportHeigh
                 }
               }
             } else if (tile === TILE.STAIRS) {
-              if (isVisible) {
-                drawEnvironmentSprite(ctx, 'stairs', screenX, screenY, TILE_SIZE);
-              } else {
+                // Escaleras (Estáticas)
                 ctx.fillStyle = '#8b2a3a';
                 ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.font = 'bold 18px monospace';
                 ctx.fillText('▼', screenX + TILE_SIZE/2, screenY + TILE_SIZE/2);
-              }
             } else if (tile === TILE.FLOOR && isVisible) {
-              // Floor decorations
+              // Floor decorations (Static)
               ctx.fillStyle = theme.floorDetail;
               if ((mapX + mapY) % 2 === 0) ctx.fillRect(screenX + 10, screenY + 10, 4, 4);
 
@@ -138,7 +115,8 @@ export default function GameBoard({ gameState, viewportWidth = 21, viewportHeigh
                 else if (seed < 13) drawEnvironmentSprite(ctx, 'bloodstain', screenX, screenY, TILE_SIZE);
                 else if (seed < 18) drawEnvironmentSprite(ctx, 'crack', screenX, screenY, TILE_SIZE);
                 else if (seed < 22) drawEnvironmentSprite(ctx, 'mushroom', screenX, screenY, TILE_SIZE);
-                else if (seed < 25) drawEnvironmentSprite(ctx, 'waterPool', screenX, screenY, TILE_SIZE, frameRef.current);
+                // waterPool es animada, la pasamos al dinámico o la dejamos estática sin animación en esta capa
+                // Para optimizar, la dejaremos estática aquí o la redibujamos arriba si es crítica.
               } else {
                 // Volcanic decorations
                 if (seed < 10) { 
@@ -151,8 +129,63 @@ export default function GameBoard({ gameState, viewportWidth = 21, viewportHeigh
         }
       }
     }
+  };
+
+  // --- FUNCIÓN DE DIBUJADO DE CAPA DINÁMICA (Entidades, VFX) ---
+  const renderDynamicLayer = () => {
+    const canvas = dynamicCanvasRef.current;
+    const staticCanvas = staticCanvasRef.current;
     
-    // 2. DIBUJAR OBJETOS (Props)
+    if (!canvas || !staticCanvas || !gameStateRef.current) return;
+    
+    const ctx = canvas.getContext('2d');
+    const currentState = gameStateRef.current;
+    
+    const { map, enemies, player, items, visible, torches = [], chests = [], level = 1, npcs = [], effectsManager } = currentState;
+    
+    frameRef.current++;
+    
+    // Viewport calculation
+    const halfViewW = Math.floor(viewportWidth / 2);
+    const halfViewH = Math.floor(viewportHeight / 2);
+    
+    let offsetX = player.x - halfViewW;
+    let offsetY = player.y - halfViewH;
+    
+    if (map && map.length > 0) {
+      offsetX = Math.max(0, Math.min(offsetX, map[0].length - viewportWidth));
+      offsetY = Math.max(0, Math.min(offsetY, map.length - viewportHeight));
+    }
+
+    // --- LOGICA DE ACTUALIZACIÓN DE CAPA ESTÁTICA ---
+    // Comprobamos si la vista ha cambiado para redibujar el fondo
+    const viewChanged = 
+        offsetX !== viewStateRef.current.x || 
+        offsetY !== viewStateRef.current.y || 
+        level !== viewStateRef.current.level ||
+        // Truco simple: si el jugador se mueve, el FOV cambia, necesitamos redibujar estáticos (sombras/visibilidad)
+        player.x !== viewStateRef.current.playerX ||
+        player.y !== viewStateRef.current.playerY;
+
+    if (viewChanged) {
+        const staticCtx = staticCanvas.getContext('2d');
+        drawStaticLayer(staticCtx, currentState, offsetX, offsetY);
+        
+        // Actualizar referencia
+        viewStateRef.current = { x: offsetX, y: offsetY, level, playerX: player.x, playerY: player.y };
+    }
+
+    // --- DIBUJADO DINÁMICO (Cada Frame) ---
+    
+    // Limpiar SOLO la capa dinámica
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    
+    // 1. DIBUJAR OBJETOS ANIMADOS O INTERACTIVOS
+    // (Torches, Chests, Items se dibujan aquí porque pueden tener animaciones o estados)
+    
+    // Escaleras animadas (si queremos brillo) o superpuestas para claridad
+    // (Ya están en estático, pero si hay efectos especiales, irían aquí)
+
     torches?.forEach(torch => {
       const sx = (torch.x - offsetX) * TILE_SIZE;
       const sy = (torch.y - offsetY) * TILE_SIZE;
@@ -176,7 +209,6 @@ export default function GameBoard({ gameState, viewportWidth = 21, viewportHeigh
         if (item.category === 'currency') {
           drawEnvironmentSprite(ctx, 'goldPile', sx, sy, TILE_SIZE);
         } else {
-          // Item text fallback or sprite
           ctx.fillStyle = '#fff';
           ctx.font = 'bold 14px monospace';
           ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
@@ -185,7 +217,7 @@ export default function GameBoard({ gameState, viewportWidth = 21, viewportHeigh
       }
     });
     
-    // 3. DIBUJAR ENEMIGOS
+    // 2. DIBUJAR ENEMIGOS
     enemies.forEach(enemy => {
       const sx = (enemy.x - offsetX) * TILE_SIZE;
       const sy = (enemy.y - offsetY) * TILE_SIZE;
@@ -209,7 +241,7 @@ export default function GameBoard({ gameState, viewportWidth = 21, viewportHeigh
       }
     });
     
-    // 4. DIBUJAR JUGADOR
+    // 3. DIBUJAR JUGADOR
     const psx = (player.x - offsetX) * TILE_SIZE;
     const psy = (player.y - offsetY) * TILE_SIZE;
     
@@ -225,7 +257,7 @@ export default function GameBoard({ gameState, viewportWidth = 21, viewportHeigh
 
     drawPlayer(ctx, psx, psy, TILE_SIZE, player.appearance, player.class);
     
-    // 5. DIBUJAR NPCs
+    // 4. DIBUJAR NPCs
     npcs?.forEach(npc => {
         const sx = (npc.x - offsetX) * TILE_SIZE;
         const sy = (npc.y - offsetY) * TILE_SIZE;
@@ -234,44 +266,52 @@ export default function GameBoard({ gameState, viewportWidth = 21, viewportHeigh
         }
     });
     
-    // 6. AMBIENT EFFECTS (Overlay)
+    // 5. AMBIENT EFFECTS (Overlay)
+    const theme = getThemeForFloor(level);
     if (theme.lavaGlow || theme.embers) {
       drawAmbientOverlay(ctx, canvas.width, canvas.height, level, frameRef.current);
     }
 
-    // 7. --- NUEVO: EFECTOS FLOTANTES (Daño, Texto, etc.) ---
-    // Esto se dibuja al final para estar encima de todo
+    // 6. EFECTOS FLOTANTES
     if (effectsManager) {
-        // Actualizar física de las partículas
         effectsManager.update();
-        // Dibujar
         effectsManager.draw(ctx, offsetX, offsetY, TILE_SIZE);
     }
     
-    // Solicitar el siguiente frame
-    animationFrameId.current = requestAnimationFrame(render);
+    animationFrameId.current = requestAnimationFrame(renderDynamicLayer);
   };
 
-  // EFECTO PARA INICIAR/DETENER EL BUCLE
+  // INICIAR BUCLE
   useEffect(() => {
-    // Iniciar el bucle de animación
-    animationFrameId.current = requestAnimationFrame(render);
-    
-    // Limpiar al desmontar el componente
+    animationFrameId.current = requestAnimationFrame(renderDynamicLayer);
     return () => {
       if (animationFrameId.current) {
         cancelAnimationFrame(animationFrameId.current);
       }
     };
-  }, [viewportWidth, viewportHeight]); // Reiniciar solo si cambia el tamaño del viewport
+  }, [viewportWidth, viewportHeight]);
 
+  // Renderizar Estructura de Doble Canvas
   return (
-    <canvas
-      ref={canvasRef}
-      width={viewportWidth * TILE_SIZE}
-      height={viewportHeight * TILE_SIZE}
-      className="border rounded-lg shadow-2xl border-slate-700/50"
-    />
+    <div className="relative overflow-hidden border rounded-lg shadow-2xl border-slate-700/50" 
+         style={{ width: viewportWidth * TILE_SIZE, height: viewportHeight * TILE_SIZE }}>
+      
+      {/* Capa Estática (Fondo: Suelos, Paredes) */}
+      <canvas
+        ref={staticCanvasRef}
+        width={viewportWidth * TILE_SIZE}
+        height={viewportHeight * TILE_SIZE}
+        className="absolute top-0 left-0 z-0"
+      />
+      
+      {/* Capa Dinámica (Entidades, VFX) */}
+      <canvas
+        ref={dynamicCanvasRef}
+        width={viewportWidth * TILE_SIZE}
+        height={viewportHeight * TILE_SIZE}
+        className="absolute top-0 left-0 z-10"
+      />
+    </div>
   );
 }
 

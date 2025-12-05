@@ -347,22 +347,33 @@ export function useGameEngine() {
     },
     
     equipItem: (idx) => {
-        const newInv = [...inventory];
-        const newEq = { ...equipment };
-        const res = equipItemLogic(newInv, idx, newEq, player);
+        // Llamamos a la lógica pura, pasándole el estado actual
+        const res = equipItemLogic(inventory, idx, equipment, player);
+        
         if(res.success) {
-            setInventory(newInv); setEquipment(newEq); setPlayer({...player});
+            // Actualizamos los tres estados con los nuevos objetos devueltos
+            setInventory(res.newInventory); 
+            setEquipment(res.newEquipment); 
+            setPlayer(res.newPlayer);
+            
             addMessage(res.message, 'pickup');
-        } else addMessage(res.message, 'info');
-    },
-    unequipItem: (slot) => {
-        const newInv = [...inventory];
-        const newEq = { ...equipment };
-        const res = unequipItemLogic(newEq, slot, newInv, player);
-        if(res.success) {
-            setInventory(newInv); setEquipment(newEq); setPlayer({...player});
+        } else {
             addMessage(res.message, 'info');
-        } else addMessage(res.message, 'info');
+        }
+    },
+
+    unequipItem: (slot) => {
+        const res = unequipItemLogic(equipment, slot, inventory, player);
+        
+        if(res.success) {
+            setInventory(res.newInventory); 
+            setEquipment(res.newEquipment); 
+            setPlayer(res.newPlayer);
+            
+            addMessage(res.message, 'info');
+        } else {
+            addMessage(res.message, 'info');
+        }
     },
     dropItem: (idx) => {
         const newInv = [...inventory];

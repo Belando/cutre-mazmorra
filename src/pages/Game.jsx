@@ -18,10 +18,8 @@ import { useGame } from '@/context/GameContext';
 import { useInputHandler } from '@/hooks/useInputHandler';
 
 export default function Game() {
-  // Ya no inicializamos el engine aquí, lo consumimos del contexto
   const { gameState, gameStarted, gameOver, messages, stats, playerInfo, uiState, actions } = useGame();
   
-  // ... (El resto del estado local de UI se mantiene igual: inventoryOpen, etc.)
   const [inventoryOpen, setInventoryOpen] = useState(false);
   const [craftingOpen, setCraftingOpen] = useState(false);
   const [skillTreeOpen, setSkillTreeOpen] = useState(false);
@@ -30,7 +28,7 @@ export default function Game() {
   const modals = { inventoryOpen, setInventoryOpen, craftingOpen, setCraftingOpen, skillTreeOpen, setSkillTreeOpen, activeNPC, setActiveNPC };
 
   useEffect(() => {
-    if (gameState && activeNPC) {
+    if (gameState && activeNPC && gameState.player) {
       // Cerrar diálogo si el jugador se aleja
       const dist = Math.abs(activeNPC.x - gameState.player.x) + Math.abs(activeNPC.y - gameState.player.y);
       if (dist > 1) setActiveNPC(null);
@@ -65,7 +63,7 @@ export default function Game() {
   }
 
   // 3. INTERFAZ DE JUEGO PRINCIPAL
-  const isInteractable = gameState && !activeNPC && (gameState.npcs?.some(n => Math.abs(n.x-gameState.player.x)+Math.abs(n.y-gameState.player.y)<=1) || gameState.chests?.some(c => Math.abs(c.x-gameState.player.x)+Math.abs(c.y-gameState.player.y)<=1 && !c.opened));
+  const isInteractable = gameState && !activeNPC && gameState.player && (gameState.npcs?.some(n => Math.abs(n.x-gameState.player.x)+Math.abs(n.y-gameState.player.y)<=1) || gameState.chests?.some(c => Math.abs(c.x-gameState.player.x)+Math.abs(c.y-gameState.player.y)<=1 && !c.opened));
 
   return (
     <div className="min-h-screen p-2 bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950">

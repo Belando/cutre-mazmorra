@@ -130,38 +130,62 @@ function getLateralMove(enemy, player, map, enemies, chests) {
 
 // Mover hacia el objetivo usando A*
 function moveToward(enemy, targetX, targetY, map, enemies, player, chests) {
-  // Intentar encontrar el camino inteligente primero
+  // Filtramos enemigos una vez para eficiencia
+  const otherEnemies = enemies.filter(e => e !== enemy);
+
+  // 1. Intentar encontrar el camino ideal con A*
   const nextStep = findPath(enemy.x, enemy.y, targetX, targetY, map);
 
-  // Si A* encuentra un camino válido
+  // Si A* encuentra un camino
   if (nextStep) {
-    // Importante: A* evita paredes, pero no sabe si hay otro enemigo o un cofre bloqueando AHORA mismo.
-    const otherEnemies = enemies.filter(e => e !== enemy);
-    
-    // Verificamos colisión dinámica
+    // 1a. CAMINO LIBRE: Si el paso óptimo está libre, tómalo.
     if (isTileFree(nextStep.x, nextStep.y, map, otherEnemies, chests)) {
-      // Evitar pisar al jugador (para no superponerse antes de atacar)
+      // Evitar pisar al jugador (a menos que sea para atacar, pero el movimiento se detiene antes)
       if (nextStep.x !== player.x || nextStep.y !== player.y) {
         return nextStep;
       }
     }
+    
+    // 1b. FLOCKING (MEJORA): El paso óptimo está bloqueado (probablemente por otro enemigo).
+    // En lugar de esperar, buscamos una casilla adyacente libre que nos acerque al objetivo.
+    
+    const neighbors = [
+      { x: enemy.x + 1, y: enemy.y },
+      { x: enemy.x - 1, y: enemy.y },
+      { x: enemy.x, y: enemy.y + 1 },
+      { x: enemy.x, y: enemy.y - 1 }
+    ];
+
+    // Filtramos solo casillas válidas (suelo, sin obstáculos, sin jugador)
+    const validMoves = neighbors.filter(pos => 
+      isTileFree(pos.x, pos.y, map, otherEnemies, chests) &&
+      (pos.x !== player.x || pos.y !== player.y)
+    );
+
+    if (validMoves.length > 0) {
+      // Ordenamos las opciones por distancia al objetivo (la que más nos acerque)
+      validMoves.sort((a, b) => {
+        const distA = Math.abs(a.x - targetX) + Math.abs(a.y - targetY);
+        const distB = Math.abs(b.x - targetX) + Math.abs(b.y - targetY);
+        return distA - distB;
+      });
+
+      // Tomamos la mejor opción, incluso si no es el camino "óptimo" de A*
+      // Esto hace que los enemigos rodeen obstáculos dinámicos como agua fluyendo.
+      return validMoves[0];
+    }
   }
 
-  // FALLBACK (Plan B): Si el camino óptimo está bloqueado por otro enemigo,
-  // usamos la lógica simple antigua para intentar acercarnos o rodear.
+  // 2. FALLBACK: Si A* falla (ej. objetivo inalcanzable), movimiento "tonto" directo
+  // Esto es útil si el jugador está en una zona rara o rodeado completamente
   const dx = Math.sign(targetX - enemy.x);
   const dy = Math.sign(targetY - enemy.y);
   
-  const moves = [];
-  if (dx !== 0) moves.push({ x: enemy.x + dx, y: enemy.y });
-  if (dy !== 0) moves.push({ x: enemy.x, y: enemy.y + dy });
-  // Opcional: Probar diagonales o laterales si el directo falla
-  if (dx === 0) { moves.push({ x: enemy.x + 1, y: enemy.y }); moves.push({ x: enemy.x - 1, y: enemy.y }); }
-  if (dy === 0) { moves.push({ x: enemy.x, y: enemy.y + 1 }); moves.push({ x: enemy.x, y: enemy.y - 1 }); }
+  const simpleMoves = [];
+  if (dx !== 0) simpleMoves.push({ x: enemy.x + dx, y: enemy.y });
+  if (dy !== 0) simpleMoves.push({ x: enemy.x, y: enemy.y + dy });
   
-  for (const move of moves) {
-    const otherEnemies = enemies.filter(e => e !== enemy);
-    // Verificar que no sea el jugador y esté libre
+  for (const move of simpleMoves) {
     if ((move.x !== player.x || move.y !== player.y) && 
         isTileFree(move.x, move.y, map, otherEnemies, chests)) {
       return move;

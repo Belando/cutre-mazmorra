@@ -331,37 +331,105 @@ export function useItem(inventory, index, player) {
 export function equipItem(inventory, index, equipment, player) {
   const item = inventory[index];
   if (!item || !item.slot) return { success: false, message: 'No equipable' };
+  
+  // Validaciones
   if (!canClassEquip(item, player.class, null)) return { success: false, message: 'Clase incorrecta' };
   const missing = getMissingRequirement(item, player);
   if (missing) return { success: false, message: `Falta ${missing.required} ${missing.attribute}` };
   
+  // 1. CLONAR ESTADOS (Para no mutar los originales)
+  const newInventory = [...inventory];
+  const newEquipment = { ...equipment };
+  let newPlayer = { ...player };
+  
   const slot = item.slot;
-  if (equipment[slot]) unequipItem(equipment, slot, inventory, player);
-  inventory.splice(index, 1);
-  equipment[slot] = item;
-  if (item.stats) {
-    if (item.stats.attack) player.equipAttack = (player.equipAttack || 0) + item.stats.attack;
-    if (item.stats.defense) player.equipDefense = (player.equipDefense || 0) + item.stats.defense;
-    if (item.stats.maxHp) { player.equipMaxHp = (player.equipMaxHp || 0) + item.stats.maxHp; player.maxHp += item.stats.maxHp; }
-    if (item.stats.magicPower) player.equipMagic = (player.equipMagic || 0) + item.stats.magicPower;
+  
+  // 2. Extraer el item que queremos equipar del inventario
+  // Usamos splice para sacarlo y obtenerlo
+  const [itemToEquip] = newInventory.splice(index, 1);
+  
+  // 3. Manejar intercambio si ya hay algo equipado
+  if (newEquipment[slot]) {
+    const oldItem = newEquipment[slot];
+    // Quitamos los stats del item viejo
+    newPlayer = removeStatsFromPlayer(newPlayer, oldItem);
+    // Devolvemos el item viejo al inventario
+    newInventory.push(oldItem);
   }
-  return { success: true, message: `Equipado: ${item.name}` };
+  
+  // 4. Equipar el nuevo item
+  newEquipment[slot] = itemToEquip;
+  
+  // 5. Aplicar stats del nuevo item
+  newPlayer = addStatsToPlayer(newPlayer, itemToEquip);
+  
+  // 6. Devolver los nuevos estados
+  return { 
+    success: true, 
+    message: `Equipado: ${itemToEquip.name}`,
+    newInventory,
+    newEquipment,
+    newPlayer
+  };
 }
 
+// --- FUNCIÓN DESEQUIPAR REFACTORIZADA (INMUTABLE) ---
 export function unequipItem(equipment, slot, inventory, player, maxSlots = 20) {
   const item = equipment[slot];
   if (!item) return { success: false, message: 'Nada que desequipar' };
   if (inventory.length >= maxSlots) return { success: false, message: 'Inventario lleno' };
   
+  // 1. Clonar estados
+  const newEquipment = { ...equipment };
+  const newInventory = [...inventory];
+  let newPlayer = { ...player };
+  
+  // 2. Quitar stats
+  newPlayer = removeStatsFromPlayer(newPlayer, item);
+  
+  // 3. Mover item al inventario y limpiar slot
+  newInventory.push(item);
+  newEquipment[slot] = null;
+  
+  return { 
+    success: true, 
+    message: `Desequipado: ${item.name}`,
+    newInventory,
+    newEquipment,
+    newPlayer
+  };
+}
+
+function addStatsToPlayer(player, item) {
+  const p = { ...player };
   if (item.stats) {
-    if (item.stats.attack) player.equipAttack = (player.equipAttack || 0) - item.stats.attack;
-    if (item.stats.defense) player.equipDefense = (player.equipDefense || 0) - item.stats.defense;
-    if (item.stats.maxHp) { player.equipMaxHp = (player.equipMaxHp || 0) - item.stats.maxHp; player.maxHp -= item.stats.maxHp; player.hp = Math.min(player.hp, player.maxHp); }
-    if (item.stats.magicPower) player.equipMagic = (player.equipMagic || 0) - item.stats.magicPower;
+    if (item.stats.attack) p.equipAttack = (p.equipAttack || 0) + item.stats.attack;
+    if (item.stats.defense) p.equipDefense = (p.equipDefense || 0) + item.stats.defense;
+    if (item.stats.maxHp) { 
+      p.equipMaxHp = (p.equipMaxHp || 0) + item.stats.maxHp; 
+      p.maxHp = (p.maxHp || 0) + item.stats.maxHp; 
+      // Al equipar vida extra, curamos esa cantidad para que se note
+      p.hp += item.stats.maxHp; 
+    }
+    if (item.stats.magicPower) p.equipMagic = (p.equipMagic || 0) + item.stats.magicPower;
   }
-  inventory.push(item);
-  equipment[slot] = null;
-  return { success: true, message: `Desequipado: ${item.name}` };
+  return p;
+}
+
+function removeStatsFromPlayer(player, item) {
+  const p = { ...player };
+  if (item.stats) {
+    if (item.stats.attack) p.equipAttack = (p.equipAttack || 0) - item.stats.attack;
+    if (item.stats.defense) p.equipDefense = (p.equipDefense || 0) - item.stats.defense;
+    if (item.stats.maxHp) { 
+      p.equipMaxHp = (p.equipMaxHp || 0) - item.stats.maxHp; 
+      p.maxHp = (p.maxHp || 0) - item.stats.maxHp; 
+      // Si la vida actual es mayor que la nueva máxima, la recortamos
+      p.hp = Math.min(p.hp, p.maxHp); 
+    }
+    if (item.stats.magicPower) p.equipMagic = (p.equipMagic || 0) - item.stats.magicPower;
+  }
+  return p;
 }
 
 export function calculatePlayerStats(player) {
