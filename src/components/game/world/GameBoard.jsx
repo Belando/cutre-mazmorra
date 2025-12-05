@@ -1,8 +1,8 @@
 import React, { useEffect, useRef } from 'react';
 import { TILE } from '@/data/constants';
-import { getThemeForFloor, drawAmbientOverlay } from './DungeonThemes'; // En la misma carpeta (world)
-import { isLargeEnemy, getEnemySize } from '../systems/LargeEnemies'; // <-- CORREGIDO: ../systems/
-import { PLAYER_APPEARANCES } from '../panels/CharacterSelect'; // <-- CORREGIDO: ../panels/
+import { getThemeForFloor, drawAmbientOverlay } from './DungeonThemes';
+import { isLargeEnemy, getEnemySize } from '../systems/LargeEnemies';
+import { PLAYER_APPEARANCES } from '../panels/CharacterSelect';
 
 // --- IMPORTACIONES DEL RENDERER ---
 import { adjustBrightness } from '@/renderer/utils';
@@ -13,7 +13,7 @@ import { drawPlayer } from '@/renderer/player';
 
 const TILE_SIZE = 32;
 
-// Colores dinámicos (esto es lógica de vista, está bien aquí)
+// Colores dinámicos
 function getTileColors(floor) {
   const theme = getThemeForFloor(floor);
   return {
@@ -27,36 +27,52 @@ function getTileColors(floor) {
 export default function GameBoard({ gameState, viewportWidth = 21, viewportHeight = 15 }) {
   const canvasRef = useRef(null);
   const frameRef = useRef(0);
+  const animationFrameId = useRef(null);
   
+  // Usamos una referencia para tener siempre el estado más reciente dentro del bucle de animación
+  // sin tener que reiniciar el bucle cada vez que cambia el estado.
+  const gameStateRef = useRef(gameState);
+
   useEffect(() => {
+    gameStateRef.current = gameState;
+  }, [gameState]);
+
+  // --- FUNCIÓN DE DIBUJADO PRINCIPAL (BUCLE) ---
+  const render = () => {
     const canvas = canvasRef.current;
-    if (!canvas || !gameState) return;
+    // Si no hay canvas o el juego no ha cargado, paramos
+    if (!canvas || !gameStateRef.current) return;
     
     const ctx = canvas.getContext('2d');
-    const { map, enemies, player, items, visible, explored, torches = [], chests = [], level = 1 } = gameState;
+    const currentState = gameStateRef.current;
     
-    // Increment frame
+    // Desestructuramos del estado ACTUAL (Ref)
+    const { map, enemies, player, items, visible, explored, torches = [], chests = [], level = 1, npcs = [], effectsManager } = currentState;
+    
+    // Incrementar frame global para animaciones de entorno
     frameRef.current++;
     
     const TILE_COLORS = getTileColors(level);
     const theme = getThemeForFloor(level);
     
-    // Viewport calculation
+    // Viewport calculation (Centrar cámara en el jugador)
     const halfViewW = Math.floor(viewportWidth / 2);
     const halfViewH = Math.floor(viewportHeight / 2);
     
     let offsetX = player.x - halfViewW;
     let offsetY = player.y - halfViewH;
     
-    // Clamp
-    offsetX = Math.max(0, Math.min(offsetX, map[0].length - viewportWidth));
-    offsetY = Math.max(0, Math.min(offsetY, map.length - viewportHeight));
+    // Clamp (Evitar salirnos de los bordes del mapa)
+    if (map && map.length > 0) {
+      offsetX = Math.max(0, Math.min(offsetX, map[0].length - viewportWidth));
+      offsetY = Math.max(0, Math.min(offsetY, map.length - viewportHeight));
+    }
     
-    // Clear
+    // Limpiar Canvas
     ctx.fillStyle = '#0a0a0f';
     ctx.fillRect(0, 0, canvas.width, canvas.height);
     
-    // 1. DRAW MAP TILES
+    // 1. DIBUJAR MAPA (TILES)
     for (let y = 0; y < viewportHeight; y++) {
       for (let x = 0; x < viewportWidth; x++) {
         const mapX = x + offsetX;
@@ -81,7 +97,7 @@ export default function GameBoard({ gameState, viewportWidth = 21, viewportHeigh
               ctx.fillRect(screenX + 2, screenY + 2, TILE_SIZE - 4, TILE_SIZE - 4);
               
               if (isVisible) {
-                // Bricks logic (simplificado)
+                // Bricks logic
                 ctx.fillStyle = theme.wall;
                 ctx.fillRect(screenX + 4, screenY + 6, TILE_SIZE - 10, 2);
                 
@@ -136,7 +152,7 @@ export default function GameBoard({ gameState, viewportWidth = 21, viewportHeigh
       }
     }
     
-    // 2. DRAW PROPS
+    // 2. DIBUJAR OBJETOS (Props)
     torches?.forEach(torch => {
       const sx = (torch.x - offsetX) * TILE_SIZE;
       const sy = (torch.y - offsetY) * TILE_SIZE;
@@ -169,7 +185,7 @@ export default function GameBoard({ gameState, viewportWidth = 21, viewportHeigh
       }
     });
     
-    // 3. DRAW ENEMIES
+    // 3. DIBUJAR ENEMIGOS
     enemies.forEach(enemy => {
       const sx = (enemy.x - offsetX) * TILE_SIZE;
       const sy = (enemy.y - offsetY) * TILE_SIZE;
@@ -193,7 +209,7 @@ export default function GameBoard({ gameState, viewportWidth = 21, viewportHeigh
       }
     });
     
-    // 4. DRAW PLAYER
+    // 4. DIBUJAR JUGADOR
     const psx = (player.x - offsetX) * TILE_SIZE;
     const psy = (player.y - offsetY) * TILE_SIZE;
     
@@ -209,8 +225,8 @@ export default function GameBoard({ gameState, viewportWidth = 21, viewportHeigh
 
     drawPlayer(ctx, psx, psy, TILE_SIZE, player.appearance, player.class);
     
-    // 5. DRAW NPCs
-    gameState.npcs?.forEach(npc => {
+    // 5. DIBUJAR NPCs
+    npcs?.forEach(npc => {
         const sx = (npc.x - offsetX) * TILE_SIZE;
         const sy = (npc.y - offsetY) * TILE_SIZE;
         if (visible[npc.y]?.[npc.x] && isOnScreen(sx, sy, canvas)) {
@@ -218,13 +234,37 @@ export default function GameBoard({ gameState, viewportWidth = 21, viewportHeigh
         }
     });
     
-    // Ambient Effects
+    // 6. AMBIENT EFFECTS (Overlay)
     if (theme.lavaGlow || theme.embers) {
       drawAmbientOverlay(ctx, canvas.width, canvas.height, level, frameRef.current);
     }
+
+    // 7. --- NUEVO: EFECTOS FLOTANTES (Daño, Texto, etc.) ---
+    // Esto se dibuja al final para estar encima de todo
+    if (effectsManager) {
+        // Actualizar física de las partículas
+        effectsManager.update();
+        // Dibujar
+        effectsManager.draw(ctx, offsetX, offsetY, TILE_SIZE);
+    }
     
-  }, [gameState, viewportWidth, viewportHeight]);
-  
+    // Solicitar el siguiente frame
+    animationFrameId.current = requestAnimationFrame(render);
+  };
+
+  // EFECTO PARA INICIAR/DETENER EL BUCLE
+  useEffect(() => {
+    // Iniciar el bucle de animación
+    animationFrameId.current = requestAnimationFrame(render);
+    
+    // Limpiar al desmontar el componente
+    return () => {
+      if (animationFrameId.current) {
+        cancelAnimationFrame(animationFrameId.current);
+      }
+    };
+  }, [viewportWidth, viewportHeight]); // Reiniciar solo si cambia el tamaño del viewport
+
   return (
     <canvas
       ref={canvasRef}
@@ -235,7 +275,8 @@ export default function GameBoard({ gameState, viewportWidth = 21, viewportHeigh
   );
 }
 
-// Helpers que SÍ se quedan porque son lógica de UI/Canvas genérica y pequeña
+// --- Helpers ---
+
 function isOnScreen(x, y, canvas) {
     return x >= -TILE_SIZE && x < canvas.width && y >= -TILE_SIZE && y < canvas.height;
 }

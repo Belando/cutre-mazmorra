@@ -1,4 +1,5 @@
 // Sistema de Inteligencia Artificial para Enemigos
+import { findPath } from '@/lib/pathfinding';
 import { ENEMY_RANGED_INFO } from '@/data/enemies';
 import { hasLineOfSight } from './CombatSystem'; 
 
@@ -53,7 +54,7 @@ function isTileFree(x, y, map, enemies, chests) {
   // No puede haber otro enemigo (excepto uno mismo, que se filtra fuera antes de llamar)
   if (enemies.some(e => e.x === x && e.y === y)) return false;
 
-  // No puede haber un cofre (NUEVO: Bloqueo de cofres)
+  // No puede haber un cofre
   if (chests && chests.some(c => c.x === x && c.y === y)) return false;
   
   return true;
@@ -127,28 +128,47 @@ function getLateralMove(enemy, player, map, enemies, chests) {
     return null;
 }
 
-// Mover hacia el objetivo
+// Mover hacia el objetivo usando A*
 function moveToward(enemy, targetX, targetY, map, enemies, player, chests) {
+  // Intentar encontrar el camino inteligente primero
+  const nextStep = findPath(enemy.x, enemy.y, targetX, targetY, map);
+
+  // Si A* encuentra un camino válido
+  if (nextStep) {
+    // Importante: A* evita paredes, pero no sabe si hay otro enemigo o un cofre bloqueando AHORA mismo.
+    const otherEnemies = enemies.filter(e => e !== enemy);
+    
+    // Verificamos colisión dinámica
+    if (isTileFree(nextStep.x, nextStep.y, map, otherEnemies, chests)) {
+      // Evitar pisar al jugador (para no superponerse antes de atacar)
+      if (nextStep.x !== player.x || nextStep.y !== player.y) {
+        return nextStep;
+      }
+    }
+  }
+
+  // FALLBACK (Plan B): Si el camino óptimo está bloqueado por otro enemigo,
+  // usamos la lógica simple antigua para intentar acercarnos o rodear.
   const dx = Math.sign(targetX - enemy.x);
   const dy = Math.sign(targetY - enemy.y);
   
   const moves = [];
-  // Priorizar eje principal
-  if (dx !== 0) moves.push({ x: enemy.x + dx, y: enemy.y, p: 1 });
-  if (dy !== 0) moves.push({ x: enemy.x, y: enemy.y + dy, p: 1 });
-  if (dx !== 0 && dy !== 0) moves.push({ x: enemy.x + dx, y: enemy.y + dy, p: 2 });
-
-  moves.sort((a, b) => a.p - b.p);
+  if (dx !== 0) moves.push({ x: enemy.x + dx, y: enemy.y });
+  if (dy !== 0) moves.push({ x: enemy.x, y: enemy.y + dy });
+  // Opcional: Probar diagonales o laterales si el directo falla
+  if (dx === 0) { moves.push({ x: enemy.x + 1, y: enemy.y }); moves.push({ x: enemy.x - 1, y: enemy.y }); }
+  if (dy === 0) { moves.push({ x: enemy.x, y: enemy.y + 1 }); moves.push({ x: enemy.x, y: enemy.y - 1 }); }
   
   for (const move of moves) {
-    // No pisar al jugador
-    if (move.x === player.x && move.y === player.y) continue;
-    
-    // Verificar colisión con mapa y otros enemigos
     const otherEnemies = enemies.filter(e => e !== enemy);
-    if (isTileFree(move.x, move.y, map, otherEnemies, chests)) return move;
+    // Verificar que no sea el jugador y esté libre
+    if ((move.x !== player.x || move.y !== player.y) && 
+        isTileFree(move.x, move.y, map, otherEnemies, chests)) {
+      return move;
+    }
   }
-  return null;
+
+  return null; // No se puede mover
 }
 
 // PROCESO PRINCIPAL: Turno del Enemigo

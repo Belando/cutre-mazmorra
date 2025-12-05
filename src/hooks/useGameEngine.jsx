@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
 import { usePlayer } from './usePlayer';
 import { useDungeon } from './useDungeon';
 import { useInventory } from './useInventory';
@@ -13,9 +13,10 @@ import { SKILLS } from '@/data/skills';
 import { MATERIAL_TYPES, generateMaterialDrop, generateBossDrop, craftItem, upgradeItem } from '@/components/game/systems/CraftingSystem';
 import { useItem as useItemLogic, equipItem as equipItemLogic, unequipItem as unequipItemLogic, calculatePlayerStats } from '@/components/game/systems/ItemSystem';
 import { useQuickSlot as processQuickSlot, assignToQuickSlot } from '@/components/game/ui/QuickSlots';
-import { canUseSkill, learnSkill, upgradeSkill, evolveClass, calculateBuffBonuses, useSkill } from '@/components/game/systems/SkillSystem';
+import { canUseSkill, learnSkill, upgradeSkill, evolveClass, calculateBuffBonuses, useSkill } from '../components/game/systems/SkillSystem';
 import { QUESTS } from '@/components/game/systems/NPCSystem';
 import { saveGame as saveSystem, loadGame as loadSystem } from '@/components/game/systems/SaveSystem';
+import { EffectsManager } from '../components/game/systems/EffectSystem'; // <--- IMPORTADO AHORA QUE EXISTE
 
 const LOG_LENGTH = 50;
 
@@ -30,6 +31,14 @@ export function useGameEngine() {
   const [gameStarted, setGameStarted] = useState(false);
   const [gameOver, setGameOver] = useState(false);
   const [messages, setMessages] = useState([]);
+  
+  // --- EFECTOS VISUALES ---
+  const effectsManager = useRef(new EffectsManager());
+
+  // Helper para añadir daño visual fácilmente
+  const showFloatingText = useCallback((x, y, text, color) => {
+    effectsManager.current.addText(x, y, text, color);
+  }, []);
   
   // Progreso
   const [stats, setStats] = useState({ maxLevel: 1, kills: 0, gold: 0, playerLevel: 1 });
@@ -70,7 +79,6 @@ export function useGameEngine() {
   }, [playerClass, playerName, generateLevel, initPlayer, updatePlayer, updateMapFOV, addMessage, player]);
 
   // --- LOGICA DE TURNO ---
-  // CORRECCIÓN: Ahora acepta 'enemiesOverride' para manejar muertes en el mismo turno
   const executeTurn = useCallback((currentPlayerState = player, enemiesOverride = null) => {
     // 1. Regenerar Jugador
     regenPlayer();
@@ -85,13 +93,14 @@ export function useGameEngine() {
       player: currentPlayerState,
       setPlayer,
       addMessage,
-      setGameOver
+      setGameOver,
+      showFloatingText // <--- PASAR LA FUNCIÓN AL SISTEMA DE TURNOS
     });
     
     // 4. Actualizar FOV
     updateMapFOV(currentPlayerState.x, currentPlayerState.y);
 
-  }, [dungeon, player, regenPlayer, processTurn, updateMapFOV, addMessage, setPlayer, setDungeon]);
+  }, [dungeon, player, regenPlayer, processTurn, updateMapFOV, addMessage, setPlayer, setDungeon, showFloatingText]);
 
   // --- COMBATE ---
   const handleEnemyDeath = (enemyIdx) => {
@@ -123,7 +132,6 @@ export function useGameEngine() {
     
     setStats(prev => ({ ...prev, kills: prev.kills + 1 }));
     
-    // CORRECCIÓN: Devolvemos la lista nueva para usarla inmediatamente en executeTurn
     return newEnemies;
   };
 
@@ -157,6 +165,10 @@ export function useGameEngine() {
         
         addMessage(`Atacas a ${ENEMY_STATS[enemy.type].name}: ${dmg} daño`, 'player_damage');
         
+        // Efecto visual de daño
+        const isCrit = dmg > pStats.attack * 1.5;
+        showFloatingText(nx, ny, dmg, isCrit ? '#ef4444' : '#fff');
+
         if (newEnemies[enemyIdx].hp <= 0) {
             // Si muere, obtenemos la lista limpia y la pasamos al turno
             const aliveEnemies = handleEnemyDeath(enemyIdx);
@@ -185,6 +197,7 @@ export function useGameEngine() {
         if (item.category === 'currency') {
           updatePlayer({ gold: player.gold + item.value });
           addMessage(`+${item.value} Oro`, 'pickup');
+          showFloatingText(nx, ny, `+${item.value}`, '#fbbf24');
         } else {
           addItem(item);
           addMessage(`Recogiste: ${item.name}`, 'pickup');
@@ -212,8 +225,10 @@ export function useGameEngine() {
         setDungeon(prev => ({ ...prev, chests: newChests }));
         
         const res = addItem(chest.item);
-        if (res) addMessage(`Abriste cofre: ${chest.item.name}`, 'pickup');
-        else {
+        if (res) {
+            addMessage(`Abriste cofre: ${chest.item.name}`, 'pickup');
+            showFloatingText(chest.x, chest.y, chest.item.symbol, '#facc15');
+        } else {
           const droppedItem = { ...chest.item, x: chest.x, y: chest.y };
           setDungeon(prev => ({ ...prev, items: [...prev.items, droppedItem] }));
           addMessage("Inventario lleno, item al suelo", 'info');
@@ -238,7 +253,10 @@ export function useGameEngine() {
                      const newCooldowns = { ...player.skills.cooldowns, [selectedSkill]: res.cooldown };
                      updatePlayer({ skills: { ...player.skills, cooldowns: newCooldowns } });
                      
-                     if (res.heal) updatePlayer({ hp: Math.min(player.maxHp, player.hp + res.heal) });
+                     if (res.heal) {
+                         updatePlayer({ hp: Math.min(player.maxHp, player.hp + res.heal) });
+                         showFloatingText(player.x, player.y, `+${res.heal}`, '#4ade80');
+                     }
                      if (res.buff) {
                          const newBuffs = [...(player.skills.buffs || []), res.buff];
                          updatePlayer({ skills: { ...player.skills, buffs: newBuffs } });
@@ -254,6 +272,8 @@ export function useGameEngine() {
                              if (idx !== -1) {
                                  const enemy = currentEnemiesList[idx];
                                  enemy.hp -= dmgInfo.damage;
+                                 showFloatingText(enemy.x, enemy.y, dmgInfo.damage, '#a855f7'); // Morado para daño mágico/habilidad
+                                 
                                  if (dmgInfo.stun) enemy.stunned = dmgInfo.stun;
                                  
                                  if (enemy.hp <= 0) {
@@ -305,6 +325,7 @@ export function useGameEngine() {
         setInventory(newInv);
         setPlayer({ ...player }); 
         res.effects.forEach(m => addMessage(m, 'heal'));
+        showFloatingText(player.x, player.y, "Used", '#fff');
       } else {
         addMessage(res.message, 'info');
       }
@@ -452,7 +473,8 @@ export function useGameEngine() {
     inventory,
     equipment,
     questProgress,
-    materials
+    materials,
+    effectsManager: effectsManager.current // <--- EXPORTADO
   };
 
   return {

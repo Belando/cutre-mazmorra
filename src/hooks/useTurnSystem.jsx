@@ -9,7 +9,8 @@ export function useTurnSystem() {
     dungeon, setDungeon,
     player, setPlayer,
     addMessage,
-    setGameOver
+    setGameOver,
+    showFloatingText // <--- RECIBIR LA FUNCIÓN PARA EFECTOS VISUALES
   }) => {
     // 1. Regeneración del Jugador (MP) y Cooldowns
     // Esto ya se maneja en usePlayer.regenerate(), lo llamaremos desde el Engine.
@@ -46,10 +47,12 @@ export function useTurnSystem() {
         
         if (combatResult.evaded) {
           addMessage(`Esquivaste a ${ENEMY_STATS[enemy.type].name}`, 'info');
+          if (showFloatingText) showFloatingText(player.x, player.y, "Miss", '#94a3b8');
         } else {
           totalDamage += combatResult.damage;
           playerHit = true;
           addMessage(`${ENEMY_STATS[enemy.type].name} te golpea: -${combatResult.damage} HP`, 'enemy_damage');
+          if (showFloatingText) showFloatingText(player.x, player.y, `-${combatResult.damage}`, '#dc2626');
         }
       }
     });
