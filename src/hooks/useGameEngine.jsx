@@ -1,450 +1,455 @@
 import { useState, useCallback, useEffect } from 'react';
-import { generateDungeon, TILE, ENTITY, ENEMY_STATS, scaleEnemyStats } from '@/components/game/DungeonGenerator';
-import { addToInventory, useItem, equipItem, unequipItem, calculatePlayerStats } from '@/components/game/ItemSystem';
+import { usePlayer } from './usePlayer';
+import { useDungeon } from './useDungeon';
+import { useInventory } from './useInventory';
+import { useTurnSystem } from './useTurnSystem';
+
+// --- IMPORTACIONES DE DATOS ---
+import { TILE, ENTITY } from '@/data/constants';
+import { ENEMY_STATS } from '@/data/enemies';
+import { SKILLS } from '@/data/skills'; // <--- CORRECCIÓN AQUÍ: Importar SKILLS de data
+
+// --- IMPORTACIONES DE SISTEMAS ---
+import { MATERIAL_TYPES, generateMaterialDrop, generateBossDrop, craftItem, upgradeItem } from '@/components/game/CraftingSystem';
+import { useItem as useItemLogic, equipItem as equipItemLogic, unequipItem as unequipItemLogic, calculatePlayerStats } from '@/components/game/ItemSystem';
 import { useQuickSlot as processQuickSlot, assignToQuickSlot } from '@/components/game/QuickSlots';
-import { generateNPCs, QUESTS } from '@/components/game/NPCSystem';
-import { processEnemyTurn, calculateEnemyDamage, getEnemyRangedInfo } from '@/components/game/EnemyAI';
-import { generateMaterialDrop, generateBossDrop, MATERIAL_TYPES, craftItem, upgradeItem } from '@/components/game/CraftingSystem';
-import { initializeSkills, useSkill, canUseSkill, updateCooldowns, updateBuffs, calculateBuffBonuses, getLearnableSkills, learnSkill, upgradeSkill, evolveClass, SKILLS } from '@/components/game/SkillSystem';
+// Nota: Quitamos SKILLS de aquí y lo dejamos solo con las funciones
+import { canUseSkill, learnSkill, upgradeSkill, evolveClass, calculateBuffBonuses, useSkill } from '@/components/game/SkillSystem';
+import { QUESTS } from '@/components/game/NPCSystem';
 import { saveGame as saveSystem, loadGame as loadSystem } from '@/components/game/SaveSystem';
 
-const MAP_WIDTH = 50;
-const MAP_HEIGHT = 35;
-const LOG_LENGTH = 50; // Limitar historial de mensajes
+const LOG_LENGTH = 50;
 
 export function useGameEngine() {
-  // --- ESTADOS DEL JUEGO ---
+  // --- SUB-HOOKS ---
+  const { player, setPlayer, initPlayer, updatePlayer, gainExp, regenerate: regenPlayer } = usePlayer();
+  const { dungeon, setDungeon, generateLevel, updateMapFOV } = useDungeon();
+  const { inventory, setInventory, equipment, setEquipment, materials, setMaterials, quickSlots, setQuickSlots, initInventory, addItem, addMaterial } = useInventory();
+  const { processTurn } = useTurnSystem();
+
+  // --- ESTADOS GLOBALES ---
   const [gameStarted, setGameStarted] = useState(false);
-  const [gameState, setGameState] = useState(null);
-  const [messages, setMessages] = useState([]);
   const [gameOver, setGameOver] = useState(false);
+  const [messages, setMessages] = useState([]);
   
-  // Progreso y Datos Persistentes
+  // Progreso
   const [stats, setStats] = useState({ maxLevel: 1, kills: 0, gold: 0, playerLevel: 1 });
   const [activeQuests, setActiveQuests] = useState([]);
   const [completedQuests, setCompletedQuests] = useState([]);
   const [questProgress, setQuestProgress] = useState({});
-  const [materials, setMaterials] = useState({});
-  const [quickSlots, setQuickSlots] = useState([null, null, null]);
   
-  // Datos del Jugador
-  const [playerName, setPlayerName] = useState('');
+  // UI States
   const [selectedAppearance, setSelectedAppearance] = useState(null);
   const [playerClass, setPlayerClass] = useState('warrior');
-  
-  // UI de Combate
+  const [playerName, setPlayerName] = useState('');
+  const [selectedSkill, setSelectedSkill] = useState(null);
   const [rangedMode, setRangedMode] = useState(false);
   const [rangedTargets, setRangedTargets] = useState([]);
-  const [selectedSkill, setSelectedSkill] = useState(null);
 
-  // --- SISTEMA DE MENSAJES ---
+  // --- MENSAJES ---
   const addMessage = useCallback((text, type = 'info') => {
     setMessages(prev => [...prev, { text, type }].slice(-LOG_LENGTH));
   }, []);
 
-  // Función auxiliar para actualizar estado de forma segura
-  const updateState = (fn) => {
-    setGameState(prev => {
-      if (!prev) return null;
-      const newState = JSON.parse(JSON.stringify(prev));
-      fn(newState);
-      return newState;
-    });
-  };
-
-  // --- INICIALIZACIÓN ---
-  const initGame = useCallback((level = 1, existingPlayer = null, existingInventory = null, existingEquipment = null) => {
-    const dungeon = generateDungeon(MAP_WIDTH, MAP_HEIGHT, level);
-    
-    const classAttributes = {
-      warrior: { strength: 10, dexterity: 5, intelligence: 3 },
-      mage: { strength: 3, dexterity: 5, intelligence: 10 },
-      rogue: { strength: 5, dexterity: 10, intelligence: 3 },
-    };
-    
-    // Configurar jugador inicial
-    const player = existingPlayer || {
-      x: dungeon.playerStart.x, y: dungeon.playerStart.y,
-      hp: 50, maxHp: 50, mp: 30, maxMp: 30,
-      attack: 8, baseAttack: 8, defense: 3, baseDefense: 3,
-      equipAttack: 0, equipDefense: 0, equipMaxHp: 0,
-      exp: 0, level: 1, gold: 0,
-      name: playerName || 'Héroe',
-      floor: level,
-      appearance: selectedAppearance,
-      class: playerClass,
-      ...(classAttributes[playerClass] || classAttributes.warrior),
-      skills: initializeSkills(playerClass)
-    };
-    
-    if (existingPlayer) {
-      player.x = dungeon.playerStart.x;
-      player.y = dungeon.playerStart.y;
-      player.floor = level;
-    }
-    
-    const npcs = generateNPCs(level, dungeon.rooms, dungeon.map, [0, dungeon.rooms.length - 1]);
-    // Filtrar cofres para que no aparezcan debajo de NPCs
-    const cleanChests = (dungeon.chests || []).filter(c => !npcs.some(n => n.x === c.x && n.y === c.y));
-    
-    const enemies = [];
-    const pLevel = existingPlayer?.level || 1;
-    
-    // Generar enemigos desde la matriz del dungeon
-    for (let y = 0; y < dungeon.entities.length; y++) {
-      for (let x = 0; x < dungeon.entities[0].length; x++) {
-        const entity = dungeon.entities[y][x];
-        if (entity >= ENTITY.ENEMY_RAT) {
-          const baseStats = ENEMY_STATS[entity];
-          if (baseStats) {
-            const scaled = scaleEnemyStats(baseStats, pLevel, level);
-            enemies.push({ x, y, type: entity, ...scaled, isBoss: baseStats.isBoss || false, stunned: 0 });
-          }
-        }
-      }
+  // --- GAME LOOP / INICIALIZACIÓN ---
+  const initGame = useCallback((level = 1, existingPlayer = null) => {
+    // 1. Inicializar/Cargar Player
+    if (!existingPlayer && !player) {
+      initPlayer(null, playerClass, playerName);
+    } else if (existingPlayer) {
+      // Si venimos de un save o cambio de piso con datos previos
+      setPlayer({ ...existingPlayer, x: 0, y: 0 }); // Posición temporal, se corrige tras generar dungeon
     }
 
-    const newState = {
-      map: dungeon.map,
-      entities: dungeon.entities,
-      enemies,
-      items: dungeon.items || [],
-      chests: cleanChests,
-      torches: dungeon.torches || [],
-      npcs,
-      player,
-      inventory: existingInventory || [],
-      equipment: existingEquipment || { weapon: null, offhand: null, helmet: null, chest: null, legs: null, boots: null, gloves: null, ring: null, earring: null, necklace: null },
-      visible: Array(MAP_HEIGHT).fill().map(() => Array(MAP_WIDTH).fill(false)),
-      explored: Array(MAP_HEIGHT).fill().map(() => Array(MAP_WIDTH).fill(false)),
-      stairs: dungeon.stairs,
-      stairsUp: dungeon.stairsUp,
-      level,
-      bossDefeated: false,
-      questProgress,
-      materials,
-    };
-
-    calculateFOV(newState);
-    setGameState(newState);
+    // 2. Generar Dungeon
+    // Necesitamos el nivel del jugador para escalar enemigos, si el player aún no está listo usamos 1
+    const pLevel = existingPlayer?.level || 1; 
+    const newDungeon = generateLevel(level, pLevel);
     
-    if (level === 1 && !existingPlayer) addMessage(`¡Bienvenido, ${player.name}!`, 'info');
+    // 3. Colocar Jugador en el mapa
+    updatePlayer({ x: newDungeon.playerStart.x, y: newDungeon.playerStart.y, floor: level });
+    
+    // 4. Calcular FOV inicial
+    updateMapFOV(newDungeon.playerStart.x, newDungeon.playerStart.y);
+
+    if (level === 1 && !existingPlayer) addMessage(`¡Bienvenido, ${playerName || 'Héroe'}!`, 'info');
     else addMessage(`Piso ${level}`, 'info');
-  }, [addMessage, playerName, questProgress, selectedAppearance, playerClass, materials]);
 
-  // --- SISTEMAS INTERNOS ---
-  
-  const calculateFOV = (state) => {
-    const { player, map, visible, explored } = state;
-    for (let y = 0; y < MAP_HEIGHT; y++) for (let x = 0; x < MAP_WIDTH; x++) visible[y][x] = false;
+  }, [playerClass, playerName, generateLevel, initPlayer, updatePlayer, updateMapFOV, addMessage, player]);
+
+  // --- LOGICA DE TURNO ---
+  const endTurn = useCallback(() => {
+    // 1. Regenerar Jugador
+    regenPlayer();
     
-    for (let angle = 0; angle < 360; angle += 2) {
-      const rad = angle * Math.PI / 180;
-      const dx = Math.cos(rad), dy = Math.sin(rad);
-      let x = player.x + 0.5, y = player.y + 0.5;
-      
-      for (let i = 0; i < 6; i++) { // Radio de visión
-        const tx = Math.floor(x), ty = Math.floor(y);
-        if (tx < 0 || tx >= MAP_WIDTH || ty < 0 || ty >= MAP_HEIGHT) break;
-        visible[ty][tx] = true;
-        explored[ty][tx] = true;
-        if (map[ty][tx] === TILE.WALL) break;
-        x += dx; y += dy;
-      }
-    }
-  };
+    // 2. Procesar Enemigos
+    processTurn({
+      dungeon, setDungeon,
+      player, setPlayer,
+      addMessage,
+      setGameOver
+    });
+    
+    // 3. Actualizar FOV (por si el jugador fue empujado o movido por eventos)
+    updateMapFOV(player.x, player.y);
 
-  const handleEnemyDeath = (state, idx) => {
-    const enemy = state.enemies[idx];
+  }, [dungeon, player, regenPlayer, processTurn, updateMapFOV, addMessage, setPlayer, setDungeon]);
+
+  // --- COMBATE ---
+  const handleEnemyDeath = (enemyIdx) => {
+    const enemy = dungeon.enemies[enemyIdx];
     const info = ENEMY_STATS[enemy.type];
-    state.enemies.splice(idx, 1);
     
-    // Recompensas
-    state.player.exp += info.exp;
+    // Eliminar enemigo
+    const newEnemies = [...dungeon.enemies];
+    newEnemies.splice(enemyIdx, 1);
+    setDungeon(prev => ({ ...prev, enemies: newEnemies }));
+    
+    // XP y Mensajes
+    gainExp(info.exp);
     addMessage(`${info.name} derrotado! +${info.exp} XP`, 'death');
     
-    // Botín
-    const drops = enemy.isBoss ? generateBossDrop(enemy.type, state.level) : generateMaterialDrop(enemy.type, state.level);
+    // Drops
+    const drops = enemy.isBoss ? generateBossDrop(enemy.type, dungeon.level) : generateMaterialDrop(enemy.type, dungeon.level);
     drops.forEach(d => {
-        state.materials[d.type] = (state.materials[d.type] || 0) + d.count;
-        addMessage(`Botín: ${d.count} ${MATERIAL_TYPES[d.type]?.name}`, 'pickup');
+      addMaterial(d.type, d.count);
+      addMessage(`Botín: ${d.count} ${MATERIAL_TYPES[d.type]?.name}`, 'pickup');
     });
-    
-    // Misiones y Logros
+
+    // Misiones y Boss Flag
     if(enemy.isBoss) {
-        state.bossDefeated = true;
-        addMessage("¡Jefe de piso eliminado!", 'levelup');
-        updateQuestProgress('boss', enemy.type);
-    } else {
-        updateQuestProgress('kill', enemy.type);
+      setDungeon(prev => ({ ...prev, bossDefeated: true }));
+      addMessage("¡Jefe de piso eliminado!", 'levelup');
     }
     
-    // Subida de nivel
-    if (state.player.exp >= state.player.level * 25) {
-        state.player.level++;
-        state.player.exp = 0;
-        state.player.maxHp += 10;
-        state.player.hp = state.player.maxHp;
-        state.player.skills.skillPoints = (state.player.skills.skillPoints || 0) + 1;
-        addMessage(`¡Nivel ${state.player.level} alcanzado!`, 'levelup');
-    }
+    // Actualizar stats globales
+    setStats(prev => ({ ...prev, kills: prev.kills + 1 }));
   };
 
-  const endTurn = (state) => {
-    // Regeneración
-    state.player.mp = Math.min((state.player.mp || 0) + 1, state.player.maxMp || 30);
-    
-    // Cooldowns y Buffs
-    if(state.player.skills) {
-        state.player.skills.cooldowns = updateCooldowns(state.player.skills.cooldowns);
-        state.player.skills.buffs = updateBuffs(state.player.skills.buffs);
-    }
-    
-    // IA Enemiga (Pasamos chests para evitar colisiones)
-    const pStats = calculatePlayerStats(state.player);
-    state.enemies.forEach(enemy => {
-        const action = processEnemyTurn(enemy, state.player, state.enemies, state.map, state.visible, addMessage, state.chests);
-        
-        if(action.action.includes('attack')) {
-            const isRanged = action.action === 'ranged_attack';
-            const dmg = calculateEnemyDamage(
-                isRanged ? {...enemy, attack: Math.floor(enemy.attack * 0.7)} : enemy,
-                state.player, pStats, state.player.skills.buffs
-            );
-            
-            if(dmg.evaded) addMessage(`Esquivaste a ${ENEMY_STATS[enemy.type].name}`, 'info');
-            else {
-                state.player.hp -= dmg.damage;
-                addMessage(`${ENEMY_STATS[enemy.type].name} te golpea: -${dmg.damage} HP`, 'enemy_damage');
-            }
-        }
-    });
-    
-    calculateFOV(state);
-    
-    if(state.player.hp <= 0) {
-        setGameOver(true);
-        addMessage("Has muerto...", 'death');
-    }
-  };
-
-  const updateQuestProgress = (type, target) => {
-     activeQuests.forEach(qid => {
-         const q = QUESTS[qid];
-         if(q && q.targetType === type) {
-             setQuestProgress(p => ({ ...p, [qid]: (p[qid] || 0) + 1 }));
-         }
-     });
-  };
-
-  // --- ACCIONES PÚBLICAS ---
+  // --- ACCIONES DE JUEGO (MOVIMIENTO, ETC) ---
   const actions = {
-    move: (dx, dy) => updateState(state => {
-        const { player, map } = state;
-        const nx = player.x + dx;
-        const ny = player.y + dy;
+    move: (dx, dy) => {
+      const nx = player.x + dx;
+      const ny = player.y + dy;
+      
+      // Colisiones Mapa
+      if (nx < 0 || nx >= dungeon.map[0].length || ny < 0 || ny >= dungeon.map.length || dungeon.map[ny][nx] === TILE.WALL) return;
+      
+      // Colisión Cofres
+      if (dungeon.chests.some(c => c.x === nx && c.y === ny)) {
+        addMessage("Un cofre bloquea el camino (Usa 'E')", 'info');
+        return;
+      }
+      
+      // Colisión Enemigos (Combate)
+      const enemyIdx = dungeon.enemies.findIndex(e => e.x === nx && e.y === ny);
+      if (enemyIdx !== -1) {
+        const enemy = dungeon.enemies[enemyIdx];
+        const pStats = calculatePlayerStats(player);
+        const buffs = calculateBuffBonuses(player.skills.buffs, pStats);
+        const dmg = Math.max(1, (pStats.attack + buffs.attackBonus) - enemy.defense + Math.floor(Math.random()*3));
         
-        // Colisiones básicas
-        if (nx < 0 || nx >= MAP_WIDTH || ny < 0 || ny >= MAP_HEIGHT || map[ny][nx] === TILE.WALL) return;
+        // Actualizar HP Enemigo
+        const newEnemies = [...dungeon.enemies];
+        newEnemies[enemyIdx].hp -= dmg;
+        setDungeon(prev => ({ ...prev, enemies: newEnemies }));
         
-        // Colisión con Cofres (No atravesables)
-        if (state.chests.some(c => c.x === nx && c.y === ny)) {
-            addMessage("Un cofre bloquea el camino (Usa 'E')", 'info');
-            return;
+        addMessage(`Atacas a ${ENEMY_STATS[enemy.type].name}: ${dmg} daño`, 'player_damage');
+        
+        if (newEnemies[enemyIdx].hp <= 0) handleEnemyDeath(enemyIdx);
+        endTurn();
+        return;
+      }
+      
+      // Colisión NPC
+      if (dungeon.npcs.some(n => n.x === nx && n.y === ny)) {
+        addMessage("Un NPC bloquea el camino", 'info');
+        return;
+      }
+      
+      // Movimiento Exitoso
+      updatePlayer({ x: nx, y: ny });
+      updateMapFOV(nx, ny); // Actualizar visión inmediatamente
+      
+      // Recoger items suelo
+      const itemIdx = dungeon.items.findIndex(i => i.x === nx && i.y === ny);
+      if (itemIdx !== -1) {
+        const item = dungeon.items[itemIdx];
+        if (item.category === 'currency') {
+          updatePlayer({ gold: player.gold + item.value });
+          addMessage(`+${item.value} Oro`, 'pickup');
+        } else {
+          addItem(item);
+          addMessage(`Recogiste: ${item.name}`, 'pickup');
         }
-        
-        // Colisión con Enemigos (Combate)
-        const enemyIdx = state.enemies.findIndex(e => e.x === nx && e.y === ny);
-        if (enemyIdx !== -1) {
-            const enemy = state.enemies[enemyIdx];
-            const pStats = calculatePlayerStats(player);
-            const buffs = calculateBuffBonuses(player.skills.buffs, pStats);
-            const dmg = Math.max(1, (pStats.attack + buffs.attackBonus) - enemy.defense + Math.floor(Math.random()*3));
-            
-            enemy.hp -= dmg;
-            addMessage(`Atacas a ${ENEMY_STATS[enemy.type].name}: ${dmg} daño`, 'player_damage');
-            
-            if (enemy.hp <= 0) handleEnemyDeath(state, enemyIdx);
-            endTurn(state);
-            return;
-        }
-        
-        // Colisión con NPC (Bloqueo)
-        if (state.npcs.some(n => n.x === nx && n.y === ny)) {
-            addMessage("Un NPC bloquea el camino", 'info');
-            return;
-        }
-        
-        // Movimiento libre
-        player.x = nx;
-        player.y = ny;
-        
-        // Recoger items del suelo
-        const itemIdx = state.items.findIndex(i => i.x === nx && i.y === ny);
-        if (itemIdx !== -1) {
-            const item = state.items[itemIdx];
-            if (item.category === 'currency') {
-                player.gold += item.value;
-                addMessage(`+${item.value} Oro`, 'pickup');
-            } else {
-                addToInventory(state.inventory, item);
-                addMessage(`Recogiste: ${item.name}`, 'pickup');
-            }
-            state.items.splice(itemIdx, 1);
-        }
-        
-        endTurn(state);
-    }),
-
-    // Acción de Interacción (Tecla E)
-    interact: () => {
-        if (!gameState) return { type: 'none' };
-        
-        // 1. Prioridad NPC
-        const npc = gameState.npcs.find(n => Math.abs(n.x - gameState.player.x) + Math.abs(n.y - gameState.player.y) <= 1);
-        if (npc) {
-            addMessage(`Hablas con ${npc.name}`, 'info');
-            return { type: 'npc', data: npc };
-        }
-        
-        // 2. Cofres
-        let resultType = 'none';
-        updateState(state => {
-            const chestIdx = state.chests.findIndex(c => Math.abs(c.x - state.player.x) + Math.abs(c.y - state.player.y) <= 1 && !c.opened);
-            if (chestIdx !== -1) {
-                const chest = state.chests[chestIdx];
-                chest.opened = true;
-                const res = addToInventory(state.inventory, chest.item);
-                if (res.success) addMessage(`Abriste cofre: ${chest.item.name}`, 'pickup');
-                else {
-                    // Inventario lleno, tirar al suelo
-                    chest.item.x = chest.x; chest.item.y = chest.y;
-                    state.items.push(chest.item);
-                    addMessage("Inventario lleno, item al suelo", 'info');
-                }
-                resultType = 'chest';
-            } else {
-                // Si no hay nada cerca
-                // No ponemos mensaje de error aquí para no spamear si el usuario quería usar la 'E' para otra cosa (aunque ahora E es solo interactuar)
-            }
-        });
-        
-        if (resultType === 'none' && !npc) addMessage("No hay nada aquí", 'info');
-        return { type: resultType };
+        // Quitar del suelo
+        const newItems = [...dungeon.items];
+        newItems.splice(itemIdx, 1);
+        setDungeon(prev => ({ ...prev, items: newItems }));
+      }
+      
+      endTurn();
     },
 
-    wait: () => updateState(state => {
-        // Lógica de habilidad (si hay seleccionada)
-        if (selectedSkill && SKILLS[selectedSkill]) {
-            const skill = SKILLS[selectedSkill];
-            if (['self', 'aoe', 'ultimate'].includes(skill.type)) {
-                 if(canUseSkill(selectedSkill, state.player.skills.cooldowns)) {
-                     // Usar habilidad
-                     state.player.skills.cooldowns[selectedSkill] = skill.cooldown;
-                     if(skill.manaCost) state.player.mp -= skill.manaCost;
-                     // (Simplificado: la lógica real de efecto de skill iría aquí)
-                     addMessage(`Usaste ${skill.name}`, 'player_damage');
+    interact: () => {
+      // NPC
+      const npc = dungeon.npcs.find(n => Math.abs(n.x - player.x) + Math.abs(n.y - player.y) <= 1);
+      if (npc) {
+        addMessage(`Hablas con ${npc.name}`, 'info');
+        return { type: 'npc', data: npc };
+      }
+      
+      // Cofres
+      const chestIdx = dungeon.chests.findIndex(c => Math.abs(c.x - player.x) + Math.abs(c.y - player.y) <= 1 && !c.opened);
+      if (chestIdx !== -1) {
+        const newChests = [...dungeon.chests];
+        const chest = newChests[chestIdx];
+        chest.opened = true;
+        setDungeon(prev => ({ ...prev, chests: newChests }));
+        
+        const res = addItem(chest.item);
+        if (res) addMessage(`Abriste cofre: ${chest.item.name}`, 'pickup');
+        else {
+          // Inventario lleno -> Al suelo
+          const droppedItem = { ...chest.item, x: chest.x, y: chest.y };
+          setDungeon(prev => ({ ...prev, items: [...prev.items, droppedItem] }));
+          addMessage("Inventario lleno, item al suelo", 'info');
+        }
+        return { type: 'chest' };
+      }
+      
+      addMessage("No hay nada aquí", 'info');
+      return { type: 'none' };
+    },
+
+    wait: () => {
+      // Lógica de habilidades self/aoe si hay seleccionada
+      if (selectedSkill && SKILLS[selectedSkill]) {
+         const skill = SKILLS[selectedSkill];
+         if (['self', 'aoe', 'ultimate'].includes(skill.type)) {
+             if (canUseSkill(selectedSkill, player.skills.cooldowns)) {
+                 // Ejecutar habilidad
+                 const pStats = calculatePlayerStats(player);
+                 const res = useSkill(selectedSkill, player, pStats, null, dungeon.enemies, dungeon.visible);
+                 
+                 if (res.success) {
+                     // Aplicar costes
+                     if(skill.manaCost) updatePlayer({ mp: player.mp - skill.manaCost });
+                     // Aplicar cooldown
+                     const newCooldowns = { ...player.skills.cooldowns, [selectedSkill]: res.cooldown };
+                     updatePlayer({ skills: { ...player.skills, cooldowns: newCooldowns } });
+                     
+                     // Aplicar efectos (daño, cura, buffs)
+                     if (res.heal) updatePlayer({ hp: Math.min(player.maxHp, player.hp + res.heal) });
+                     if (res.buff) {
+                         const newBuffs = [...(player.skills.buffs || []), res.buff];
+                         updatePlayer({ skills: { ...player.skills, buffs: newBuffs } });
+                     }
+                     
+                     // Aplicar daño a enemigos
+                     if (res.damages && res.damages.length > 0) {
+                         const newEnemies = [...dungeon.enemies];
+                         res.damages.forEach(dmgInfo => {
+                             const idx = newEnemies.indexOf(dmgInfo.target);
+                             if (idx !== -1) {
+                                 newEnemies[idx].hp -= dmgInfo.damage;
+                                 if (dmgInfo.stun) newEnemies[idx].stunned = dmgInfo.stun;
+                                 if (newEnemies[idx].hp <= 0) handleEnemyDeath(idx);
+                             }
+                         });
+                         setDungeon(prev => ({ ...prev, enemies: newEnemies }));
+                     }
+                     
+                     addMessage(res.message, 'player_damage');
                      setSelectedSkill(null);
                  } else {
-                     addMessage("Habilidad no lista", 'info');
-                     return; // No pasar turno
+                     addMessage(res.message, 'info');
+                     return; // No pasar turno si falla
                  }
-            }
-        } else {
-            addMessage("Esperas...", 'info');
-        }
-        endTurn(state);
-    }),
-    
+             } else {
+                 addMessage("Habilidad no lista", 'info');
+                 return;
+             }
+         }
+      } else {
+         addMessage("Esperas...", 'info');
+      }
+      endTurn();
+    },
+
     descend: (goUp) => {
-        const { player, stairs, stairsUp, level, inventory, equipment, enemies } = gameState;
-        if (goUp && stairsUp && player.x === stairsUp.x && player.y === stairsUp.y) {
-            if (level > 1) initGame(level - 1, player, inventory, equipment);
-            else addMessage("No puedes salir aún", 'info');
-        } else if (!goUp && player.x === stairs.x && player.y === stairs.y) {
-            if (enemies.some(e => e.isBoss)) addMessage("¡Mata al jefe primero!", 'info');
-            else initGame(level + 1, player, inventory, equipment);
-        } else {
-            addMessage("No hay escaleras aquí", 'info');
-        }
+      if (goUp && dungeon.stairsUp && player.x === dungeon.stairsUp.x && player.y === dungeon.stairsUp.y) {
+        if (dungeon.level > 1) initGame(dungeon.level - 1, player);
+        else addMessage("No puedes salir aún", 'info');
+      } else if (!goUp && player.x === dungeon.stairs.x && player.y === dungeon.stairs.y) {
+        if (dungeon.enemies.some(e => e.isBoss)) addMessage("¡Mata al jefe primero!", 'info');
+        else initGame(dungeon.level + 1, player);
+      } else {
+        addMessage("No hay escaleras aquí", 'info');
+      }
     },
 
-    // Wrappers simples
-    useItem: (i) => updateState(s => { 
-        const r = useItem(s.inventory, i, s.player); 
-        if(r.success) r.effects.forEach(m => addMessage(m, 'heal'));
-        else addMessage(r.message, 'info');
-    }),
-    equipItem: (i) => updateState(s => {
-        const r = equipItem(s.inventory, i, s.equipment, s.player);
-        addMessage(r.message, r.success ? 'pickup' : 'info');
-    }),
-    unequipItem: (slot) => updateState(s => {
-        const r = unequipItem(s.equipment, slot, s.inventory, s.player);
-        addMessage(r.message, 'info');
-    }),
-    dropItem: (i) => updateState(s => {
-        const item = s.inventory[i];
-        item.x = s.player.x; item.y = s.player.y;
-        s.items.push(item); s.inventory.splice(i, 1);
-        addMessage(`Soltaste ${item.name}`, 'info');
-    }),
-    // ... Resto de acciones (buy, sell, craft...) se mantienen igual, asegúrate de usar updateState
-    buyItem: (item) => updateState(s => { 
-        if(s.player.gold >= item.price) { 
-             const r = addToInventory(s.inventory, {...item, id: Date.now()});
-             if(r.success) { s.player.gold -= item.price; addMessage(`Comprado: ${item.name}`, 'pickup'); }
-             else addMessage("Inventario lleno", 'info');
-        } else addMessage("Oro insuficiente", 'info');
-    }),
-    sellItem: (i, p) => updateState(s => {
-        const item = s.inventory[i]; s.inventory.splice(i, 1); s.player.gold += p;
-        addMessage(`Vendiste ${item.name} por ${p}`, 'pickup');
-    }),
-    acceptQuest: (q) => { if(!activeQuests.includes(q.id)) setActiveQuests(p => [...p, q.id]); },
-    completeQuest: (q) => {
-        if(activeQuests.includes(q.id)) {
-            setActiveQuests(p => p.filter(x => x !== q.id));
-            setCompletedQuests(p => [...p, q.id]);
-            updateState(s => {
-                if(q.reward.gold) s.player.gold += q.reward.gold;
-                if(q.reward.exp) s.player.exp += q.reward.exp;
-                if(q.reward.item) addToInventory(s.inventory, {...q.reward.item, id: Date.now()});
-                addMessage(`Misión completada: ${q.name}`, 'levelup');
-                checkLevelUp(s.player);
-            });
-        }
+    // Wrappers de Inventario
+    useItem: (index) => {
+      const newInv = [...inventory];
+      const res = useItemLogic(newInv, index, player);
+      
+      if (res.success) {
+        setInventory(newInv);
+        setPlayer({ ...player }); // Forzar update porque useItemLogic muta player
+        res.effects.forEach(m => addMessage(m, 'heal'));
+      } else {
+        addMessage(res.message, 'info');
+      }
     },
-    craftItem: (key) => updateState(s => {
-        const r = craftItem(key, materials, s.inventory);
-        if(r.success) { setMaterials({...materials}); addMessage(r.message, 'pickup'); }
-        else addMessage(r.message, 'info');
-    }),
-    upgradeItem: (slot) => updateState(s => {
-        const item = s.equipment[slot]; if(!item) return;
-        const r = upgradeItem(item, materials, s.player.gold);
-        if(r.success) { setMaterials({...materials}); s.player.gold -= r.goldCost; addMessage(r.message, 'levelup'); }
-        else addMessage(r.message, 'info');
-    }),
-    learnSkill: (id) => updateState(s => { if(learnSkill(s.player.skills, id).success) addMessage("Habilidad aprendida", 'levelup'); }),
-    upgradeSkill: (id) => updateState(s => { if(upgradeSkill(s.player.skills, id).success) addMessage("Habilidad mejorada", 'levelup'); }),
-    evolveClass: (c) => updateState(s => { if(evolveClass(s.player.skills, c).success) addMessage("Clase evolucionada!", 'levelup'); }),
-
-    // Setters directos
-    setPlayerName, setSelectedSkill, setRangedMode, setRangedTargets,
-    assignQuickSlot: (i, id) => setQuickSlots(p => assignToQuickSlot(p, i, id)),
-    useQuickSlot: (i) => updateState(s => {
-        const r = processQuickSlot(quickSlots, i, s.inventory);
-        if(r.success) { useItem(s.inventory, r.itemIndex, s.player); addMessage("Objeto rápido usado", 'heal'); }
-        else addMessage(r.message, 'info');
-    }),
+    
+    saveGame: () => {
+      saveSystem({ player, inventory, equipment, level: dungeon.level, bossDefeated: dungeon.bossDefeated }, stats, activeQuests, completedQuests, questProgress, materials, quickSlots);
+      addMessage("Juego guardado", 'info');
+    },
+    
     selectCharacter: (k, a) => { setPlayerName(playerName || 'Héroe'); setSelectedAppearance(k); setPlayerClass(a.class); setGameStarted(true); },
-    saveGame: () => { saveSystem(gameState, stats, activeQuests, completedQuests, questProgress, materials, quickSlots); addMessage("Juego guardado", 'info'); },
-    loadGame: () => { const d = loadSystem(); if(d) { setGameState(d.gameState); setStats(d.stats); setGameStarted(true); addMessage("Juego cargado", 'info'); } },
-    restart: () => { setGameStarted(false); setGameState(null); setGameOver(false); }
+    setPlayerName, setSelectedSkill, setRangedMode, setRangedTargets, restart: () => { setGameStarted(false); setGameOver(false); setPlayer(null); },
+    
+    equipItem: (idx) => {
+        const newInv = [...inventory];
+        const newEq = { ...equipment };
+        const res = equipItemLogic(newInv, idx, newEq, player);
+        if(res.success) {
+            setInventory(newInv); setEquipment(newEq); setPlayer({...player});
+            addMessage(res.message, 'pickup');
+        } else addMessage(res.message, 'info');
+    },
+    unequipItem: (slot) => {
+        const newInv = [...inventory];
+        const newEq = { ...equipment };
+        const res = unequipItemLogic(newEq, slot, newInv, player);
+        if(res.success) {
+            setInventory(newInv); setEquipment(newEq); setPlayer({...player});
+            addMessage(res.message, 'info');
+        } else addMessage(res.message, 'info');
+    },
+    dropItem: (idx) => {
+        const newInv = [...inventory];
+        const item = newInv[idx];
+        newInv.splice(idx, 1);
+        setInventory(newInv);
+        setDungeon(prev => ({ ...prev, items: [...prev.items, { ...item, x: player.x, y: player.y }] }));
+        addMessage(`Soltaste ${item.name}`, 'info');
+    },
+    craftItem: (key) => {
+        const newMats = { ...materials };
+        const newInv = [...inventory];
+        const res = craftItem(key, newMats, newInv);
+        if(res.success) {
+            setMaterials(newMats); setInventory(newInv);
+            addMessage(res.message, 'pickup');
+        } else addMessage(res.message, 'info');
+    },
+    upgradeItem: (slot) => {
+        const newEq = { ...equipment };
+        const item = newEq[slot];
+        if(!item) return;
+        const newMats = { ...materials };
+        const res = upgradeItem(item, newMats, player.gold);
+        if(res.success) {
+            setMaterials(newMats); setEquipment(newEq); 
+            updatePlayer({ gold: player.gold - res.goldCost });
+            addMessage(res.message, 'levelup');
+        } else addMessage(res.message, 'info');
+    },
+    
+    assignQuickSlot: (idx, itemId) => setQuickSlots(prev => assignToQuickSlot(prev, idx, itemId)),
+    useQuickSlot: (idx) => {
+        const newInv = [...inventory];
+        const res = processQuickSlot(quickSlots, idx, newInv);
+        if (res.success) {
+            const useRes = useItemLogic(newInv, res.itemIndex, player);
+            if (useRes.success) {
+                setInventory(newInv); setPlayer({...player});
+                addMessage("Objeto rápido usado", 'heal');
+            }
+        }
+    },
+    
+    learnSkill: (id) => {
+        const newSkills = JSON.parse(JSON.stringify(player.skills));
+        const res = learnSkill(newSkills, id);
+        if(res.success) {
+            updatePlayer({ skills: newSkills });
+            addMessage("Habilidad aprendida", 'levelup');
+        }
+    },
+    upgradeSkill: (id) => {
+        const newSkills = JSON.parse(JSON.stringify(player.skills));
+        const res = upgradeSkill(newSkills, id);
+        if(res.success) {
+            updatePlayer({ skills: newSkills });
+            addMessage("Habilidad mejorada", 'levelup');
+        }
+    },
+    evolveClass: (cls) => {
+        const newSkills = JSON.parse(JSON.stringify(player.skills));
+        const res = evolveClass(newSkills, cls);
+        if(res.success) {
+            updatePlayer({ skills: newSkills });
+            addMessage("Clase evolucionada!", 'levelup');
+        }
+    },
+    loadGame: () => {
+        const d = loadSystem();
+        if(d) {
+            const { gameState: savedGS, stats: sStats, activeQuests: sAQ, completedQuests: sCQ, questProgress: sQP, materials: sMat, quickSlots: sQS } = d;
+            setPlayer(savedGS.player);
+            setDungeon({
+                ...savedGS, 
+                visible: Array(35).fill().map(() => Array(50).fill(false)),
+                explored: Array(35).fill().map(() => Array(50).fill(false)), 
+            });
+            setInventory(savedGS.inventory);
+            setEquipment(savedGS.equipment);
+            setStats(sStats); setActiveQuests(sAQ); setCompletedQuests(sCQ); setQuestProgress(sQP); setMaterials(sMat); setQuickSlots(sQS);
+            setGameStarted(true);
+            addMessage("Juego cargado", 'info');
+            updateMapFOV(savedGS.player.x, savedGS.player.y);
+        }
+    }
   };
 
-  useEffect(() => { if (gameStarted && !gameState) initGame(1); }, [gameStarted, gameState, initGame]);
+  useEffect(() => {
+    if (gameStarted && !player) {
+      initGame(1);
+    }
+  }, [gameStarted, player, initGame]);
 
-  return { gameState, gameStarted, gameOver, messages, stats, playerInfo: { name: playerName, class: playerClass, appearance: selectedAppearance }, uiState: { activeQuests, completedQuests, questProgress, materials, quickSlots, selectedSkill, rangedMode, rangedTargets }, actions };
+  const gameState = {
+    player,
+    map: dungeon.map,
+    enemies: dungeon.enemies,
+    items: dungeon.items,
+    chests: dungeon.chests,
+    torches: dungeon.torches,
+    npcs: dungeon.npcs,
+    stairs: dungeon.stairs,
+    stairsUp: dungeon.stairsUp,
+    visible: dungeon.visible,
+    explored: dungeon.explored,
+    level: dungeon.level,
+    bossDefeated: dungeon.bossDefeated,
+    inventory,
+    equipment,
+    questProgress,
+    materials
+  };
+
+  return {
+    gameState,
+    gameStarted,
+    gameOver,
+    messages,
+    stats,
+    playerInfo: { name: playerName, class: playerClass, appearance: selectedAppearance },
+    uiState: { activeQuests, completedQuests, questProgress, materials, quickSlots, selectedSkill, rangedMode, rangedTargets },
+    actions
+  };
 }

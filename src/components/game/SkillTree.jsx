@@ -2,7 +2,12 @@ import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, ChevronRight, Star, Zap, ChevronDown } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { SKILLS, SKILL_TREES, CLASS_EVOLUTIONS, getClassSkills, getSkillLevel, canEvolve, getEvolutionOptions } from './SkillSystem';
+
+// --- IMPORTACIONES CORREGIDAS ---
+// 1. Funciones de lógica desde el sistema
+import { getClassSkills, getSkillLevel, canEvolve, getEvolutionOptions } from './SkillSystem';
+// 2. Datos estáticos desde la nueva capa de datos
+import { SKILLS, SKILL_TREES, CLASS_EVOLUTIONS } from '@/data/skills';
 
 export default function SkillTree({ 
   isOpen, 
@@ -23,7 +28,7 @@ export default function SkillTree({
   if (!isOpen) return null;
   
   const treeInfo = SKILL_TREES[evolvedClass || playerClass] || SKILL_TREES.warrior;
-  const baseTreeInfo = SKILL_TREES[playerClass] || SKILL_TREES.warrior;
+  // const baseTreeInfo = SKILL_TREES[playerClass] || SKILL_TREES.warrior; // (Variable no usada, se puede quitar o dejar)
   
   // Get skills for current class (and evolved if applicable)
   const classSkills = getClassSkills(playerClass, evolvedClass);

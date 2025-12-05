@@ -24,6 +24,7 @@ export default function Game() {
 
   useEffect(() => {
     if (gameState && activeNPC) {
+      // Cerrar diálogo si el jugador se aleja
       const dist = Math.abs(activeNPC.x - gameState.player.x) + Math.abs(activeNPC.y - gameState.player.y);
       if (dist > 1) setActiveNPC(null);
     }
@@ -31,6 +32,7 @@ export default function Game() {
 
   useInputHandler({ gameStarted, gameOver, uiState, actions, gameState, modals });
 
+  // 1. PANTALLA DE SELECCIÓN DE PERSONAJE
   if (!gameStarted) {
     const hasSave = hasSaveGame();
     return (
@@ -43,32 +45,63 @@ export default function Game() {
     );
   }
 
+  // 2. PANTALLA DE CARGA (SOLUCIÓN AL ERROR)
+  // Esperamos a que el jugador y el mapa existan antes de renderizar el juego
+  if (!gameState || !gameState.player || !gameState.map || gameState.map.length === 0) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-screen text-white bg-slate-950">
+        <div className="w-16 h-16 mb-4 border-4 border-blue-500 rounded-full border-t-transparent animate-spin"></div>
+        <h2 className="text-xl font-bold animate-pulse">Generando mazmorra...</h2>
+        <p className="mt-2 text-sm text-slate-400">Preparando los sprites y enemigos</p>
+      </div>
+    );
+  }
+
+  // 3. INTERFAZ DE JUEGO PRINCIPAL
   const isInteractable = gameState && !activeNPC && (gameState.npcs?.some(n => Math.abs(n.x-gameState.player.x)+Math.abs(n.y-gameState.player.y)<=1) || gameState.chests?.some(c => Math.abs(c.x-gameState.player.x)+Math.abs(c.y-gameState.player.y)<=1 && !c.opened));
 
   return (
     <div className="min-h-screen p-2 bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950">
       <div className="max-w-7xl mx-auto h-[calc(100vh-16px)] flex gap-2">
+        
+        {/* COLUMNA IZQUIERDA: Habilidades y Objetos Rápidos */}
         <div className="flex flex-col w-20 gap-2">
-          <SkillBar skills={gameState?.player?.skills} playerLevel={gameState?.player?.level} cooldowns={gameState?.player?.skills?.cooldowns} selectedSkill={uiState.selectedSkill} onSelectSkill={actions.setSelectedSkill} disabled={inventoryOpen || gameOver} playerClass={playerInfo.class} />
+          <SkillBar skills={gameState?.player?.skills} playerLevel={gameState?.player?.level} cooldowns={gameState?.player?.skills?.cooldowns} selectedSkill={uiState.selectedSkill} onSelectSkill={actions.setSelectedSkill} disabled={inventoryOpen || gameOver} />
           <QuickSlots quickSlots={uiState.quickSlots} onUseSlot={actions.useQuickSlot} disabled={inventoryOpen || gameOver} inventory={gameState?.inventory} />
         </div>
+
+        {/* COLUMNA CENTRAL: Tablero y Log */}
         <div className="flex flex-col flex-1 min-w-0 gap-4 overflow-hidden">
-          <div className="relative flex items-center justify-center">
-              <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}><GameBoard gameState={gameState} viewportWidth={23} viewportHeight={15} /></motion.div>
-              {isInteractable && <div className="absolute z-10 transform -translate-x-1/2 -translate-y-12 pointer-events-none top-1/2 left-1/2"><div className="bg-slate-900/90 text-yellow-400 px-3 py-1.5 rounded-full text-xs font-bold border border-yellow-500/50 shadow-lg">E - Interactuar</div></div>}
+          <div className="relative flex items-center justify-center p-1 border bg-black/50 rounded-xl border-slate-800">
+              <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
+                <GameBoard gameState={gameState} viewportWidth={23} viewportHeight={15} />
+              </motion.div>
+              {isInteractable && (
+                <div className="absolute z-10 transform -translate-x-1/2 -translate-y-16 top-1/2 left-1/2 animate-bounce">
+                  <div className="bg-slate-900/90 text-yellow-400 px-3 py-1.5 rounded-full text-xs font-bold border border-yellow-500/50 shadow-lg flex items-center gap-2">
+                    <span className="w-5 h-5 bg-yellow-500 text-black rounded flex items-center justify-center text-[10px]">E</span>
+                    Interactuar
+                  </div>
+                </div>
+              )}
           </div>
-          <div className="h-28 w-full max-w-[744px] mx-auto flex-shrink-0"><MessageLog messages={messages} /></div>
+          <div className="h-32 w-full max-w-[744px] mx-auto flex-shrink-0">
+            <MessageLog messages={messages} />
+          </div>
         </div>
+
+        {/* COLUMNA DERECHA: Stats y Menús */}
         <div className="flex flex-col w-48 gap-2">
           <PlayerStats player={gameState?.player} dungeonLevel={gameState?.level} onOpenInventory={() => setInventoryOpen(true)} inventoryCount={gameState?.inventory?.length} appearance={playerInfo.appearance} playerClass={playerInfo.class} />
           <MiniMap gameState={gameState} />
-          <div className="flex flex-col gap-1">
-            <Button onClick={() => setCraftingOpen(true)} className="h-6 text-[10px] bg-amber-800">⚒ Artesanía [C]</Button>
-            <Button onClick={() => setSkillTreeOpen(true)} className="h-6 text-[10px] bg-purple-900">✦ Habilidades [T]</Button>
-            <Button onClick={actions.saveGame} className="h-6 text-[10px] bg-slate-800">💾 Guardar [G]</Button>
+          <div className="flex flex-col gap-1 mt-auto">
+            <Button onClick={() => setCraftingOpen(true)} className="h-8 text-xs border bg-amber-900/80 hover:bg-amber-800 border-amber-700/50">⚒ Artesanía [C]</Button>
+            <Button onClick={() => setSkillTreeOpen(true)} className="h-8 text-xs border bg-purple-900/80 hover:bg-purple-800 border-purple-700/50">✦ Habilidades [T]</Button>
+            <Button onClick={actions.saveGame} className="h-8 text-xs border bg-slate-800 hover:bg-slate-700 border-slate-600">💾 Guardar [G]</Button>
           </div>
         </div>
       </div>
+
       <GameOverlays gameState={gameState} uiState={uiState} actions={actions} modals={modals} playerInfo={playerInfo} stats={stats} gameOver={gameOver} onRestart={actions.restart} />
     </div>
   );

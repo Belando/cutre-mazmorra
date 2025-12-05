@@ -1,16 +1,6 @@
 // Large enemy definitions and rendering
-
+import { LARGE_ENEMIES } from '@/data/enemies';
 // Enemies that occupy multiple tiles
-export const LARGE_ENEMIES = {
-  // Bosses that are 2x2 tiles
-  106: { width: 2, height: 2, name: 'ancient_dragon' },  // Ancient Dragon
-  105: { width: 2, height: 2, name: 'demon_lord' },      // Demon Lord
-  108: { width: 2, height: 2, name: 'golem_king' },      // Golem King
-  // Regular enemies that are 1.5x size
-  9: { width: 1, height: 1, scale: 1.3, name: 'troll' }, // Troll - larger sprite
-  12: { width: 1, height: 1, scale: 1.2, name: 'dragon' }, // Young Dragon
-  16: { width: 1, height: 1, scale: 1.2, name: 'golem' }, // Golem
-};
 
 // Check if enemy is large
 export function isLargeEnemy(enemyType) {

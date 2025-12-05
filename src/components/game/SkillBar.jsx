@@ -1,8 +1,7 @@
 import React from 'react';
-import { SKILLS, canUseSkill, getUnlockedSkills } from './SkillSystem';
+import { canUseSkill, getUnlockedSkills } from './SkillSystem';
+import { SKILLS } from '@/data/skills'; // <--- CORRECCIÓN AQUÍ
 import { cn } from '@/lib/utils';
-
-// Skill translations remain in SkillSystem.js names
 
 export default function SkillBar({ 
   skills, 

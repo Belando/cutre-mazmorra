@@ -1,6 +1,5 @@
-// src/components/game/EnemyAI.jsx
 // Sistema de Inteligencia Artificial para Enemigos
-
+import { ENEMY_RANGED_INFO } from '@/data/enemies';
 import { hasLineOfSight } from './CombatSystem'; 
 
 // Tipos de comportamiento
@@ -31,21 +30,6 @@ export function getEnemyBehavior(enemyType) {
   
   return behaviors[enemyType] || AI_BEHAVIORS.AGGRESSIVE;
 }
-
-// Información de ataques a distancia
-const ENEMY_RANGED_INFO = {
-  3: { range: 4, name: 'Chillido', preferMelee: false },
-  7: { range: 4, name: 'Telaraña', preferMelee: true },
-  10: { range: 5, name: 'Rayo Espectral', preferMelee: false }, 
-  11: { range: 5, name: 'Bola de Fuego', preferMelee: true },  
-  12: { range: 6, name: 'Aliento de Fuego', preferMelee: true }, 
-  15: { range: 6, name: 'Rayo Oscuro', preferMelee: false },   
-  17: { range: 5, name: 'Drenar Vida', preferMelee: false },   
-  104: { range: 7, name: 'Rayo de Hielo', preferMelee: false }, 
-  105: { range: 6, name: 'Infierno', preferMelee: true },     
-  106: { range: 8, name: 'Llamarada', preferMelee: true },    
-  107: { range: 5, name: 'Drenar Almas', preferMelee: false }, 
-};
 
 export function isRangedEnemy(enemyType) {
   return !!ENEMY_RANGED_INFO[enemyType];
