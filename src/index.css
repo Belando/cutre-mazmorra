@@ -3,3 +3,23 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+/* Contenedor principal del Canvas */
+.game-viewport {
+  position: relative;
+  overflow: hidden;
+  /* Un borde sutil para enmarcar la acción */
+  box-shadow: 0 0 20px rgba(0, 0, 0, 0.8);
+  /* El truco del Bloom: Aumenta contraste y brillo globalmente */
+  filter: contrast(1.15) brightness(1.1) drop-shadow(0 0 4px rgba(255, 255, 255, 0.2));
+}
+
+/* UI (Vida, puntuación) para que no se vea afectada por el filtro */
+.game-ui {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  pointer-events: none;
+  z-index: 10;
+}

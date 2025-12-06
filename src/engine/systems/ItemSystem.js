@@ -1,4 +1,4 @@
-import { ITEM_TEMPLATES, WEAPON_TYPES, ARMOR_TYPES, RARITY_REQUIREMENTS, RARITY_WEIGHT} from '@/data/items';
+import { ITEM_TEMPLATES, WEAPON_TYPES, ARMOR_TYPES, RARITY_REQUIREMENTS, RARITY_WEIGHTS} from '@/data/items';
 
 export function getItemRequiredAttribute(item) {
   if (!item) return null;

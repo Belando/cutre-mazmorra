@@ -52,14 +52,16 @@ export function useGameActions(context) {
         const nx = player.x + dx;
         const ny = player.y + dy;
         
+        // 1. Límites y Muros
         if (nx < 0 || nx >= dungeon.map[0].length || ny < 0 || ny >= dungeon.map.length || dungeon.map[ny][nx] === TILE.WALL) return;
         
+        // 2. Cofres
         if (dungeon.chests.some(c => c.x === nx && c.y === ny)) {
             addMessage("Un cofre bloquea el camino (Usa 'E')", 'info');
             return;
         }
         
-        // --- COLISIÓN ENEMIGOS ---
+        // 3. --- COLISIÓN ENEMIGOS ---
         const enemyIdx = dungeon.enemies.findIndex(e => e.x === nx && e.y === ny);
         if (enemyIdx !== -1) {
             const enemy = dungeon.enemies[enemyIdx];
@@ -78,21 +80,29 @@ export function useGameActions(context) {
                 }
             }
 
+            // A. CÁLCULO DE DAÑO
             const pStats = calculatePlayerStats(player);
             const buffs = calculateBuffBonuses(player.skills.buffs, pStats);
             const dmg = Math.max(1, (pStats.attack + buffs.attackBonus) - enemy.defense + Math.floor(Math.random()*3));
             const isCrit = dmg > pStats.attack * 1.5;
 
+            // B. EFECTOS (Visual + Audio)
             soundManager.play(isCrit ? 'critical' : 'attack');
             effectsManager.current.addBlood(nx, ny);
             effectsManager.current.addText(nx, ny, dmg, isCrit ? '#ef4444' : '#fff', isCrit);
             
+            // Screen Shake (Temblor) 
+            const shakeAmount = isCrit ? 10 : 5; 
+            effectsManager.current.addShake(shakeAmount);
+
+            // C. APLICAR DAÑO (Estado)
             const newEnemies = [...dungeon.enemies];
             newEnemies[enemyIdx].hp -= dmg;
             setDungeon(prev => ({ ...prev, enemies: newEnemies }));
             
             addMessage(`Atacas a ${ENEMY_STATS[enemy.type].name}: ${dmg} daño`, 'player_damage');
             
+            // D. VERIFICAR MUERTE
             if (newEnemies[enemyIdx].hp <= 0) {
                 soundManager.play('kill');
                 effectsManager.current.addExplosion(nx, ny, '#52525b'); 
@@ -104,16 +114,17 @@ export function useGameActions(context) {
             return;
         }
         
+        // 4. NPCs
         if (dungeon.npcs.some(n => n.x === nx && n.y === ny)) {
             addMessage("Un NPC bloquea el camino", 'info');
             return;
         }
         
-        // Movimiento Exitoso
+        // 5. Movimiento Exitoso
         const nextPlayerState = { ...player, x: nx, y: ny };
         updatePlayer({ x: nx, y: ny });
         
-        // Items
+        // 6. Items
         const itemIdx = dungeon.items.findIndex(i => i.x === nx && i.y === ny);
         if (itemIdx !== -1) {
             const item = dungeon.items[itemIdx];
