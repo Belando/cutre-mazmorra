@@ -46,7 +46,9 @@ export const ENTITY = {
 
 // Tipos de NPC (traído de NPCSystem.jsx)
 export const NPC_TYPES = {
-  MERCHANT: 'merchant',
-  QUEST_GIVER: 'quest_giver',
-  SAGE: 'sage',
+  MERCHANT: "merchant",
+  QUEST_GIVER: "quest_giver",
+  SAGE: "sage",
 };
+
+export const SIZE = 32;

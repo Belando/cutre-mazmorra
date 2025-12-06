@@ -12,7 +12,7 @@ function reconstructPath(node) {
     current = current.parent;
   }
   // El camino viene del final al inicio, lo invertimos y devolvemos el primer paso
-  return path.reverse()[0] || null; 
+  return path.reverse()[0] || null;
 }
 
 export function findPath(startX, startY, targetX, targetY, map) {
@@ -26,9 +26,9 @@ export function findPath(startX, startY, targetX, targetY, map) {
     y: startY,
     g: 0, // Coste real desde el inicio
     f: 0, // Coste total estimado
-    parent: null
+    parent: null,
   };
-  
+
   startNode.f = heuristic(startNode, { x: targetX, y: targetY });
   openSet.push(startNode);
 
@@ -38,7 +38,7 @@ export function findPath(startX, startY, targetX, targetY, map) {
 
   while (openSet.length > 0) {
     iterations++;
-    if (iterations > maxIterations) return null; 
+    if (iterations > maxIterations) return null;
 
     // 1. Obtener el nodo con menor coste F
     openSet.sort((a, b) => a.f - b.f);
@@ -56,7 +56,7 @@ export function findPath(startX, startY, targetX, targetY, map) {
       { x: current.x, y: current.y - 1 },
       { x: current.x, y: current.y + 1 },
       { x: current.x - 1, y: current.y },
-      { x: current.x + 1, y: current.y }
+      { x: current.x + 1, y: current.y },
     ];
 
     for (const neighborPos of neighbors) {
@@ -64,20 +64,28 @@ export function findPath(startX, startY, targetX, targetY, map) {
       if (closedSet.has(`${neighborPos.x},${neighborPos.y}`)) continue;
 
       // Verificar límites del mapa
-      if (neighborPos.y < 0 || neighborPos.y >= map.length || 
-          neighborPos.x < 0 || neighborPos.x >= map[0].length) continue;
+      if (
+        neighborPos.y < 0 ||
+        neighborPos.y >= map.length ||
+        neighborPos.x < 0 ||
+        neighborPos.x >= map[0].length
+      )
+        continue;
 
       // Verificar si es un muro (Asumimos 0 = WALL según tus constantes)
       const isWall = map[neighborPos.y][neighborPos.x] === 0;
-      
+
       // Permitimos que el destino sea un muro (para atacar al jugador si está en una puerta),
       // pero el camino intermedio debe ser libre.
-      if (isWall && (neighborPos.x !== targetX || neighborPos.y !== targetY)) continue;
+      if (isWall && (neighborPos.x !== targetX || neighborPos.y !== targetY))
+        continue;
 
       const gScore = current.g + 1;
 
       // Comprobar si ya encontramos un camino mejor a este vecino
-      const existingNode = openSet.find(n => n.x === neighborPos.x && n.y === neighborPos.y);
+      const existingNode = openSet.find(
+        (n) => n.x === neighborPos.x && n.y === neighborPos.y
+      );
 
       if (!existingNode) {
         const newNode = {
@@ -85,13 +93,14 @@ export function findPath(startX, startY, targetX, targetY, map) {
           y: neighborPos.y,
           g: gScore,
           f: gScore + heuristic(neighborPos, { x: targetX, y: targetY }),
-          parent: current
+          parent: current,
         };
         openSet.push(newNode);
       } else if (gScore < existingNode.g) {
         // Actualizar camino si este es más rápido
         existingNode.g = gScore;
-        existingNode.f = gScore + heuristic(neighborPos, { x: targetX, y: targetY });
+        existingNode.f =
+          gScore + heuristic(neighborPos, { x: targetX, y: targetY });
         existingNode.parent = current;
       }
     }
