@@ -1,11 +1,13 @@
-import { TILE, ENTITY } from '@/data/constants';
+import { TILE } from '@/data/constants';
 import { ENEMY_STATS } from '@/data/enemies';
 import { SKILLS } from '@/data/skills';
 import { soundManager } from "@/engine/systems/SoundSystem";
+import { calculatePlayerHit } from '@/engine/systems/CombatSystem';
+import { craftItem, upgradeItem } from '@/engine/systems/CraftingSystem';
+import { useQuickSlot as processQuickSlot, assignToQuickSlot } from '@/components/ui/QuickSlots';
+import { saveGame as saveSystem, loadGame as loadSystem } from '@/engine/systems/SaveSystem';
 
-// --- CORRECCIÓN DE IMPORTACIONES ---
 import { 
-  calculatePlayerStats, 
   useItem as useItemLogic, 
   equipItem as equipItemLogic, 
   unequipItem as unequipItemLogic 
@@ -15,14 +17,8 @@ import {
   learnSkill, 
   upgradeSkill, 
   evolveClass, 
-  canUseSkill, 
-  calculateBuffBonuses 
+  canUseSkill
 } from '@/engine/systems/SkillSystem';
-// -----------------------------------
-
-import { craftItem, upgradeItem } from '@/engine/systems/CraftingSystem';
-import { useQuickSlot as processQuickSlot, assignToQuickSlot } from '@/components/ui/QuickSlots';
-import { saveGame as saveSystem, loadGame as loadSystem } from '@/engine/systems/SaveSystem';
 
 export function useGameActions(context) {
   const {
@@ -30,12 +26,11 @@ export function useGameActions(context) {
     dungeon, setDungeon,
     inventory, setInventory, addItem,
     equipment, setEquipment,
-    materials, setMaterials, addMaterial,
+    materials, setMaterials, 
     quickSlots, setQuickSlots,
     stats, setStats,
     activeQuests, setActiveQuests,
     completedQuests, setCompletedQuests,
-    questProgress, setQuestProgress,
     // Funciones del Engine/Effects
     initGame, executeTurn, addMessage, showFloatingText, effectsManager,
     // UI State Setters
@@ -46,7 +41,39 @@ export function useGameActions(context) {
     selectedSkill
   } = context;
 
-  // --- DEFINICIÓN DE ACCIONES ---
+  // --- SUB-ACCIONES (Helpers privados) ---
+  
+  const performAttack = (enemy, enemyIdx) => {
+      // 1. Calcular Daño (Usando la nueva función del sistema)
+      const { damage, isCrit } = calculatePlayerHit(player, enemy);
+
+      // 2. Feedback Visual y Sonoro
+      soundManager.play(isCrit ? 'critical' : 'attack');
+      effectsManager.current.addBlood(enemy.x, enemy.y);
+      effectsManager.current.addText(enemy.x, enemy.y, damage, isCrit ? '#ef4444' : '#fff', isCrit);
+      
+      const shakeAmount = isCrit ? 10 : 3; // 10 si es crítico, 3 si es normal
+      effectsManager.current.addShake(shakeAmount);
+
+      // 3. Aplicar Daño al Estado
+      const newEnemies = [...dungeon.enemies];
+      newEnemies[enemyIdx].hp -= damage;
+      setDungeon(prev => ({ ...prev, enemies: newEnemies }));
+      
+      addMessage(`Golpeas a ${ENEMY_STATS[enemy.type].name}: ${damage}`, 'player_damage');
+      
+      // 4. Verificar Muerte
+      if (newEnemies[enemyIdx].hp <= 0) {
+          soundManager.play('kill');
+          effectsManager.current.addExplosion(enemy.x, enemy.y, '#52525b'); 
+          // handleEnemyDeath devuelve la nueva lista de enemigos sin el muerto
+          return handleEnemyDeath(enemyIdx); 
+      }
+      return newEnemies;
+  };
+
+  // --- ACCIONES PÚBLICAS ---
+
   const actions = {
     move: (dx, dy) => {
         const nx = player.x + dx;
@@ -55,13 +82,17 @@ export function useGameActions(context) {
         // 1. Límites y Muros
         if (nx < 0 || nx >= dungeon.map[0].length || ny < 0 || ny >= dungeon.map.length || dungeon.map[ny][nx] === TILE.WALL) return;
         
-        // 2. Cofres
+        // 2. Objetos bloqueantes (Cofres y NPCs)
         if (dungeon.chests.some(c => c.x === nx && c.y === ny)) {
             addMessage("Un cofre bloquea el camino (Usa 'E')", 'info');
             return;
         }
+        if (dungeon.npcs.some(n => n.x === nx && n.y === ny)) {
+            addMessage("Un NPC bloquea el camino (Usa 'E')", 'info');
+            return;
+        }
         
-        // 3. --- COLISIÓN ENEMIGOS ---
+        // 3. --- COMBATE (Colisión Enemigos) ---
         const enemyIdx = dungeon.enemies.findIndex(e => e.x === nx && e.y === ny);
         if (enemyIdx !== -1) {
             const enemy = dungeon.enemies[enemyIdx];
@@ -72,7 +103,7 @@ export function useGameActions(context) {
                 if (skill.type === 'melee') {
                     if (canUseSkill(selectedSkill, player.skills.cooldowns)) {
                         const success = executeSkillAction(selectedSkill, enemy);
-                        if (success) return; 
+                        if (success) return; // Si la skill funcionó, terminamos
                     } else {
                         addMessage("¡Habilidad en enfriamiento!", 'info');
                         return; 
@@ -80,71 +111,55 @@ export function useGameActions(context) {
                 }
             }
 
-            // A. CÁLCULO DE DAÑO
-            const pStats = calculatePlayerStats(player);
-            const buffs = calculateBuffBonuses(player.skills.buffs, pStats);
-            const dmg = Math.max(1, (pStats.attack + buffs.attackBonus) - enemy.defense + Math.floor(Math.random()*3));
-            const isCrit = dmg > pStats.attack * 1.5;
-
-            // B. EFECTOS (Visual + Audio)
-            soundManager.play(isCrit ? 'critical' : 'attack');
-            effectsManager.current.addBlood(nx, ny);
-            effectsManager.current.addText(nx, ny, dmg, isCrit ? '#ef4444' : '#fff', isCrit);
+            // Ataque normal (Usa el helper limpio)
+            const nextEnemiesState = performAttack(enemy, enemyIdx);
             
-            // Screen Shake (Temblor) 
-            const shakeAmount = isCrit ? 10 : 5; 
-            effectsManager.current.addShake(shakeAmount);
-
-            // C. APLICAR DAÑO (Estado)
-            const newEnemies = [...dungeon.enemies];
-            newEnemies[enemyIdx].hp -= dmg;
-            setDungeon(prev => ({ ...prev, enemies: newEnemies }));
-            
-            addMessage(`Atacas a ${ENEMY_STATS[enemy.type].name}: ${dmg} daño`, 'player_damage');
-            
-            // D. VERIFICAR MUERTE
-            if (newEnemies[enemyIdx].hp <= 0) {
-                soundManager.play('kill');
-                effectsManager.current.addExplosion(nx, ny, '#52525b'); 
-                const aliveEnemies = handleEnemyDeath(enemyIdx);
-                executeTurn(player, aliveEnemies);
-            } else {
-                executeTurn(player);
-            }
+            // Pasamos el turno (si murió, nextEnemiesState ya no tiene al enemigo)
+            executeTurn(player, nextEnemiesState);
             return;
         }
         
-        // 4. NPCs
-        if (dungeon.npcs.some(n => n.x === nx && n.y === ny)) {
-            addMessage("Un NPC bloquea el camino", 'info');
-            return;
-        }
-        
-        // 5. Movimiento Exitoso
-        const nextPlayerState = { ...player, x: nx, y: ny };
+        // 4. Movimiento Exitoso
         updatePlayer({ x: nx, y: ny });
         
-        // 6. Items
+        // 5. Recoger Items (Auto-pickup)
         const itemIdx = dungeon.items.findIndex(i => i.x === nx && i.y === ny);
         if (itemIdx !== -1) {
             const item = dungeon.items[itemIdx];
+            
             if (item.category === 'currency') {
+                // Oro (siempre se recoge)
                 soundManager.play('pickup');
                 updatePlayer({ gold: player.gold + item.value });
                 addMessage(`+${item.value} Oro`, 'pickup');
                 effectsManager.current.addText(nx, ny, `+${item.value}`, '#fbbf24');
+                
+                // Borrar del suelo
+                const newItems = [...dungeon.items];
+                newItems.splice(itemIdx, 1);
+                setDungeon(prev => ({ ...prev, items: newItems }));
+
             } else {
-                soundManager.play('pickup');
-                effectsManager.current.addSparkles(nx, ny);
-                addItem(item);
-                addMessage(`Recogiste: ${item.name}`, 'pickup');
+                // Items normales (verificar espacio)
+                const success = addItem(item);
+                if (success) {
+                    soundManager.play('pickup');
+                    effectsManager.current.addSparkles(nx, ny);
+                    addMessage(`Recogiste: ${item.name}`, 'pickup');
+                    
+                    // Borrar del suelo
+                    const newItems = [...dungeon.items];
+                    newItems.splice(itemIdx, 1);
+                    setDungeon(prev => ({ ...prev, items: newItems }));
+                } else {
+                    addMessage("Inventario lleno", 'info');
+                    // No borramos el item, pero el jugador se mueve encima
+                }
             }
-            const newItems = [...dungeon.items];
-            newItems.splice(itemIdx, 1);
-            setDungeon(prev => ({ ...prev, items: newItems }));
         }
         
-        executeTurn(nextPlayerState);
+        // Finalizar turno de movimiento
+        executeTurn({ ...player, x: nx, y: ny });
     },
 
     interact: () => {
@@ -153,6 +168,7 @@ export function useGameActions(context) {
             const tx = player.x + dx;
             const ty = player.y + dy;
 
+            // Interacción con Cofres
             const chestIdx = dungeon.chests.findIndex(c => c.x === tx && c.y === ty);
             if (chestIdx !== -1) {
                 const chest = dungeon.chests[chestIdx];
@@ -163,27 +179,34 @@ export function useGameActions(context) {
                 soundManager.play('chest'); 
                 effectsManager.current.addSparkles(tx, ty, '#fbbf24');
                 const item = chest.item;
-                let newItems = [...dungeon.items];
+                
                 if (item) {
                     const added = addItem(item);
                     if (added) {
                         addMessage(`Encontraste: ${item.name}`, 'pickup');
                         effectsManager.current.addText(tx, ty, item.symbol || 'ITEM', '#fff');
+                        // Solo vaciamos el cofre si se pudo recoger
+                        let newItems = [...dungeon.items];
+                        setDungeon(prev => ({
+                            ...prev,
+                            items: newItems,
+                            chests: prev.chests.map((c, i) => i === chestIdx ? { ...c, isOpen: true } : c)
+                        }));
                     } else {
-                        addMessage("Inventario lleno. El objeto cayó al suelo.", 'info');
-                        newItems.push({ ...item, x: tx, y: ty });
+                        addMessage("Inventario lleno.", 'info');
+                        return null; // No abrimos el cofre
                     }
                 } else {
                     addMessage("El cofre estaba vacío...", 'info');
+                    setDungeon(prev => ({
+                        ...prev,
+                        chests: prev.chests.map((c, i) => i === chestIdx ? { ...c, isOpen: true } : c)
+                    }));
                 }
-                setDungeon(prev => ({
-                    ...prev,
-                    items: newItems,
-                    chests: prev.chests.map((c, i) => i === chestIdx ? { ...c, isOpen: true } : c)
-                }));
                 return { type: 'chest' };
             }
 
+            // Interacción con NPCs
             const npc = dungeon.npcs.find(n => n.x === tx && n.y === ty);
             if (npc) {
                 soundManager.play('speech');
@@ -196,34 +219,8 @@ export function useGameActions(context) {
     },
 
     wait: () => {
-        if (selectedSkill && SKILLS[selectedSkill]) {
-            const skill = SKILLS[selectedSkill];
-            if (['self', 'aoe', 'ultimate', 'ranged'].includes(skill.type)) {
-                if (canUseSkill(selectedSkill, player.skills.cooldowns)) {
-                    let targetEnemy = null;
-                    if (skill.type === 'ranged') {
-                        const targets = dungeon.enemies.filter(e => {
-                            const dist = Math.abs(e.x - player.x) + Math.abs(e.y - player.y);
-                            return dist <= skill.range && dungeon.visible[e.y]?.[e.x];
-                        }).sort((a, b) => {
-                            const distA = Math.abs(a.x - player.x) + Math.abs(a.y - player.y);
-                            const distB = Math.abs(b.x - player.x) + Math.abs(b.y - player.y);
-                            return distA - distB;
-                        });
-                        if (targets.length > 0) targetEnemy = targets[0];
-                        else {
-                            addMessage("No hay enemigos en rango", 'info');
-                            return;
-                        }
-                    }
-                    const success = executeSkillAction(selectedSkill, targetEnemy);
-                    if (success) return; 
-                } else {
-                    addMessage("Habilidad no lista", 'info');
-                    return;
-                }
-            }
-        }
+        addMessage("Esperas un turno...", 'info');
+        executeTurn(player);
     },
 
     descend: (goUp) => {
@@ -302,6 +299,7 @@ export function useGameActions(context) {
             setPlayer({ ...player }); 
             res.effects.forEach(m => addMessage(m, 'heal'));
             showFloatingText(player.x, player.y, "Used", '#fff');
+            soundManager.play('heal');
         } else {
             addMessage(res.message, 'info');
         }
@@ -334,6 +332,7 @@ export function useGameActions(context) {
             setEquipment(res.newEquipment); 
             setPlayer(res.newPlayer);
             addMessage(res.message, 'pickup');
+            soundManager.play('equip');
         } else {
             addMessage(res.message, 'info');
         }
@@ -357,6 +356,7 @@ export function useGameActions(context) {
         const item = newInv[idx];
         newInv.splice(idx, 1);
         setInventory(newInv);
+        // Soltar item en la posición actual del jugador
         setDungeon(prev => ({ ...prev, items: [...prev.items, { ...item, x: player.x, y: player.y }] }));
         addMessage(`Soltaste ${item.name}`, 'info');
     },
@@ -368,6 +368,7 @@ export function useGameActions(context) {
         if(res.success) {
             setMaterials(newMats); setInventory(newInv);
             addMessage(res.message, 'pickup');
+            soundManager.play('equip');
         } else addMessage(res.message, 'info');
     },
 
@@ -381,6 +382,7 @@ export function useGameActions(context) {
             setMaterials(newMats); setEquipment(newEq); 
             updatePlayer({ gold: player.gold - res.goldCost });
             addMessage(res.message, 'levelup');
+            soundManager.play('levelUp');
         } else addMessage(res.message, 'info');
     },
 
@@ -394,16 +396,19 @@ export function useGameActions(context) {
             if (useRes.success) {
                 setInventory(newInv); setPlayer({...player});
                 addMessage("Objeto rápido usado", 'heal');
+                soundManager.play('heal');
             }
         }
     },
 
+    // Wrappers para el sistema de habilidades
     learnSkill: (id) => {
         const newSkills = JSON.parse(JSON.stringify(player.skills));
         const res = learnSkill(newSkills, id);
         if(res.success) {
             updatePlayer({ skills: newSkills });
             addMessage("Habilidad aprendida", 'levelup');
+            soundManager.play('levelUp');
         }
     },
 
@@ -413,6 +418,7 @@ export function useGameActions(context) {
         if(res.success) {
             updatePlayer({ skills: newSkills });
             addMessage("Habilidad mejorada", 'levelup');
+            soundManager.play('levelUp');
         }
     },
 
@@ -421,7 +427,8 @@ export function useGameActions(context) {
         const res = evolveClass(newSkills, cls);
         if(res.success) {
             updatePlayer({ skills: newSkills });
-            addMessage("Clase evolucionada!", 'levelup');
+            addMessage("¡Clase evolucionada!", 'levelup');
+            soundManager.play('start_adventure'); // Sonido épico
         }
     },
 
@@ -432,8 +439,9 @@ export function useGameActions(context) {
             setPlayer(savedGS.player);
             setDungeon({
                 ...savedGS, 
+                // Reiniciar visibilidad al cargar (o podrías guardarla también si quisieras)
                 visible: Array(35).fill().map(() => Array(50).fill(false)),
-                explored: Array(35).fill().map(() => Array(50).fill(false)), 
+                explored: savedGS.explored || Array(35).fill().map(() => Array(50).fill(false)), 
             });
             setInventory(savedGS.inventory);
             setEquipment(savedGS.equipment);

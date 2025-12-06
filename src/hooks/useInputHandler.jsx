@@ -134,11 +134,11 @@ export function useInputHandler({
       if (keys.has('a') || keys.has('arrowleft')) dx -= 1;
       if (keys.has('d') || keys.has('arrowright')) dx += 1;
 
-      // Soporte Numpad / Teclas Nav (Diagonales directas)
-      if (keys.has('home') || keys.has('7')) { dx = -1; dy = -1; }
-      if (keys.has('pageup') || keys.has('9')) { dx = 1; dy = -1; }
-      if (keys.has('end') || keys.has('1')) { dx = -1; dy = 1; }
-      if (keys.has('pagedown') || keys.has('3')) { dx = 1; dy = 1; }
+     // Soporte Numpad / Teclas Nav (Diagonales directas)
+      if (keys.has('home')) { dx = -1; dy = -1; }
+      if (keys.has('pageup')) { dx = 1; dy = -1; }
+      if (keys.has('end')) { dx = -1; dy = 1; }
+      if (keys.has('pagedown')) { dx = 1; dy = 1; }
 
       // Ejecutar movimiento si hay dirección
       if (dx !== 0 || dy !== 0) {

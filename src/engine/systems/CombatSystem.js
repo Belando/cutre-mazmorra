@@ -1,7 +1,5 @@
-// src/components/game/CombatSystem.jsx
-// Sistema Unificado de Combate y Tácticas
-// Reemplaza completamente a RangedCombat.jsx
-
+import { calculatePlayerStats } from './ItemSystem';
+import { calculateBuffBonuses } from './SkillSystem';
 import { getWeaponRange, calculateEquipmentStats } from './EquipmentSystem';
 
 // --- UTILIDADES BÁSICAS Y VISIÓN ---
@@ -130,6 +128,31 @@ export function calculateMeleeDamage(attacker, defender, attackerStats) {
     damage: isCrit ? Math.floor(damage * 1.5) : damage,
     isCrit,
   };
+}
+
+export function calculatePlayerHit(player, targetEnemy) {
+  // 1. Obtener stats base + equipo
+  const stats = calculatePlayerStats(player);
+  
+  // 2. Aplicar buffs activos
+  const buffs = calculateBuffBonuses(player.skills?.buffs || [], stats);
+  
+  // 3. Stats finales
+  const attack = stats.attack + buffs.attackBonus;
+  const critChance = (stats.critChance || 5) + (buffs.critChance || 0); // Asumiendo que añades critChance
+  
+  // 4. Cálculo de daño
+  const defense = targetEnemy.defense || 0;
+  const variance = Math.floor(Math.random() * 3); // Variación 0-2
+  let damage = Math.max(1, attack - defense + variance);
+  
+  // 5. Crítico
+  const isCrit = Math.random() * 100 < critChance;
+  if (isCrit) {
+    damage = Math.floor(damage * 1.5);
+  }
+  
+  return { damage, isCrit };
 }
 
 // --- COMBATE ENEMIGO ---

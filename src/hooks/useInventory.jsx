@@ -1,11 +1,5 @@
 import { useState, useCallback } from 'react';
-import { 
-  addToInventory as addItemLogic, 
-  useItem as useItemLogic, 
-  equipItem as equipItemLogic, 
-  unequipItem as unequipItemLogic 
-} from "@/engine/systems/ItemSystem";
-import { craftItem as craftLogic, upgradeItem as upgradeLogic } from "@/engine/systems/CraftingSystem";
+import { addToInventory as addItemLogic } from "@/engine/systems/ItemSystem";
 
 export function useInventory() {
   const [inventory, setInventory] = useState([]);
@@ -17,6 +11,7 @@ export function useInventory() {
   const [materials, setMaterials] = useState({});
   const [quickSlots, setQuickSlots] = useState([null, null, null]);
 
+  // Cargar datos guardados
   const initInventory = useCallback((savedData) => {
     if (savedData) {
       setInventory(savedData.inventory || []);
@@ -26,8 +21,12 @@ export function useInventory() {
     }
   }, []);
 
-  // CORRECCIÓN: Ahora addItem devuelve el booleano correcto síncronamente
+  // Función auxiliar para añadir items (Usada por GameActions al recoger botín)
   const addItem = useCallback((item) => {
+    // Usamos el callback de setInventory para asegurar que tenemos el estado más reciente
+    // pero como addItemLogic devuelve un booleano success, necesitamos calcularlo antes.
+    // En este caso, dependemos de que 'inventory' esté actualizado en el cierre del hook.
+    
     const newInv = [...inventory];
     const res = addItemLogic(newInv, item);
     
@@ -35,22 +34,9 @@ export function useInventory() {
       setInventory(newInv);
     }
     return res.success;
-  }, [inventory]); // Añadimos dependencia de inventory
+  }, [inventory]);
 
-  const useItem = useCallback((index, player) => {
-    let result = { success: false, message: '' };
-    setInventory(prev => {
-      const newInv = [...prev];
-      result = useItemLogic(newInv, index, player);
-      return result.success ? newInv : prev;
-    });
-    return result;
-  }, []);
-
-  const equipItem = useCallback((index, player) => {
-    return { success: false, message: "Use engine action" }; 
-  }, []);
-
+  // Función auxiliar para añadir materiales (Simple suma)
   const addMaterial = useCallback((type, amount) => {
     setMaterials(prev => ({ ...prev, [type]: (prev[type] || 0) + amount }));
   }, []);
