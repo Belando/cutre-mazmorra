@@ -89,3 +89,5 @@ export const RARITY_REQUIREMENTS = {
   epic: { strength: 20, dexterity: 20, intelligence: 20 },
   legendary: { strength: 30, dexterity: 30, intelligence: 30 },
 };
+
+export const RARITY_WEIGHTS = { common: 50, uncommon: 30, rare: 15, epic: 4, legendary: 1 };

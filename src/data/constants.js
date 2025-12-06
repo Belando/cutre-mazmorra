@@ -1,3 +1,6 @@
+export const MAP_WIDTH = 50;
+export const MAP_HEIGHT = 35;
+
 export const TILE = {
   WALL: 0,
   FLOOR: 1,

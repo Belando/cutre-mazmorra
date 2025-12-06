@@ -1,10 +1,7 @@
 import { useState, useCallback } from 'react';
 import { generateDungeon } from "@/engine/systems/DungeonGenerator";
-import { TILE } from "@/data/constants"; 
+import { TILE, MAP_WIDTH, MAP_HEIGHT } from "@/data/constants"; 
 import { generateNPCs } from "@/engine/systems/NPCSystem";
-
-const MAP_WIDTH = 50;
-const MAP_HEIGHT = 35;
 
 export function useDungeon() {
   const [dungeon, setDungeon] = useState({

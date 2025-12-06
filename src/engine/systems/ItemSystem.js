@@ -1,5 +1,4 @@
-import { Sword, Shield, CircleDot, Heart, Book, Ghost, Footprints, Shirt, Hand, Search } from 'lucide-react';
-import { ITEM_TEMPLATES, WEAPON_TYPES, ARMOR_TYPES, RARITY_REQUIREMENTS } from '@/data/items';
+import { ITEM_TEMPLATES, WEAPON_TYPES, ARMOR_TYPES, RARITY_REQUIREMENTS, RARITY_WEIGHT} from '@/data/items';
 
 export function getItemRequiredAttribute(item) {
   if (!item) return null;
@@ -36,9 +35,6 @@ export function getMissingRequirement(item, player) {
   const attrNames = { strength: 'Fuerza', dexterity: 'Destreza', intelligence: 'Inteligencia' };
   return { attribute: attrNames[requiredAttr], required, current: playerAttr };
 }
-
-const RARITY_WEIGHTS = { common: 50, uncommon: 30, rare: 15, epic: 4, legendary: 1 };
-
 
 export function canClassEquip(item, playerClass, player = null) {
   if (!item) return false;
