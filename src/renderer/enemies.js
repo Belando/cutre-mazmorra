@@ -226,6 +226,54 @@ const SPRITES = {
     },
   },
 
+  ghost: {
+    draw: (ctx, x, y, size, frame) => {
+      const s = size;
+      // Animación de flotar (sube y baja suavemente usando seno)
+      const float = Math.sin(frame * 0.1) * (s * 0.1);
+      const yAnim = y + float;
+
+      // Cuerpo (Semicírculo arriba, ondulado abajo)
+      ctx.fillStyle = "rgba(255, 255, 255, 0.8)"; // Blanco semi-transparente
+      ctx.beginPath();
+      ctx.arc(x + s * 0.5, yAnim + s * 0.4, s * 0.3, Math.PI, 0);
+      // Laterales
+      ctx.lineTo(x + s * 0.8, yAnim + s * 0.8);
+
+      // Base ondulada (dibujando la sábana del fantasma)
+      ctx.quadraticCurveTo(
+        x + s * 0.65,
+        yAnim + s * 0.7,
+        x + s * 0.5,
+        yAnim + s * 0.8
+      );
+      ctx.quadraticCurveTo(
+        x + s * 0.35,
+        yAnim + s * 0.7,
+        x + s * 0.2,
+        yAnim + s * 0.8
+      );
+
+      ctx.lineTo(x + s * 0.2, yAnim + s * 0.4);
+      ctx.fill();
+
+      // Ojos (Negros)
+      ctx.fillStyle = "#000";
+      ctx.beginPath();
+      ctx.arc(x + s * 0.4, yAnim + s * 0.35, s * 0.04, 0, Math.PI * 2);
+      ctx.arc(x + s * 0.6, yAnim + s * 0.35, s * 0.04, 0, Math.PI * 2);
+      ctx.fill();
+
+      // Aura brillante (Glow)
+      ctx.shadowColor = "#a5f3fc";
+      ctx.shadowBlur = 10;
+      ctx.strokeStyle = "#a5f3fc";
+      ctx.lineWidth = 1;
+      ctx.stroke();
+      ctx.shadowBlur = 0; // Importante resetear el blur
+    },
+  },
+
   generic: {
     draw: (ctx, x, y, size, frame, color = "#ef4444") => {
       const s = size;
@@ -1337,6 +1385,7 @@ const ENEMY_SPRITES_MAP = {
   16: "golem",
   17: "vampire",
   18: "mimic",
+  19: "ghost",
   100: "goblin_king",
   101: "skeleton_lord",
   102: "orc_warlord",
@@ -1348,8 +1397,18 @@ const ENEMY_SPRITES_MAP = {
   108: "golem_king",
 };
 
+function drawShadow(ctx, x, y, size) {
+  const s = size;
+  ctx.fillStyle = "rgba(0, 0, 0, 0.35)";
+  ctx.beginPath();
+  // Elipse aplastada en la base del tile
+  ctx.ellipse(x + s * 0.5, y + s * 0.85, s * 0.3, s * 0.1, 0, 0, Math.PI * 2);
+  ctx.fill();
+}
+
 export function drawEnemy(ctx, enemyType, x, y, size, frame = 0) {
   const spriteKey = ENEMY_SPRITES_MAP[enemyType];
+  drawShadow(ctx, x, y, size);
 
   if (spriteKey && SPRITES[spriteKey]) {
     SPRITES[spriteKey].draw(ctx, x, y, size, frame);

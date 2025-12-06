@@ -7,6 +7,41 @@ import { drawEnvironmentSprite } from "./environment";
 const TILE_SIZE = 32;
 
 /**
+ * Función auxiliar para añadir ruido determinista a un tile.
+ * Usa mapX y mapY como "semilla" para que el ruido sea fijo en esa posición.
+ */
+function drawTexturedTile(ctx, screenX, screenY, size, color, mapX, mapY) {
+  // 1. Dibujar base sólida
+  ctx.fillStyle = color;
+  ctx.fillRect(screenX, screenY, size, size);
+
+  // 2. Generar ruido procedimental
+  const seed = Math.sin(mapX * 12.9898 + mapY * 78.233) * 43758.5453;
+
+  const rand = (offset) => {
+    const val = Math.sin(seed + offset) * 10000;
+    return val - Math.floor(val);
+  };
+
+  // Dibujar 4 "granos" de textura por tile
+  for (let i = 0; i < 4; i++) {
+    const px = Math.floor(rand(i) * size);
+    const py = Math.floor(rand(i + 10) * size);
+    const w = Math.floor(rand(i + 20) * 2) + 1;
+    const h = Math.floor(rand(i + 30) * 2) + 1;
+
+    const isHighlight = rand(i + 50) > 0.6;
+    const opacity = 0.05 + rand(i + 40) * 0.1;
+
+    ctx.fillStyle = isHighlight
+      ? `rgba(255, 255, 255, ${opacity * 0.5})`
+      : `rgba(0, 0, 0, ${opacity})`;
+
+    ctx.fillRect(screenX + px, screenY + py, w, h);
+  }
+}
+
+/**
  * Obtiene la paleta de colores para los tiles según el nivel
  */
 function getTileColors(floor) {
@@ -21,13 +56,7 @@ function getTileColors(floor) {
 }
 
 /**
- * Renderiza la capa estática del mapa (Muros, Suelo, Decoración estática)
- * @param {CanvasRenderingContext2D} ctx - Contexto del canvas
- * @param {Object} state - Estado del juego (map, visible, explored, level)
- * @param {number} offsetX - Posición X de la cámara (en tiles)
- * @param {number} offsetY - Posición Y de la cámara (en tiles)
- * @param {number} viewportWidth - Ancho del viewport en tiles
- * @param {number} viewportHeight - Alto del viewport en tiles
+ * Renderiza la capa estática del mapa
  */
 export function drawMap(
   ctx,
@@ -41,63 +70,79 @@ export function drawMap(
   const TILE_COLORS = getTileColors(level);
   const theme = getThemeForFloor(level);
 
-  // Fondo base para evitar huecos vacíos
+  // Fondo base
   ctx.fillStyle = "#0a0a0f";
   ctx.fillRect(0, 0, ctx.canvas.width, ctx.canvas.height);
 
-  // Cálculos para suavidad (Sub-pixel rendering)
-  // startMapX/Y es el índice del tile superior izquierdo
+  // Cálculos para suavidad
   const startMapX = Math.floor(offsetX);
   const startMapY = Math.floor(offsetY);
 
-  // fineShift es el desplazamiento fino en píxeles para el movimiento suave
   const fineShiftX = (offsetX - startMapX) * TILE_SIZE;
   const fineShiftY = (offsetY - startMapY) * TILE_SIZE;
 
-  // Iteramos con +1 margen para dibujar tiles parcialmente visibles en los bordes
   for (let y = 0; y <= viewportHeight + 1; y++) {
     for (let x = 0; x <= viewportWidth + 1; x++) {
       const mapX = x + startMapX;
       const mapY = y + startMapY;
 
-      // Coordenadas en pantalla
       const screenX = Math.floor(x * TILE_SIZE - fineShiftX);
       const screenY = Math.floor(y * TILE_SIZE - fineShiftY);
 
-      // Verificar límites del mapa
       if (mapX >= 0 && mapX < map[0].length && mapY >= 0 && mapY < map.length) {
-        const isVisible = visible[mapY]?.[mapX];
+        const isVisibleByPlayer = visible[mapY]?.[mapX];
         const isExplored = explored[mapY]?.[mapX];
 
-        if (isExplored || isVisible) {
+        if (isExplored || isVisibleByPlayer) {
           const tile = map[mapY][mapX];
 
-          // 1. Dibujar Tile Base
-          // Si no es visible ahora mismo (pero está explorado), lo oscurecemos
-          ctx.fillStyle = isVisible
+          // CORRECCIÓN: La iluminación depende estrictamente de la visión directa del jugador.
+          // Si está explorado pero no visible, se verá oscuro (Fog of War).
+          const isLit = isVisibleByPlayer;
+
+          // 1. DIBUJAR TILE CON TEXTURA (Paso 2)
+          const baseColor = isLit
             ? TILE_COLORS[tile]
-            : adjustBrightness(TILE_COLORS[tile], -60);
-          ctx.fillRect(screenX, screenY, TILE_SIZE, TILE_SIZE);
+            : adjustBrightness(TILE_COLORS[tile], -60); // Versión oscura para memoria
+
+          drawTexturedTile(
+            ctx,
+            screenX,
+            screenY,
+            TILE_SIZE,
+            baseColor,
+            mapX,
+            mapY
+          );
 
           // 2. Detalles Específicos
           if (tile === TILE.WALL) {
             // Relieve del muro
-            ctx.fillStyle = isVisible
+            ctx.fillStyle = isLit
               ? theme.wallDetail
               : adjustBrightness(theme.wallDetail, -40);
-            ctx.fillRect(
-              screenX + 2,
-              screenY + 2,
-              TILE_SIZE - 4,
-              TILE_SIZE - 4
-            );
 
-            if (isVisible) {
+            // --- PASO 6: BORDES IRREGULARES ---
+            // Calculamos variaciones basadas en la posición para que sean deterministas
+            const seed = mapX * 3 + mapY * 7;
+            const v1 = seed % 3; // 0, 1 o 2 px
+            const v2 = (seed * 2) % 3; // Variación diferente
+
+            // Dibujamos un polígono irregular en lugar de un rectángulo perfecto
+            ctx.beginPath();
+            ctx.moveTo(screenX + 2, screenY + 2 + v1);
+            ctx.lineTo(screenX + TILE_SIZE - 2, screenY + 2 + v2);
+            ctx.lineTo(screenX + TILE_SIZE - 2 - v1, screenY + TILE_SIZE - 2);
+            ctx.lineTo(screenX + 2 + v2, screenY + TILE_SIZE - 2);
+            ctx.fill();
+            // ----------------------------------
+
+            if (isLit) {
               // Sombra/Detalle inferior
               ctx.fillStyle = theme.wall;
-              ctx.fillRect(screenX + 4, screenY + 6, TILE_SIZE - 10, 2);
+              // Ajustamos la sombra para que siga un poco la irregularidad
+              ctx.fillRect(screenX + 4, screenY + 6 + v1, TILE_SIZE - 10, 2);
 
-              // Semilla determinista para decoración (basada en posición)
               const wallSeed = (mapX * 11 + mapY * 17) % 100;
 
               // Telarañas
@@ -111,7 +156,7 @@ export function drawMap(
                 );
               }
 
-              // Brillo de lava en muros (si el tema lo tiene)
+              // Brillo de lava en muros
               if (theme.lavaGlow && wallSeed >= 90) {
                 ctx.strokeStyle = "#ef4444";
                 ctx.lineWidth = 1;
@@ -139,7 +184,7 @@ export function drawMap(
             ctx.textBaseline = "middle";
             ctx.font = "bold 18px monospace";
             ctx.fillText("▲", screenX + TILE_SIZE / 2, screenY + TILE_SIZE / 2);
-          } else if (tile === TILE.FLOOR && isVisible) {
+          } else if (tile === TILE.FLOOR && isLit) {
             // Detalles del suelo
             ctx.fillStyle = theme.floorDetail;
             if ((mapX + mapY) % 2 === 0)
@@ -147,7 +192,6 @@ export function drawMap(
 
             const seed = (mapX * 7 + mapY * 13) % 100;
 
-            // Decoración de suelo según nivel
             if (level <= 4) {
               if (seed < 5)
                 drawEnvironmentSprite(
@@ -181,9 +225,7 @@ export function drawMap(
                   screenY,
                   TILE_SIZE
                 );
-              // else if (seed < 22) drawEnvironmentSprite(ctx, 'mushroom', screenX, screenY, TILE_SIZE);
             } else {
-              // Niveles profundos
               if (seed < 10) {
                 ctx.fillStyle = "rgba(239, 68, 68, 0.5)";
                 ctx.beginPath();
@@ -213,11 +255,8 @@ export function drawMap(
   }
 }
 
-// --- UTILIDADES DE CÁMARA (Paso 2.3) ---
+// --- UTILIDADES DE CÁMARA ---
 
-/**
- * Calcula el objetivo de la cámara centrado en el jugador pero limitado por los bordes del mapa.
- */
 export function getCameraTarget(player, map, viewportWidth, viewportHeight) {
   const halfViewW = Math.floor(viewportWidth / 2);
   const halfViewH = Math.floor(viewportHeight / 2);
@@ -225,7 +264,6 @@ export function getCameraTarget(player, map, viewportWidth, viewportHeight) {
   let targetX = player.x - halfViewW;
   let targetY = player.y - halfViewH;
 
-  // Clamping (Mantener cámara dentro de los límites del mapa)
   if (map && map.length > 0) {
     targetX = Math.max(0, Math.min(targetX, map[0].length - viewportWidth));
     targetY = Math.max(0, Math.min(targetY, map.length - viewportHeight));
@@ -234,14 +272,7 @@ export function getCameraTarget(player, map, viewportWidth, viewportHeight) {
   return { x: targetX, y: targetY };
 }
 
-/**
- * Interpola suavemente la posición actual de la cámara hacia el objetivo.
- * @param {Object} current - {x, y} actual
- * @param {Object} target - {x, y} objetivo
- * @param {number} speed - Velocidad de interpolación (0.1 por defecto)
- */
 export function lerpCamera(current, target, speed = 0.1) {
-  // Si la diferencia es muy pequeña, saltamos al objetivo para evitar micro-movimientos infinitos
   if (
     Math.abs(target.x - current.x) < 0.01 &&
     Math.abs(target.y - current.y) < 0.01

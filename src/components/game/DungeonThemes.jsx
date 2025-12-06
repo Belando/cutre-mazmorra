@@ -126,15 +126,15 @@ export function drawThemedFloor(ctx, x, y, size, floor, isVisible, seed) {
 export function drawAmbientOverlay(ctx, canvasWidth, canvasHeight, floor, frame) {
   const theme = getThemeForFloor(floor);
   
-  // Ambient glow
+  // 1. Color base del ambiente
   ctx.fillStyle = theme.ambient;
   ctx.fillRect(0, 0, canvasWidth, canvasHeight);
   
-  // Fog effect
+  // 2. Niebla (Fog)
   if (theme.fogColor) {
     const gradient = ctx.createRadialGradient(
       canvasWidth/2, canvasHeight/2, 0,
-      canvasWidth/2, canvasHeight/2, canvasWidth * 0.6
+      canvasWidth/2, canvasHeight/2, canvasWidth * 0.7
     );
     gradient.addColorStop(0, 'transparent');
     gradient.addColorStop(1, theme.fogColor);
@@ -142,14 +142,40 @@ export function drawAmbientOverlay(ctx, canvasWidth, canvasHeight, floor, frame)
     ctx.fillRect(0, 0, canvasWidth, canvasHeight);
   }
   
-  // Floating embers for volcanic/inferno
-  if (theme.embers) {
+  // 3. Partículas según el bioma
+  
+  // A) CUEVAS DE PIEDRA (Pisos 1-2): Polvo flotante
+  if (floor <= 2) {
+    ctx.fillStyle = 'rgba(200, 200, 200, 0.15)';
+    for (let i = 0; i < 20; i++) {
+        // Movimiento lento y errático
+        const x = (i * 83 + frame * 0.2 + Math.sin(frame * 0.01 + i) * 20) % canvasWidth;
+        const y = (i * 47 + frame * 0.1 + Math.cos(frame * 0.01 + i) * 20) % canvasHeight;
+        const size = (i % 3) + 1;
+        ctx.fillRect(x, y, size, size);
+    }
+  }
+  
+  // B) CRIPTA (Pisos 3-4): Esporas/Niebla baja
+  else if (floor <= 4) {
+    ctx.fillStyle = 'rgba(100, 255, 150, 0.1)';
+    for (let i = 0; i < 15; i++) {
+        const x = (i * 123 + Math.sin(frame * 0.02 + i) * 50) % canvasWidth;
+        const y = (canvasHeight - (frame * 0.5 + i * 30) % canvasHeight); // Sube
+        ctx.beginPath();
+        ctx.arc(x, y, 2 + (i%2), 0, Math.PI*2);
+        ctx.fill();
+    }
+  }
+  
+  // C) VOLCÁN/INFIERNO (Pisos 5+): Ascuas (Ya lo tenías, lo mantenemos)
+  else if (theme.embers) {
     ctx.fillStyle = '#f59e0b';
-    for (let i = 0; i < 8; i++) {
-      const x = (frame * (i + 1) * 0.5 + i * 100) % canvasWidth;
-      const y = canvasHeight - ((frame * (i + 1) * 0.3 + i * 50) % canvasHeight);
+    for (let i = 0; i < 12; i++) {
+      const x = (frame * (i * 0.2 + 0.5) + i * 100) % canvasWidth;
+      const y = canvasHeight - ((frame * (i * 0.3 + 0.5) + i * 50) % canvasHeight);
       const size = 1 + (i % 2);
-      ctx.globalAlpha = 0.4 + (Math.sin(frame * 0.1 + i) * 0.3);
+      ctx.globalAlpha = 0.6 + (Math.sin(frame * 0.1 + i) * 0.4);
       ctx.beginPath();
       ctx.arc(x, y, size, 0, Math.PI * 2);
       ctx.fill();
