@@ -1,5 +1,3 @@
-// src/data/skills.jsx
-
 export const BASE_CLASSES = ['warrior', 'mage', 'rogue'];
 
 export const CLASS_EVOLUTIONS = {

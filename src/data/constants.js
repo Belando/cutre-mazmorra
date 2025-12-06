@@ -1,5 +1,3 @@
-// src/data/constants.js
-
 export const TILE = {
   WALL: 0,
   FLOOR: 1,

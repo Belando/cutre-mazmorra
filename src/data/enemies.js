@@ -1,4 +1,3 @@
-// src/data/enemies.js
 import { ENTITY } from './constants';
 
 export const ENEMY_STATS = {
