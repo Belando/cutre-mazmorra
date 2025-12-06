@@ -1,8 +1,8 @@
 import React, { useState } from 'react';
 import { motion } from 'framer-motion';
 import { X, Coins, ShoppingBag, Scroll, MessageCircle } from 'lucide-react';
-import { Button } from '../ui/button';
-import { NPC_TYPES, QUESTS, getAvailableQuests, checkQuestProgress } from '../systems/NPCSystem'; // <-- CORREGIDO: ../systems/
+import { Button } from '@/components/ui/button';
+import { NPC_TYPES, QUESTS, getAvailableQuests, checkQuestProgress } from '@/engine/systems/NPCSystem'; 
 
 function getSellPrice(item) {
   const rarityMultiplier = {

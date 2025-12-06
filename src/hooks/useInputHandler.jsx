@@ -1,6 +1,6 @@
 import { useEffect, useRef } from 'react';
-import { QUICK_SLOT_HOTKEYS } from '@/components/game/ui/QuickSlots';
-import { getUnlockedSkills } from '@/components/game/systems/SkillSystem';
+import { QUICK_SLOT_HOTKEYS } from "@/components/ui/QuickSlots";
+import { getUnlockedSkills } from "@/engine/systems/SkillSystem";
 
 // Tiempo entre acciones (velocidad de movimiento/acción)
 const INPUT_COOLDOWN = 160; 

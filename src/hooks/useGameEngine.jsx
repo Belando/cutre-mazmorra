@@ -3,12 +3,12 @@ import { usePlayer } from './usePlayer';
 import { useDungeon } from './useDungeon';
 import { useInventory } from './useInventory';
 import { useTurnSystem } from './useTurnSystem';
-import { soundManager } from '@/components/game/systems/SoundSystem';
+import { soundManager } from "@/engine/systems/SoundSystem";
 
 // Importamos los nuevos subsistemas
-import { useGameEffects } from './engine/useGameEffects';
-import { useCombatLogic } from './engine/useCombatLogic';
-import { useGameActions } from './engine/useGameActions';
+import { useGameEffects } from "@/hooks/useGameEffects";
+import { useCombatLogic } from '@/hooks/useCombatLogic';
+import { useGameActions } from '@/hooks/useGameActions';
 
 export function useGameEngine() {
   // --- CORE STATE ---

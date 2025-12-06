@@ -81,3 +81,11 @@ export const ITEM_TEMPLATES = {
   necklace: { name: 'Collar', category: 'accessory', slot: 'necklace', symbol: '🧿', baseStats: { maxHp: 10 }, rarityMultipliers: { common: 1, uncommon: 1.5, rare: 2, epic: 3, legendary: 4 } },
   earring: { name: 'Pendiente', category: 'accessory', slot: 'earring', symbol: '✨', baseStats: { evasion: 2 }, rarityMultipliers: { common: 1, uncommon: 1.5, rare: 2, epic: 3, legendary: 5 } },
 };
+
+export const RARITY_REQUIREMENTS = {
+  common: { strength: 0, dexterity: 0, intelligence: 0 },
+  uncommon: { strength: 5, dexterity: 5, intelligence: 5 },
+  rare: { strength: 12, dexterity: 12, intelligence: 12 },
+  epic: { strength: 20, dexterity: 20, intelligence: 20 },
+  legendary: { strength: 30, dexterity: 30, intelligence: 30 },
+};

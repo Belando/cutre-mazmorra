@@ -1,6 +1,6 @@
 import { useState, useCallback } from 'react';
-import { initializeSkills, updateCooldowns, updateBuffs } from '@/components/game/systems/SkillSystem';
-import { calculatePlayerStats } from '@/components/game/systems/ItemSystem';
+import { initializeSkills, updateCooldowns, updateBuffs } from "@/engine/systems/SkillSystem";
+import { calculatePlayerStats } from "@/engine/systems/ItemSystem";
 
 export function usePlayer() {
   const [player, setPlayer] = useState(null);

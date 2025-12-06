@@ -1,8 +1,8 @@
 import React, { useEffect, useRef } from 'react';
 import { TILE } from '@/data/constants';
 import { getThemeForFloor, drawAmbientOverlay } from './DungeonThemes';
-import { isLargeEnemy, getEnemySize } from '../systems/LargeEnemies';
-import { PLAYER_APPEARANCES } from '../panels/CharacterSelect';
+import { isLargeEnemy, getEnemySize } from '@/engine/systems/LargeEnemies';
+import { PLAYER_APPEARANCES } from '@/components/ui/CharacterSelect';
 
 // --- IMPORTACIONES DEL RENDERER ---
 import { adjustBrightness } from '@/renderer/utils';

@@ -1,5 +1,5 @@
 // Sistema de Inteligencia Artificial para Enemigos
-import { findPath } from '@/lib/pathfinding';
+import { findPath } from '@/engine/core/pathfinding';
 import { ENEMY_RANGED_INFO } from '@/data/enemies';
 import { hasLineOfSight } from './CombatSystem'; 
 

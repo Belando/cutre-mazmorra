@@ -1,9 +1,9 @@
 import { ENEMY_STATS } from '@/data/enemies';
 import { SKILLS } from '@/data/skills';
-import { MATERIAL_TYPES, generateMaterialDrop, generateBossDrop } from '@/components/game/systems/CraftingSystem';
-import { calculatePlayerStats } from '@/components/game/systems/ItemSystem';
-import { calculateBuffBonuses, canUseSkill, getSkillEffectiveStats, useSkill } from '@/components/game/systems/SkillSystem';
-import { soundManager } from '@/components/game/systems/SoundSystem';
+import { MATERIAL_TYPES, generateMaterialDrop, generateBossDrop } from "@/engine/systems/CraftingSystem";
+import { calculatePlayerStats } from '@/engine/systems/ItemSystem';
+import { calculateBuffBonuses, canUseSkill, getSkillEffectiveStats, useSkill } from "@/engine/systems/SkillSystem";
+import { soundManager } from '@/engine/systems/SoundSystem';
 
 export function useCombatLogic({ 
   dungeon, setDungeon, 

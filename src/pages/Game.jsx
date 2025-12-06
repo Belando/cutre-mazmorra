@@ -1,17 +1,17 @@
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { Button } from '../components/game/ui/button';
+import { Button } from "@/components/ui/button";
 
 // --- RUTAS ACTUALIZADAS ---
-import GameBoard from '@/components/game/world/GameBoard';
-import PlayerStats from '@/components/game/ui/PlayerStats';
-import MessageLog from '@/components/game/ui/MessageLog';
-import MiniMap from '@/components/game/world/MiniMap';
-import QuickSlots from '@/components/game/ui/QuickSlots';
-import SkillBar from '@/components/game/ui/SkillBar';
-import CharacterSelect from '@/components/game/panels/CharacterSelect';
-import GameOverlays from '@/components/game/overlays/GameOverlays';
-import { hasSaveGame, deleteSave } from '@/components/game/systems/SaveSystem';
+import GameBoard from "@/components/game/GameBoard";
+import PlayerStats from '@/components/ui/PlayerStats';
+import MessageLog from '@/components/ui/MessageLog';
+import MiniMap from '@/components/game/MiniMap';
+import QuickSlots from '../components/ui/QuickSlots';
+import SkillBar from '@/components/ui/SkillBar';
+import CharacterSelect from '@/components/ui/CharacterSelect';
+import GameOverlays from '@/components/overlays/GameOverlays';
+import { hasSaveGame, deleteSave } from '@/engine/systems/SaveSystem';
 // --------------------------
 
 import { useGame } from '@/context/GameContext';

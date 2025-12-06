@@ -1,7 +1,7 @@
 import React from 'react';
-import { canUseSkill, getUnlockedSkills } from '../systems/SkillSystem'; // <-- CORREGIDO: ../systems/
+import { canUseSkill, getUnlockedSkills } from '../../engine/systems/SkillSystem'; // <-- CORREGIDO: ../systems/
 import { SKILLS } from '@/data/skills';
-import { cn } from '@/lib/utils';
+import { cn } from '@/engine/core/utils';
 import { useGame } from '@/context/GameContext';
 
 export default function SkillBar({ disabled }) { // Ya no necesitamos pasarle skills, cooldowns, etc.

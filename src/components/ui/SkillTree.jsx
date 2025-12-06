@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, ChevronRight, Star, Zap, ChevronDown } from 'lucide-react';
 import { Button } from '../ui/button';
-import { getClassSkills, getSkillLevel, canEvolve, getEvolutionOptions, getSkillEffectiveStats } from '../systems/SkillSystem'; // <-- CORREGIDO: ../systems/
+import { getClassSkills, getSkillLevel, canEvolve, getEvolutionOptions, getSkillEffectiveStats } from '@/engine/systems/SkillSystem';
 import { SKILLS, SKILL_TREES, CLASS_EVOLUTIONS } from '@/data/skills';
 
 export default function SkillTree({ 

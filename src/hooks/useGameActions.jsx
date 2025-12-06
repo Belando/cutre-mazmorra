@@ -1,7 +1,7 @@
 import { TILE, ENTITY } from '@/data/constants';
 import { ENEMY_STATS } from '@/data/enemies';
 import { SKILLS } from '@/data/skills';
-import { soundManager } from '@/components/game/systems/SoundSystem';
+import { soundManager } from "@/engine/systems/SoundSystem";
 
 // --- CORRECCIÓN DE IMPORTACIONES ---
 import { 
@@ -9,20 +9,20 @@ import {
   useItem as useItemLogic, 
   equipItem as equipItemLogic, 
   unequipItem as unequipItemLogic 
-} from '@/components/game/systems/ItemSystem';
+} from '@/engine/systems/ItemSystem';
 
 import { 
   learnSkill, 
   upgradeSkill, 
   evolveClass, 
   canUseSkill, 
-  calculateBuffBonuses // <--- Ahora importado desde el lugar correcto
-} from '@/components/game/systems/SkillSystem';
+  calculateBuffBonuses 
+} from '@/engine/systems/SkillSystem';
 // -----------------------------------
 
-import { craftItem, upgradeItem } from '@/components/game/systems/CraftingSystem';
-import { useQuickSlot as processQuickSlot, assignToQuickSlot } from '@/components/game/ui/QuickSlots';
-import { saveGame as saveSystem, loadGame as loadSystem } from '@/components/game/systems/SaveSystem';
+import { craftItem, upgradeItem } from '@/engine/systems/CraftingSystem';
+import { useQuickSlot as processQuickSlot, assignToQuickSlot } from '@/components/ui/QuickSlots';
+import { saveGame as saveSystem, loadGame as loadSystem } from '@/engine/systems/SaveSystem';
 
 export function useGameActions(context) {
   const {

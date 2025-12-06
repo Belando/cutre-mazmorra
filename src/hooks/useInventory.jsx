@@ -4,9 +4,8 @@ import {
   useItem as useItemLogic, 
   equipItem as equipItemLogic, 
   unequipItem as unequipItemLogic 
-} from '@/components/game/systems/ItemSystem';
-import { craftItem as craftLogic, upgradeItem as upgradeLogic } from '@/components/game/systems/CraftingSystem';
-
+} from "@/engine/systems/ItemSystem";
+import { craftItem as craftLogic, upgradeItem as upgradeLogic } from "@/engine/systems/CraftingSystem";
 
 export function useInventory() {
   const [inventory, setInventory] = useState([]);

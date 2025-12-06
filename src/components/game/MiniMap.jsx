@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { TILE } from '../systems/DungeonGenerator'; // <-- CORREGIDO: ../systems/
+import { TILE } from '@/engine/systems/DungeonGenerator'; // <-- CORREGIDO: ../systems/
 import { Map, X, ChevronLeft, ChevronRight } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Button } from '../ui/button';

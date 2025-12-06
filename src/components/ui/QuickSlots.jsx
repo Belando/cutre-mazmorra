@@ -1,5 +1,5 @@
 import React from 'react';
-import { cn } from '@/lib/utils';
+import { cn } from "@/engine/core/utils";
 
 const QUICK_SLOT_KEYS = ['Q', 'E', 'R'];
 

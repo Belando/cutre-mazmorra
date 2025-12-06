@@ -1,35 +1,5 @@
 import { Sword, Shield, CircleDot, Heart, Book, Ghost, Footprints, Shirt, Hand, Search } from 'lucide-react';
-import { ITEM_TEMPLATES, WEAPON_TYPES, ARMOR_TYPES } from '@/data/items';
-
-// Equipment slot definitions (Mejorado con iconos Lucide)
-export const EQUIPMENT_SLOTS = {
-  weapon: { icon: Sword, name: 'Arma Principal' },
-  offhand: { icon: Shield, name: 'Mano Izq.' },
-  helmet: { icon: Ghost, name: 'Yelmo' }, // Ghost funciona bien como silueta de casco, o podemos usar otro
-  chest: { icon: Shirt, name: 'Armadura' },
-  legs: { icon: '🦵', name: 'Pantalones', isText: true }, // Lucide no tiene pantalones claros, usamos emoji medieval
-  boots: { icon: Footprints, name: 'Botas' },
-  gloves: { icon: Hand, name: 'Guantes' },
-  ring: { icon: CircleDot, name: 'Anillo' },
-  earring: { icon: Search, name: 'Pendiente' }, // Search parece una lupa/monoculo/joya
-  necklace: { icon: CircleDot, name: 'Amuleto' },
-};
-
-// Iconos de respaldo (Fallback) más temáticos
-export const SLOT_ICONS = {
-  weapon: '⚔️', offhand: '🛡️', helmet: '🪖', chest: '🥋',
-  legs: '🦵', boots: '🥾', gloves: '🧤', ring: '💍',
-  earring: '✨', necklace: '🧿',
-};
-
-// ... (Mantener RARITY_REQUIREMENTS, etc. sin cambios) ...
-export const RARITY_REQUIREMENTS = {
-  common: { strength: 0, dexterity: 0, intelligence: 0 },
-  uncommon: { strength: 5, dexterity: 5, intelligence: 5 },
-  rare: { strength: 12, dexterity: 12, intelligence: 12 },
-  epic: { strength: 20, dexterity: 20, intelligence: 20 },
-  legendary: { strength: 30, dexterity: 30, intelligence: 30 },
-};
+import { ITEM_TEMPLATES, WEAPON_TYPES, ARMOR_TYPES, RARITY_REQUIREMENTS } from '@/data/items';
 
 export function getItemRequiredAttribute(item) {
   if (!item) return null;

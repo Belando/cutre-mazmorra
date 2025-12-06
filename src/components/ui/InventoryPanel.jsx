@@ -2,8 +2,9 @@ import React, { useState, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, ShoppingBag, Shield, Heart, Zap, Coins, Trash2, Check, Sword } from 'lucide-react'; // Añadida ShoppingBag
 import { Button } from '../ui/button';
-import { EQUIPMENT_SLOTS, SLOT_ICONS, canClassEquip, getMissingRequirement, canAssignToQuickSlot } from '../systems/ItemSystem';
-import { drawItemSprite } from '../entities/ItemSprites';
+import { canClassEquip, getMissingRequirement, canAssignToQuickSlot } from '@/engine/systems/ItemSystem';
+import { drawItemSprite } from '@/engine/entities/ItemSprites';
+import { SLOT_ICONS,EQUIPMENT_SLOTS } from '@/data/icons';
 
 function ItemIcon({ item, size = 48 }) {
   const canvasRef = useRef(null);

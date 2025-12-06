@@ -1,7 +1,7 @@
 // src/components/ui/button.jsx
 import * as React from "react";
 import { cva } from "class-variance-authority";
-import { cn } from "@/lib/utils"; // Importamos nuestra función de ayuda
+import { cn } from "@/engine/core/utils"; 
 
 // --- Aquí definimos todos los estilos y variantes del botón ---
 const buttonVariants = cva(

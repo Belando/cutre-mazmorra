@@ -1,5 +1,5 @@
 import { useState, useCallback, useRef } from 'react';
-import { EffectsManager } from '@/components/game/systems/EffectSystem';
+import { EffectsManager } from "@/engine/systems/EffectSystem";
 
 const LOG_LENGTH = 50;
 

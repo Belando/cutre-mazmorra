@@ -1,8 +1,8 @@
 import { useCallback } from 'react';
-import { processEnemyTurn, calculateEnemyDamage } from '@/components/game/systems/EnemyAI';
-import { calculatePlayerStats } from '@/components/game/systems/ItemSystem';
+import { processEnemyTurn, calculateEnemyDamage } from "@/engine/systems/EnemyAI";
+import { calculatePlayerStats } from "@/engine/systems/ItemSystem";
 import { ENEMY_STATS } from '@/data/enemies';
-import { soundManager } from '@/components/game/systems/SoundSystem';
+import { soundManager } from "@/engine/systems/SoundSystem";
 
 export function useTurnSystem() {
   
