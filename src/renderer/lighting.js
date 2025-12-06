@@ -41,7 +41,7 @@ export const renderLighting = (ctx, width, height, state, offsetX, offsetY) => {
     if (tx > -100 && tx < width + 100 && ty > -100 && ty < height + 100) {
       const flicker = ((Math.sin(time + torch.x * 10) + 1) / 2) * 0.1;
       // Radio aumentado a 180 para iluminar bien la sala
-      drawVisibilityHole(tx, ty, 180 + flicker * 30);
+      drawVisibilityHole(tx, ty, 110 + flicker * 20);
     }
   });
 
@@ -75,7 +75,7 @@ export const renderLighting = (ctx, width, height, state, offsetX, offsetY) => {
   torches.forEach((torch) => {
     // IMPORTANTE: Si el jugador no ve la antorcha ahora mismo, no dibujamos el brillo de color.
     // Esto evita ver manchas naranjas a través de las paredes en zonas exploradas pero oscuras.
-    if (!state.visible[torch.y]?.[torch.x]) return;
+    //if (!state.visible[torch.y]?.[torch.x]) return;
 
     const tx = torch.x * TILE_SIZE - offsetX * TILE_SIZE + TILE_SIZE / 2;
     const ty = torch.y * TILE_SIZE - offsetY * TILE_SIZE + TILE_SIZE / 2;
@@ -114,6 +114,67 @@ export const renderLighting = (ctx, width, height, state, offsetX, offsetY) => {
       }
     }
   });
+
+  // --- PASO FINAL: CORRECCIÓN DE FUGA DE LUZ INTELIGENTE ---
+  // Oscurecemos tiles no visibles, PERO respetamos si están iluminados por una antorcha cercana.
+
+  ctx.globalCompositeOperation = "source-over";
+  ctx.fillStyle = "rgba(5, 5, 15, 0.85)"; // Mismo color de la niebla base
+
+  // Calculamos el rango en tiles del radio de luz (110px / 32px ≈ 3.5 tiles)
+  const LIGHT_RADIUS_TILES = 3.5;
+
+  const startMapX = Math.floor(offsetX);
+  const startMapY = Math.floor(offsetY);
+  const tilesX = Math.ceil(width / TILE_SIZE) + 2;
+  const tilesY = Math.ceil(height / TILE_SIZE) + 2;
+
+  for (let y = -1; y < tilesY; y++) {
+    for (let x = -1; x < tilesX; x++) {
+      const mapX = startMapX + x;
+      const mapY = startMapY + y;
+
+      if (state.map[mapY]?.[mapX]) {
+        const isVisible = state.visible[mapY]?.[mapX];
+
+        // Si el jugador lo ve, no lo tapamos.
+        if (isVisible) continue;
+
+        // Si NO lo ve, comprobamos si hay una antorcha cerca que lo ilumine.
+        let isLitByTorch = false;
+
+        // Optimización: Solo buscamos si la tile está "explorada" (para no calcular luz en zonas desconocidas)
+        // O si quieres ver luz a través de muros desconocidos, quita el check de explored.
+        if (state.explored[mapY]?.[mapX]) {
+          for (const torch of torches) {
+            // Distancia euclidiana simple
+            const dist = Math.sqrt(
+              Math.pow(mapX - torch.x, 2) + Math.pow(mapY - torch.y, 2)
+            );
+            if (dist < LIGHT_RADIUS_TILES) {
+              isLitByTorch = true;
+              break;
+            }
+          }
+        }
+
+        // LA NUEVA CONDICIÓN:
+        // Solo dibujamos el parche negro si NO es visible Y NO está iluminado por una antorcha.
+        if (!isLitByTorch) {
+          const screenX = mapX * TILE_SIZE - offsetX * TILE_SIZE;
+          const screenY = mapY * TILE_SIZE - offsetY * TILE_SIZE;
+
+          // Dibujar parche oscuro
+          ctx.fillRect(
+            Math.floor(screenX),
+            Math.floor(screenY),
+            TILE_SIZE + 1,
+            TILE_SIZE + 1
+          );
+        }
+      }
+    }
+  }
 
   ctx.globalCompositeOperation = "source-over";
 };

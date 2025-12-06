@@ -1,15 +1,11 @@
-// src/renderer/map.js
 import { TILE } from "@/data/constants";
 import { getThemeForFloor } from "@/components/game/DungeonThemes";
-import { adjustBrightness } from "@/engine/core/utils";
+
 import { drawEnvironmentSprite } from "./environment";
 
 const TILE_SIZE = 32;
 
-/**
- * Función auxiliar para añadir ruido determinista a un tile.
- * Usa mapX y mapY como "semilla" para que el ruido sea fijo en esa posición.
- */
+// ... (Mantén tu función drawTexturedTile y getTileColors igual que antes) ...
 function drawTexturedTile(ctx, screenX, screenY, size, color, mapX, mapY) {
   // 1. Dibujar base sólida
   ctx.fillStyle = color;
@@ -17,7 +13,6 @@ function drawTexturedTile(ctx, screenX, screenY, size, color, mapX, mapY) {
 
   // 2. Generar ruido procedimental
   const seed = Math.sin(mapX * 12.9898 + mapY * 78.233) * 43758.5453;
-
   const rand = (offset) => {
     const val = Math.sin(seed + offset) * 10000;
     return val - Math.floor(val);
@@ -41,9 +36,6 @@ function drawTexturedTile(ctx, screenX, screenY, size, color, mapX, mapY) {
   }
 }
 
-/**
- * Obtiene la paleta de colores para los tiles según el nivel
- */
 function getTileColors(floor) {
   const theme = getThemeForFloor(floor);
   return {
@@ -55,9 +47,6 @@ function getTileColors(floor) {
   };
 }
 
-/**
- * Renderiza la capa estática del mapa
- */
 export function drawMap(
   ctx,
   state,
@@ -70,14 +59,12 @@ export function drawMap(
   const TILE_COLORS = getTileColors(level);
   const theme = getThemeForFloor(level);
 
-  // Fondo base
-  ctx.fillStyle = "#0a0a0f";
+  // Fondo negro
+  ctx.fillStyle = "#000000";
   ctx.fillRect(0, 0, ctx.canvas.width, ctx.canvas.height);
 
-  // Cálculos para suavidad
   const startMapX = Math.floor(offsetX);
   const startMapY = Math.floor(offsetY);
-
   const fineShiftX = (offsetX - startMapX) * TILE_SIZE;
   const fineShiftY = (offsetY - startMapY) * TILE_SIZE;
 
@@ -90,20 +77,18 @@ export function drawMap(
       const screenY = Math.floor(y * TILE_SIZE - fineShiftY);
 
       if (mapX >= 0 && mapX < map[0].length && mapY >= 0 && mapY < map.length) {
-        const isVisibleByPlayer = visible[mapY]?.[mapX];
+        // Necesitamos saber si es visible para los detalles extra (opcional),
+        // pero lo CRÍTICO es usar isExplored para dibujar la base.
         const isExplored = explored[mapY]?.[mapX];
+        const isVisibleByPlayer = visible[mapY]?.[mapX];
 
-        if (isExplored || isVisibleByPlayer) {
+        if (isExplored) {
           const tile = map[mapY][mapX];
 
-          // CORRECCIÓN: La iluminación depende estrictamente de la visión directa del jugador.
-          // Si está explorado pero no visible, se verá oscuro (Fog of War).
-          const isLit = isVisibleByPlayer;
-
-          // 1. DIBUJAR TILE CON TEXTURA (Paso 2)
-          const baseColor = isLit
-            ? TILE_COLORS[tile]
-            : adjustBrightness(TILE_COLORS[tile], -60); // Versión oscura para memoria
+          // CORRECCIÓN: Usamos SIEMPRE el color normal.
+          // lighting.js pondrá una capa negra semitransparente encima si no es visible.
+          // lighting.js quitará esa capa si hay luz (antorcha).
+          const baseColor = TILE_COLORS[tile];
 
           drawTexturedTile(
             ctx,
@@ -115,83 +100,50 @@ export function drawMap(
             mapY
           );
 
-          // 2. Detalles Específicos
           if (tile === TILE.WALL) {
-            // Relieve del muro
-            ctx.fillStyle = isLit
-              ? theme.wallDetail
-              : adjustBrightness(theme.wallDetail, -40);
+            // Relieve normal
+            ctx.fillStyle = theme.wallDetail;
 
-            // --- PASO 6: BORDES IRREGULARES ---
-            // Calculamos variaciones basadas en la posición para que sean deterministas
+            // Bordes irregulares
             const seed = mapX * 3 + mapY * 7;
-            const v1 = seed % 3; // 0, 1 o 2 px
-            const v2 = (seed * 2) % 3; // Variación diferente
+            const v1 = seed % 3;
+            const v2 = (seed * 2) % 3;
 
-            // Dibujamos un polígono irregular en lugar de un rectángulo perfecto
             ctx.beginPath();
             ctx.moveTo(screenX + 2, screenY + 2 + v1);
             ctx.lineTo(screenX + TILE_SIZE - 2, screenY + 2 + v2);
             ctx.lineTo(screenX + TILE_SIZE - 2 - v1, screenY + TILE_SIZE - 2);
             ctx.lineTo(screenX + 2 + v2, screenY + TILE_SIZE - 2);
             ctx.fill();
-            // ----------------------------------
 
-            if (isLit) {
-              // Sombra/Detalle inferior
-              ctx.fillStyle = theme.wall;
-              // Ajustamos la sombra para que siga un poco la irregularidad
-              ctx.fillRect(screenX + 4, screenY + 6 + v1, TILE_SIZE - 10, 2);
+            // Sombra inferior del muro
+            ctx.fillStyle = theme.wall;
+            ctx.fillRect(screenX + 4, screenY + 6 + v1, TILE_SIZE - 10, 2);
 
-              const wallSeed = (mapX * 11 + mapY * 17) % 100;
-
-              // Telarañas
-              if (wallSeed < (level <= 4 ? 8 : 3)) {
-                drawEnvironmentSprite(
-                  ctx,
-                  "cobweb",
-                  screenX,
-                  screenY,
-                  TILE_SIZE
-                );
-              }
-
-              // Brillo de lava en muros
-              if (theme.lavaGlow && wallSeed >= 90) {
-                ctx.strokeStyle = "#ef4444";
-                ctx.lineWidth = 1;
-                ctx.beginPath();
-                ctx.moveTo(
-                  screenX + TILE_SIZE * 0.3,
-                  screenY + TILE_SIZE * 0.2
-                );
-                ctx.lineTo(
-                  screenX + TILE_SIZE * 0.5,
-                  screenY + TILE_SIZE * 0.5
-                );
-                ctx.stroke();
-              }
+            // Detalles extra (Telarañas, etc.)
+            // Puedes decidir dibujarlos siempre o solo si isVisibleByPlayer
+            // Dibujarlos siempre queda mejor para el efecto de luz ambiental
+            const wallSeed = (mapX * 11 + mapY * 17) % 100;
+            if (wallSeed < (level <= 4 ? 8 : 3)) {
+              drawEnvironmentSprite(ctx, "cobweb", screenX, screenY, TILE_SIZE);
             }
-          } else if (tile === TILE.STAIRS) {
-            ctx.fillStyle = "#8b2a3a";
-            ctx.textAlign = "center";
-            ctx.textBaseline = "middle";
-            ctx.font = "bold 18px monospace";
-            ctx.fillText("▼", screenX + TILE_SIZE / 2, screenY + TILE_SIZE / 2);
-          } else if (tile === TILE.STAIRS_UP) {
-            ctx.fillStyle = "#4ade80";
-            ctx.textAlign = "center";
-            ctx.textBaseline = "middle";
-            ctx.font = "bold 18px monospace";
-            ctx.fillText("▲", screenX + TILE_SIZE / 2, screenY + TILE_SIZE / 2);
-          } else if (tile === TILE.FLOOR && isLit) {
+            if (theme.lavaGlow && wallSeed >= 90) {
+              ctx.strokeStyle = "#ef4444";
+              ctx.lineWidth = 1;
+              ctx.beginPath();
+              ctx.moveTo(screenX + TILE_SIZE * 0.3, screenY + TILE_SIZE * 0.2);
+              ctx.lineTo(screenX + TILE_SIZE * 0.5, screenY + TILE_SIZE * 0.5);
+              ctx.stroke();
+            }
+          } else if (tile === TILE.FLOOR) {
             // Detalles del suelo
             ctx.fillStyle = theme.floorDetail;
             if ((mapX + mapY) % 2 === 0)
               ctx.fillRect(screenX + 10, screenY + 10, 4, 4);
 
+            // Decoración (Sangre, escombros, etc)
+            // Dibujamos siempre para que se vean si la luz de la antorcha les da
             const seed = (mapX * 7 + mapY * 13) % 100;
-
             if (level <= 4) {
               if (seed < 5)
                 drawEnvironmentSprite(
@@ -248,6 +200,21 @@ export function drawMap(
                   TILE_SIZE
                 );
             }
+          }
+
+          // Escaleras
+          if (tile === TILE.STAIRS) {
+            ctx.fillStyle = "#8b2a3a";
+            ctx.textAlign = "center";
+            ctx.textBaseline = "middle";
+            ctx.font = "bold 18px monospace";
+            ctx.fillText("▼", screenX + TILE_SIZE / 2, screenY + TILE_SIZE / 2);
+          } else if (tile === TILE.STAIRS_UP) {
+            ctx.fillStyle = "#4ade80";
+            ctx.textAlign = "center";
+            ctx.textBaseline = "middle";
+            ctx.font = "bold 18px monospace";
+            ctx.fillText("▲", screenX + TILE_SIZE / 2, screenY + TILE_SIZE / 2);
           }
         }
       }
