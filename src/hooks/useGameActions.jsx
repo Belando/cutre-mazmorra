@@ -38,7 +38,7 @@ export function useGameActions(context) {
     playerName, selectedAppearance, setSelectedAppearance, setPlayerClass,
     // Combat Logic
     handleEnemyDeath, executeSkillAction,
-    selectedSkill
+    selectedSkill, executeSkillAction: coreExecuteSkillAction,
   } = context;
 
   // --- SUB-ACCIONES (Helpers privados) ---
@@ -216,11 +216,6 @@ export function useGameActions(context) {
         }
         addMessage("No hay nada aquí para interactuar.", 'info');
         return null;
-    },
-
-    wait: () => {
-        addMessage("Esperas un turno...", 'info');
-        executeTurn(player);
     },
 
     descend: (goUp) => {
@@ -450,6 +445,44 @@ export function useGameActions(context) {
             addMessage("Juego cargado", 'info');
             updateMapFOV(savedGS.player.x, savedGS.player.y);
         }
+    },
+
+    executeSkillAction: (skillId, targetEnemy = null) => {
+        const skill = SKILLS[skillId];
+        if (!skill) return false;
+
+        // LÓGICA DE AUTO-APUNTADO
+        // Si es habilidad de rango y no se pasó objetivo (se pulsó Espacio)
+        if (skill.type === 'ranged' && !targetEnemy) {
+            let bestTarget = null;
+            let minDist = Infinity;
+
+            // Buscar enemigo visible más cercano
+            dungeon.enemies.forEach(e => {
+                const dist = Math.abs(e.x - player.x) + Math.abs(e.y - player.y);
+                // Verificar rango y visibilidad
+                if (dist <= (skill.range || 5) && dungeon.visible[e.y]?.[e.x]) {
+                    if (dist < minDist) {
+                        minDist = dist;
+                        bestTarget = e;
+                    }
+                }
+            });
+
+            if (bestTarget) {
+                targetEnemy = bestTarget;
+            } else {
+                addMessage("¡No hay enemigos en rango!", 'info');
+                // Efecto visual opcional
+                if (effectsManager.current) {
+                    effectsManager.current.addText(player.x, player.y, "?", '#94a3b8');
+                }
+                return false;
+            }
+        }
+
+        // Llamar a la lógica original de combate con el objetivo encontrado
+        return coreExecuteSkillAction(skillId, targetEnemy);
     },
 
     setPlayerName, setSelectedSkill, setRangedMode, setRangedTargets

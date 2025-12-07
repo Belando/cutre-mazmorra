@@ -95,8 +95,9 @@ export default function GameBoard({ gameState, viewportWidth = 21, viewportHeigh
       const sx = (torch.x * SIZE) - (offsetX * SIZE);
       const sy = (torch.y * SIZE) - (offsetY * SIZE);
       
-      // CORRECCIÓN: Usar 'visible' asegura que solo se dibuje si hay línea de visión directa
-      if (currentState.visible[torch.y]?.[torch.x] && isOnScreen(sx, sy, dynamicCanvas.width, dynamicCanvas.height)) {
+      // CAMBIO AQUÍ: Usamos 'explored' en lugar de 'visible'
+      // Esto permite que la antorcha se siga viendo si te alejas
+      if (currentState.explored[torch.y]?.[torch.x] && isOnScreen(sx, sy, dynamicCanvas.width, dynamicCanvas.height)) {
         drawEnvironmentSprite(ctx, 'wallTorch', sx, sy, SIZE, frameRef.current);
       }
     });

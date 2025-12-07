@@ -1,8 +1,8 @@
 import { useEffect, useRef } from 'react';
 import { QUICK_SLOT_HOTKEYS } from "@/components/ui/QuickSlots";
 import { getUnlockedSkills } from "@/engine/systems/SkillSystem";
+import { SKILLS } from '@/data/skills'; 
 
-// Tiempo entre acciones (velocidad de movimiento/acción)
 const INPUT_COOLDOWN = 160; 
 
 export function useInputHandler({ 
@@ -15,24 +15,18 @@ export function useInputHandler({
 }) {
   const { inventoryOpen, craftingOpen, skillTreeOpen, activeNPC, setInventoryOpen, setCraftingOpen, setSkillTreeOpen, setActiveNPC } = modals;
   
-  // Referencia al tiempo de la última acción
   const lastActionTime = useRef(0);
-  
-  // Referencia para mantener el estado de las teclas pulsadas (Set para evitar duplicados)
   const pressedKeys = useRef(new Set());
 
   // --- 1. GESTIÓN DE EVENTOS (TECLADO) ---
   useEffect(() => {
     const handleKeyDown = (e) => {
-      // Ignorar input si el juego no corre
       if (!gameStarted || gameOver) return;
 
       const key = e.key.toLowerCase();
-      
-      // Añadimos tecla al set (para el bucle de movimiento)
       pressedKeys.current.add(key);
 
-      // -- ACCIONES DE INTERFAZ (Instantáneas, sin cooldown de movimiento) --
+      // -- ACCIONES DE INTERFAZ --
       if (key === 'i') { setInventoryOpen(p => !p); return; }
       if (key === 'c') { setCraftingOpen(p => !p); return; }
       if (key === 't') { setSkillTreeOpen(p => !p); return; }
@@ -44,11 +38,8 @@ export function useInputHandler({
         return;
       }
 
-      // Si hay menús, bloqueamos el resto
       if (inventoryOpen || craftingOpen || skillTreeOpen || activeNPC) return;
 
-      // -- ACCIONES DE UN SOLO DISPARO (Interactuar, Skills, Guardar) --
-      // Estas se ejecutan al pulsar, pero respetan el cooldown global para no "spamear"
       const now = Date.now();
       if (now - lastActionTime.current < INPUT_COOLDOWN) return;
 
@@ -56,7 +47,21 @@ export function useInputHandler({
 
       switch (e.key) {
         case ' ': 
-          actions.wait(); actionTaken = true; break;
+          // LÓGICA ESPACIO: Solo habilidades, sin esperar turno
+          if (uiState.selectedSkill) {
+             const skill = SKILLS[uiState.selectedSkill];
+             
+             // Si es una habilidad y NO es melee (es decir, es ranged, self o aoe)
+             // intentamos ejecutarla. El auto-apuntado se maneja en executeSkillAction.
+             if (skill && skill.type !== 'melee') {
+                 actions.executeSkillAction(uiState.selectedSkill);
+                 actionTaken = true;
+             }
+             // Si es melee, no hacemos nada (el usuario debe moverse hacia el enemigo)
+          }
+          // Si no hay skill seleccionada, NO HACEMOS NADA.
+          break;
+          
         case 'Enter': 
           actions.descend(e.shiftKey); actionTaken = true; break;
         case 'g': case 'G': 
@@ -79,12 +84,11 @@ export function useInputHandler({
             const unlocked = getUnlockedSkills(gameState.player.level, gameState.player.skills.learned);
             if (unlocked[index]) {
                 actions.setSelectedSkill(uiState.selectedSkill === unlocked[index].id ? null : unlocked[index].id);
-                // Seleccionar skill no consume turno/cooldown
             }
         }
       }
       
-      // Slots Rápidos (Q, R) y fallback E
+      // Slots Rápidos
       if ((QUICK_SLOT_HOTKEYS.includes(key) && key !== 'e') || (key === 'e' && !actionTaken)) { 
         const idx = QUICK_SLOT_HOTKEYS.indexOf(key);
         if (idx !== -1) {
@@ -108,18 +112,14 @@ export function useInputHandler({
     };
   }, [gameStarted, gameOver, uiState, gameState, modals, actions]);
 
-
-  // --- 2. BUCLE DE MOVIMIENTO (POLLING LOOP) ---
-  // Esto permite diagonales suaves al comprobar el estado combinado de teclas
+  // --- 2. BUCLE DE MOVIMIENTO ---
   useEffect(() => {
     if (!gameStarted || gameOver) return;
 
     const moveInterval = setInterval(() => {
-      // Si hay menús abiertos, no mover
       if (inventoryOpen || craftingOpen || skillTreeOpen || activeNPC) return;
 
       const now = Date.now();
-      // Respetar cooldown global
       if (now - lastActionTime.current < INPUT_COOLDOWN) return;
 
       const keys = pressedKeys.current;
@@ -128,25 +128,22 @@ export function useInputHandler({
       let dx = 0;
       let dy = 0;
 
-      // Calcular vector de movimiento basado en TODAS las teclas pulsadas
       if (keys.has('w') || keys.has('arrowup')) dy -= 1;
       if (keys.has('s') || keys.has('arrowdown')) dy += 1;
       if (keys.has('a') || keys.has('arrowleft')) dx -= 1;
       if (keys.has('d') || keys.has('arrowright')) dx += 1;
 
-     // Soporte Numpad / Teclas Nav (Diagonales directas)
       if (keys.has('home')) { dx = -1; dy = -1; }
       if (keys.has('pageup')) { dx = 1; dy = -1; }
       if (keys.has('end')) { dx = -1; dy = 1; }
       if (keys.has('pagedown')) { dx = 1; dy = 1; }
 
-      // Ejecutar movimiento si hay dirección
       if (dx !== 0 || dy !== 0) {
         actions.move(Math.sign(dx), Math.sign(dy));
         lastActionTime.current = now;
       }
 
-    }, 50); // Comprobamos cada 50ms (aprox 20fps de input check)
+    }, 50);
 
     return () => clearInterval(moveInterval);
   }, [gameStarted, gameOver, modals, actions, inventoryOpen, craftingOpen, skillTreeOpen, activeNPC]);
