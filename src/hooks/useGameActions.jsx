@@ -44,29 +44,32 @@ export function useGameActions(context) {
   // --- SUB-ACCIONES (Helpers privados) ---
   
   const performAttack = (enemy, enemyIdx) => {
-      // 1. Calcular Daño (Usando la nueva función del sistema)
-      const { damage, isCrit } = calculatePlayerHit(player, enemy);
+      // 1. REGISTRAR TIEMPO Y DIRECCIÓN DEL ATAQUE
+      updatePlayer({ 
+          lastAttackTime: Date.now(),
+          // Guardamos el vector de dirección (ej: {x: 1, y: 0} para derecha)
+          lastAttackDir: { x: enemy.x - player.x, y: enemy.y - player.y } 
+      });
 
-      // 2. Feedback Visual y Sonoro
+      // ... (El resto de la función sigue EXACTAMENTE IGUAL) ...
+      const { damage, isCrit } = calculatePlayerHit(player, enemy);
+      // ... sonido, efectos, daño, etc ...
       soundManager.play(isCrit ? 'critical' : 'attack');
       effectsManager.current.addBlood(enemy.x, enemy.y);
       effectsManager.current.addText(enemy.x, enemy.y, damage, isCrit ? '#ef4444' : '#fff', isCrit);
       
-      const shakeAmount = isCrit ? 10 : 3; // 10 si es crítico, 3 si es normal
+      const shakeAmount = isCrit ? 10 : 3;
       effectsManager.current.addShake(shakeAmount);
 
-      // 3. Aplicar Daño al Estado
       const newEnemies = [...dungeon.enemies];
       newEnemies[enemyIdx].hp -= damage;
       setDungeon(prev => ({ ...prev, enemies: newEnemies }));
       
       addMessage(`Golpeas a ${ENEMY_STATS[enemy.type].name}: ${damage}`, 'player_damage');
       
-      // 4. Verificar Muerte
       if (newEnemies[enemyIdx].hp <= 0) {
           soundManager.play('kill');
           effectsManager.current.addExplosion(enemy.x, enemy.y, '#52525b'); 
-          // handleEnemyDeath devuelve la nueva lista de enemigos sin el muerto
           return handleEnemyDeath(enemyIdx); 
       }
       return newEnemies;

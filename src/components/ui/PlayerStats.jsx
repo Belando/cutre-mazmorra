@@ -1,7 +1,5 @@
-import React from 'react';
 import { Heart, Sword, Shield, Coins, Footprints } from 'lucide-react';
 import { Button } from '../ui/button';
-// CORRECCIÓN: Ruta actualizada a entities
 import PlayerSprite from '@/engine/entities/PlayerSprite';
 
 export default function PlayerStats({ player, dungeonLevel, onOpenInventory, inventoryCount, appearance, playerClass }) {
