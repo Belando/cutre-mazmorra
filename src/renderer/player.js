@@ -9,7 +9,8 @@ export function drawPlayer(
   playerClass = null,
   frame = 0,
   lastAttackTime = 0,
-  lastAttackDir = { x: 1, y: 0 } // Valor por defecto (derecha)
+  lastAttackDir = { x: 1, y: 0 },
+  lastSkillTime = 0, lastSkillId = null
 ) {
   const app = appearance || {
     colors: { tunic: "#3b82f6", hair: "#8b5a2b", skin: "#fcd5b8" },
@@ -37,24 +38,51 @@ function drawCustomPlayer(
   playerClass,
   frame,
   lastAttackTime,
-  lastAttackDir
+  lastAttackDir,
+  lastSkillTime
 ) {
   const s = size;
   const colors = appearance.colors;
 
-  // LÓGICA DE ANIMACIÓN DE ATAQUE
+  // LÓGICA DE TIEMPOS
+  const now = Date.now();
   const ATTACK_DURATION = 250;
+  const SKILL_DURATION = 400;
   const timeSinceAttack = Date.now() - lastAttackTime;
   const isAttacking = timeSinceAttack < ATTACK_DURATION;
+  const isCasting = (now - lastSkillTime) < SKILL_DURATION;
   let attackProgress = 0;
+  let castProgress = isCasting ? (now - lastSkillTime) / SKILL_DURATION : 0;
 
   if (isAttacking) {
     attackProgress = timeSinceAttack / ATTACK_DURATION;
   }
 
   // Animación de respiración (Idle)
-  const breath = Math.sin(frame * 0.1) * (s * 0.03);
-  const yAnim = y + breath;
+  // Si está casteando, "flota" más alto y rápido (acumulando energía)
+  const breathSpeed = isCasting ? 0.5 : 0.1;
+  const breathAmp = isCasting ? s * 0.05 : s * 0.03;
+  const breath = Math.sin(frame * breathSpeed) * breathAmp;
+  const yAnim = y + breath - (isCasting ? s * 0.1 : 0);
+
+  if (isCasting) {
+      ctx.save();
+      ctx.translate(x + s*0.5, y + s*0.5);
+      ctx.rotate(frame * 0.1);
+      ctx.strokeStyle = playerClass === 'mage' ? '#a855f7' : (playerClass === 'rogue' ? '#22c55e' : '#fbbf24');
+      ctx.lineWidth = 2;
+      ctx.globalAlpha = 1 - castProgress; // Se desvanece
+      ctx.beginPath();
+      const radius = s * 0.4 + (castProgress * s * 0.3); // Se expande
+      ctx.arc(0, 0, radius, 0, Math.PI * 2);
+      ctx.stroke();
+      
+      // Rectángulo rotando (estilo rúnico simple)
+      ctx.rotate(Math.PI/4);
+      ctx.strokeRect(-radius*0.7, -radius*0.7, radius*1.4, radius*1.4);
+      
+      ctx.restore();
+  }
 
   // Sombra
   ctx.fillStyle = "rgba(0,0,0,0.4)";
@@ -112,14 +140,16 @@ function drawCustomPlayer(
       // Si ataca, usamos el ángulo hacia el objetivo
       const dir = lastAttackDir || { x: 1, y: 0 };
       rotation = Math.atan2(dir.y, dir.x);
-
-      // Interpolación de entrada (opcional, para suavizar el inicio del giro)
-      // const entrySpeed = Math.min(1, attackProgress * 15);
-      // rotation = rotation * entrySpeed + (Math.PI/2) * (1-entrySpeed);
-
       // Movimiento de estocada
       thrust = Math.sin(attackProgress * Math.PI) * (s * 0.6);
-    } else {
+      
+    } else if (isCasting) {
+      // HABILIDAD (Grito de guerra): Levanta la espada al cielo
+      rotation = -Math.PI / 2; // Vertical perfecta
+      thrust = -s * 0.2; // La sube
+      // Vibración
+      rotation += Math.sin(frame * 0.8) * 0.1;
+    }else {
       // Ajuste de posición en idle para que cuelgue al lado del cuerpo
       ctx.translate(s * 0.2, -s * 0.1);
     }
@@ -160,11 +190,11 @@ function drawCustomPlayer(
     ctx.translate(x + s * 0.25, yAnim + s * 0.45);
     if (isAttacking)
       ctx.translate(Math.sin(attackProgress * Math.PI) * -s * 0.1, 0);
-    ctx.fillStyle = "#1e40af";
+    ctx.fillStyle = "#330a03ff";
     ctx.beginPath();
     ctx.arc(0, 0, s * 0.15, 0, Math.PI * 2);
     ctx.fill();
-    ctx.strokeStyle = "#fbbf24";
+    ctx.strokeStyle = "#9b7411ff";
     ctx.lineWidth = 2;
     ctx.stroke();
     ctx.restore();
@@ -197,9 +227,16 @@ function drawCustomPlayer(
 
       // Empuje del ataque
       thrust = Math.sin(attackProgress * Math.PI) * (s * 0.2);
-    } else {
-      // CORRECCIÓN 2: En estático, bajamos el bastón para que esté en 0.7
-      // Como el pivote está en 0.4, sumamos 0.3 para llegar a 0.7
+    } else if (isCasting) {
+        // LANZANDO HECHIZO: Apunta al enemigo o arriba
+        const dir = lastAttackDir || { x: 1, y: 0 };
+        // Si no hay dirección clara (self cast), apunta arriba
+        if (dir.x === 0 && dir.y === 0) rotation = -Math.PI / 2;
+        else rotation = Math.atan2(dir.y, dir.x);
+        
+        // Empuje vibrante
+        thrust = Math.sin(castProgress * Math.PI * 4) * (s * 0.05) + (s * 0.2);
+    }else {
       ctx.translate(s * 0.25, s * 0.3);
     }
 
@@ -211,11 +248,11 @@ function drawCustomPlayer(
     ctx.fillRect(0, -s * 0.025, s * 0.6, s * 0.05); // Vara
 
     // Orbe en la punta
-    ctx.fillStyle = "#a855f7";
-    ctx.shadowColor = isAttacking ? "#fff" : "#a855f7";
-    ctx.shadowBlur = (10 + Math.sin(frame * 0.2) * 5) * (isAttacking ? 2 : 1);
+    ctx.fillStyle = isCasting ? "#fff" : "#a855f7"; // Orbe brilla blanco al castear
+    ctx.shadowColor = isCasting || isAttacking ? "#fff" : "#a855f7";
+    ctx.shadowBlur = (10 + Math.sin(frame * 0.2) * 5) * (isCasting ? 3 : (isAttacking ? 2 : 1));
     ctx.beginPath();
-    ctx.arc(s * 0.6, 0, s * 0.08, 0, Math.PI * 2);
+    ctx.arc(s * 0.6, 0, s * (isCasting ? 0.12 : 0.08), 0, Math.PI * 2);
     ctx.fill();
     ctx.shadowBlur = 0;
 
@@ -230,6 +267,14 @@ function drawCustomPlayer(
     }
     ctx.restore();
 
+    // Rayo mágico al castear
+    if (isCasting && castProgress > 0.2) {
+         ctx.fillStyle = `rgba(168, 85, 247, ${1 - castProgress})`;
+         ctx.fillRect(s*0.6, -s*0.05, s*1.0, s*0.1); // Rayo saliendo
+    }
+
+    ctx.restore();
+
     // Capa (detrás)
     ctx.fillStyle = colors.tunic;
     ctx.globalCompositeOperation = "destination-over";
@@ -237,11 +282,16 @@ function drawCustomPlayer(
     ctx.moveTo(x + s * 0.35, yAnim + s * 0.3);
     ctx.lineTo(x + s * 0.65, yAnim + s * 0.3);
     const waveSpeed = isAttacking ? 0.8 : 0.2;
+    // Si castea, la capa vuela hacia arriba
     const waveAmp = isAttacking ? s * 0.1 : s * 0.05;
     const wave = Math.sin(frame * waveSpeed) * waveAmp;
     ctx.lineTo(x + s * 0.7 + wave, yAnim + s * 0.8);
     ctx.lineTo(x + s * 0.3 + wave, yAnim + s * 0.8);
+    // Si castea, capa sube
+    const lift = isCasting ? -s * 0.2 : 0;
     ctx.fill();
+    ctx.lineTo(x + s * 0.7 + wave, yAnim + s * 0.8 + lift);
+    ctx.lineTo(x + s * 0.3 + wave, yAnim + s * 0.8 + lift);
     ctx.globalCompositeOperation = "source-over";
   } else if (playerClass === "rogue") {
     // Capucha
@@ -270,7 +320,14 @@ function drawCustomPlayer(
       // La segunda daga va con un pequeño retraso
       const prog2 = Math.max(0, attackProgress - 0.2) / 0.8;
       thrust2 = Math.sin(prog2 * Math.PI) * (s * 0.4);
-    } else {
+    } else if (isCasting) {
+      // HABILIDAD (Bomba de humo/Lanzar): Brazos cruzados o alzados
+      rotation = -Math.PI / 2; 
+      thrust1 = -s * 0.1;
+      thrust2 = -s * 0.1;
+      // Rotan opuestamente (efecto ninja)
+      rotation += Math.sin(frame) * 0.2; 
+    }else {
       // Ajuste idle: manos bajas
       ctx.translate(0, s * 0.1);
     }
@@ -294,8 +351,14 @@ function drawCustomPlayer(
       // Mango
       ctx.fillStyle = "#475569";
       ctx.fillRect(-s * 0.1, -s * 0.03, s * 0.1, s * 0.06);
+
       ctx.restore();
     };
+      // Si castea, las dagas brillan verde (veneno/skill)
+    const daggerColor = isCasting ? '#4ade80' : null;
+
+    drawDagger(-s * 0.15, thrust1, daggerColor);
+    drawDagger(s * 0.15, thrust2, daggerColor);
 
     // Dibujar Daga 1 (Izquierda relativa)
     drawDagger(-s * 0.15, thrust1);
@@ -305,17 +368,12 @@ function drawCustomPlayer(
     ctx.restore();
   }
 
-  // Ojos
-  ctx.fillStyle = "#1e293b";
-  if (isAttacking) {
-    ctx.beginPath();
-    ctx.moveTo(x + s * 0.4, yAnim + s * 0.22);
-    ctx.lineTo(x + s * 0.48, yAnim + s * 0.25);
-    ctx.stroke();
-    ctx.beginPath();
-    ctx.moveTo(x + s * 0.6, yAnim + s * 0.22);
-    ctx.lineTo(x + s * 0.52, yAnim + s * 0.25);
-    ctx.stroke();
+  // Ojos (Brillan al castear)
+  ctx.fillStyle = isCasting ? '#fff' : "#1e293b";
+  if (isAttacking || isCasting) {
+    // ... (Ojos de esfuerzo igual que antes) ...
+    ctx.beginPath(); ctx.moveTo(x + s * 0.4, yAnim + s * 0.22); ctx.lineTo(x + s * 0.48, yAnim + s * 0.25); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(x + s * 0.6, yAnim + s * 0.22); ctx.lineTo(x + s * 0.52, yAnim + s * 0.25); ctx.stroke();
     ctx.fillRect(x + s * 0.42, yAnim + s * 0.24, s * 0.05, s * 0.03);
     ctx.fillRect(x + s * 0.53, yAnim + s * 0.24, s * 0.05, s * 0.03);
   } else {

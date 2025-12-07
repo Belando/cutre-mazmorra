@@ -166,7 +166,8 @@ export default function GameBoard({ gameState, viewportWidth = 21, viewportHeigh
     ctx.fillStyle = gradient;
     ctx.fillRect(psx - SIZE*1.5, psy - SIZE*1.5, SIZE * 4, SIZE * 4);
 
-    drawPlayer(ctx, psx, psy, SIZE, player.appearance, player.class, frameRef.current, player.lastAttackTime || 0, player.lastAttackDir || { x: 0, y: 0 });
+    drawPlayer(ctx, psx, psy, SIZE, player.appearance, player.class, frameRef.current, player.lastAttackTime || 0, player.lastAttackDir || { x: 0, y: 0 }, player.lastSkillTime || 0, // <--- NUEVO
+        player.lastSkillId || null);
     
     // -- NPCS --
     npcs.forEach(npc => {

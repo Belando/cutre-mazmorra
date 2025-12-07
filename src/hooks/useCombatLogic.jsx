@@ -52,15 +52,17 @@ export function useCombatLogic({
     const skill = SKILLS[skillId];
     if (!skill) return false;
 
+    // --- 1. Validaciones ---
     const level = player.skills?.skillLevels?.[skillId] || 1;
     const { manaCost } = getSkillEffectiveStats(skill, level);
 
     if (manaCost > 0 && player.mp < manaCost) {
         addMessage(`¡Falta Maná! (Req: ${manaCost})`, 'info');
-        effectsManager.current.addText(player.x, player.y, "No MP", '#94a3b8');
+        if(effectsManager.current) effectsManager.current.addText(player.x, player.y, "No MP", '#94a3b8');
         return false;
     }
 
+    // --- 2. Cálculos de Combate ---
     const pStats = calculatePlayerStats(player);
     const buffBonuses = calculateBuffBonuses(player.skills.buffs || [], pStats);
     const effectiveStats = {
@@ -73,23 +75,57 @@ export function useCombatLogic({
 
     if (res.success) {
         soundManager.play('magic');
-        if(skill.manaCost) updatePlayer({ mp: player.mp - skill.manaCost });
+        
+        // --- 3. PREPARAR ACTUALIZACIÓN ÚNICA DEL JUGADOR ---
+        const updates = {};
 
-        const newCooldowns = { ...player.skills.cooldowns, [skillId]: res.cooldown };
-        updatePlayer({ skills: { ...player.skills, cooldowns: newCooldowns } });
-
-        if (res.heal) {
-            updatePlayer({ hp: Math.min(player.maxHp, player.hp + res.heal) });
-            effectsManager.current.addText(player.x, player.y, `+${res.heal}`, '#4ade80');
-            effectsManager.current.addSparkles(player.x, player.y, '#4ade80');
+        // A) Maná
+        if(skill.manaCost) {
+            updates.mp = player.mp - skill.manaCost;
         }
+
+        // B) Animaciones
+        if (skill.type === 'melee' && targetEnemy) {
+            updates.lastAttackTime = Date.now();
+            updates.lastAttackDir = { x: targetEnemy.x - player.x, y: targetEnemy.y - player.y };
+        } else {
+            updates.lastSkillTime = Date.now();
+            updates.lastSkillId = skillId;
+            if (targetEnemy) {
+                updates.lastAttackDir = { x: targetEnemy.x - player.x, y: targetEnemy.y - player.y };
+            }
+        }
+
+        // C) Skills (Cooldowns y Buffs combinados)
+        // Clonamos skills para no perder datos entre actualizaciones parciales
+        const newSkills = { ...player.skills };
+        
+        // Aplicar Cooldown
+        newSkills.cooldowns = { ...newSkills.cooldowns, [skillId]: res.cooldown };
+        
+        // Aplicar Buff si existe
         if (res.buff) {
-            const newBuffs = [...(player.skills.buffs || []), res.buff];
-            updatePlayer({ skills: { ...player.skills, buffs: newBuffs } });
-            effectsManager.current.addSparkles(player.x, player.y, '#fbbf24');
-            effectsManager.current.addText(player.x, player.y, 'BUFF', '#fbbf24');
+            newSkills.buffs = [...(newSkills.buffs || []), res.buff];
+            if(effectsManager.current) {
+                effectsManager.current.addSparkles(player.x, player.y, '#fbbf24');
+                effectsManager.current.addText(player.x, player.y, 'BUFF', '#fbbf24');
+            }
+        }
+        updates.skills = newSkills;
+
+        // D) Curación
+        if (res.heal) {
+            updates.hp = Math.min(player.maxHp, player.hp + res.heal);
+            if(effectsManager.current) {
+                effectsManager.current.addText(player.x, player.y, `+${res.heal}`, '#4ade80');
+                effectsManager.current.addSparkles(player.x, player.y, '#4ade80');
+            }
         }
 
+        // --- 4. APLICAR TODOS LOS CAMBIOS DE GOLPE ---
+        updatePlayer(updates);
+
+        // --- 5. Efectos en Enemigos ---
         let currentEnemiesList = [...dungeon.enemies];
         if (res.damages && res.damages.length > 0) {
             res.damages.forEach(dmgInfo => {
@@ -97,8 +133,11 @@ export function useCombatLogic({
                 if (idx !== -1) {
                     const enemy = currentEnemiesList[idx];
                     enemy.hp -= dmgInfo.damage;
-                    effectsManager.current.addExplosion(enemy.x, enemy.y, '#a855f7');
-                    effectsManager.current.addText(enemy.x, enemy.y, dmgInfo.damage, '#a855f7', true);
+                    
+                    if(effectsManager.current) {
+                        effectsManager.current.addExplosion(enemy.x, enemy.y, '#a855f7');
+                        effectsManager.current.addText(enemy.x, enemy.y, dmgInfo.damage, '#a855f7', true);
+                    }
                     
                     if (dmgInfo.stun) enemy.stunned = dmgInfo.stun;
                     if (dmgInfo.slow) enemy.slowed = dmgInfo.slow;
@@ -106,7 +145,7 @@ export function useCombatLogic({
                     if (enemy.hp <= 0) {
                         currentEnemiesList = handleEnemyDeath(idx);
                         soundManager.play('kill');
-                        effectsManager.current.addExplosion(enemy.x, enemy.y, '#52525b');
+                        if(effectsManager.current) effectsManager.current.addExplosion(enemy.x, enemy.y, '#52525b');
                     }
                 }
             });
