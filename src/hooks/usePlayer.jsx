@@ -1,6 +1,6 @@
 import { useState, useCallback } from 'react';
 import { initializeSkills, updateCooldowns, updateBuffs } from "@/engine/systems/SkillSystem";
-import { calculatePlayerStats } from "@/engine/systems/ItemSystem";
+import { PLAYER_APPEARANCES } from '@/components/ui/CharacterSelect';
 
 export function usePlayer() {
   const [player, setPlayer] = useState(null);
@@ -18,6 +18,8 @@ export function usePlayer() {
       rogue: { strength: 5, dexterity: 10, intelligence: 3 },
     };
 
+    const appearance = PLAYER_APPEARANCES[classType] || PLAYER_APPEARANCES.warrior;
+
     setPlayer({
       x: startPos.x, y: startPos.y,
       hp: 50, maxHp: 50, mp: 30, maxMp: 30,
@@ -25,7 +27,7 @@ export function usePlayer() {
       equipAttack: 0, equipDefense: 0, equipMaxHp: 0,
       exp: 0, level: 1, gold: 0,
       name,
-      class: classType,
+      class: classType, appearance, 
       ...(classAttributes[classType] || classAttributes.warrior),
       skills: initializeSkills(classType)
     });

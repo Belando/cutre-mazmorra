@@ -16,7 +16,7 @@ export default function PlayerStats({ player, dungeonLevel, onOpenInventory, inv
     <div className="p-2 border rounded-lg bg-slate-900/80 backdrop-blur-sm border-slate-700/50">
       {/* Header compacto */}
       <div className="flex items-center gap-2 mb-2">
-        <div className="flex items-center justify-center w-8 h-8 overflow-hidden rounded bg-slate-800">
+        <div className="flex items-center justify-center w-8 h-8 overflow-hidden rounded bg-slate-700">
           <PlayerSprite size={28} appearance={appearance} playerClass={player?.class || playerClass} />
         </div>
         <div className="flex-1">

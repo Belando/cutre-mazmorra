@@ -3,6 +3,7 @@ import { motion } from 'framer-motion';
 import { Play, ChevronLeft, ChevronRight } from 'lucide-react';
 import { Button } from '../ui/button';
 import { SKILL_TREES, BASE_CLASSES } from '@/data/skills';
+import { drawPlayer } from '@/renderer/player';
 
 // Only 3 base classes available at start
 export const PLAYER_APPEARANCES = {
@@ -70,165 +71,46 @@ export const EVOLVED_APPEARANCES = {
 };
 
 // Draw player preview on canvas
-export function drawPlayerPreview(ctx, appearance, size, evolvedClass = null) {
-  const s = size;
-  const colors = appearance?.colors || { tunic: '#3b82f6', hair: '#8b5a2b', skin: '#fcd5b8' };
-  const playerClass = evolvedClass || appearance?.class || 'warrior';
-  
-  ctx.clearRect(0, 0, s, s);
-  
-  // Body (tunic)
-  ctx.fillStyle = colors.tunic;
-  ctx.fillRect(s*0.25, s*0.32, s*0.5, s*0.42);
-  
-  // Head
-  ctx.fillStyle = colors.skin;
-  ctx.beginPath();
-  ctx.arc(s*0.5, s*0.22, s*0.18, 0, Math.PI * 2);
-  ctx.fill();
-  
-  // Class-specific appearance
-  if (playerClass === 'warrior') {
-    // Hair
-    ctx.fillStyle = colors.hair;
-    ctx.beginPath();
-    ctx.arc(s*0.5, s*0.17, s*0.16, Math.PI, Math.PI * 2);
-    ctx.fill();
-    ctx.fillRect(s*0.34, s*0.1, s*0.32, s*0.12);
-    // Helmet hint
-    ctx.fillStyle = '#71717a';
-    ctx.fillRect(s*0.32, s*0.06, s*0.36, s*0.06);
-    // Shoulder pads
-    ctx.fillStyle = '#52525b';
-    ctx.fillRect(s*0.18, s*0.32, s*0.12, s*0.1);
-    ctx.fillRect(s*0.7, s*0.32, s*0.12, s*0.1);
-    // Sword
-    ctx.fillStyle = '#94a3b8';
-    ctx.fillRect(s*0.72, s*0.2, s*0.08, s*0.4);
-    ctx.fillStyle = '#fbbf24';
-    ctx.fillRect(s*0.67, s*0.55, s*0.18, s*0.06);
-    // Shield
-    ctx.fillStyle = colors.tunic;
-    ctx.beginPath();
-    ctx.moveTo(s*0.08, s*0.32);
-    ctx.lineTo(s*0.26, s*0.32);
-    ctx.lineTo(s*0.26, s*0.55);
-    ctx.lineTo(s*0.17, s*0.68);
-    ctx.lineTo(s*0.08, s*0.55);
-    ctx.closePath();
-    ctx.fill();
-    ctx.fillStyle = '#fbbf24';
-    ctx.beginPath();
-    ctx.arc(s*0.17, s*0.48, s*0.06, 0, Math.PI * 2);
-    ctx.fill();
-  } else if (playerClass === 'mage') {
-    // Wizard hat
-    ctx.fillStyle = colors.tunic;
-    ctx.beginPath();
-    ctx.moveTo(s*0.5, s*-0.05);
-    ctx.lineTo(s*0.75, s*0.22);
-    ctx.lineTo(s*0.25, s*0.22);
-    ctx.closePath();
-    ctx.fill();
-    // Hat brim
-    ctx.fillRect(s*0.22, s*0.2, s*0.56, s*0.06);
-    // Staff
-    ctx.fillStyle = '#78350f';
-    ctx.fillRect(s*0.75, s*0.1, s*0.06, s*0.6);
-    // Crystal orb
-    ctx.fillStyle = '#a855f7';
-    ctx.shadowColor = '#a855f7';
-    ctx.shadowBlur = 10;
-    ctx.beginPath();
-    ctx.arc(s*0.78, s*0.1, s*0.1, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.shadowBlur = 0;
-    // Book
-    ctx.fillStyle = '#7c3aed';
-    ctx.fillRect(s*0.08, s*0.4, s*0.16, s*0.22);
-    ctx.fillStyle = '#fbbf24';
-    ctx.fillRect(s*0.1, s*0.42, s*0.03, s*0.18);
-  } else if (playerClass === 'rogue') {
-    // Hood
-    ctx.fillStyle = colors.tunic;
-    ctx.beginPath();
-    ctx.arc(s*0.5, s*0.15, s*0.22, Math.PI, Math.PI * 2);
-    ctx.fill();
-    ctx.fillRect(s*0.28, s*0.15, s*0.44, s*0.14);
-    // Shadow on face
-    ctx.fillStyle = 'rgba(0,0,0,0.4)';
-    ctx.beginPath();
-    ctx.arc(s*0.5, s*0.24, s*0.14, 0, Math.PI * 2);
-    ctx.fill();
-    // Glowing eyes
-    ctx.fillStyle = '#fbbf24';
-    ctx.shadowColor = '#fbbf24';
-    ctx.shadowBlur = 4;
-    ctx.fillRect(s*0.4, s*0.22, s*0.06, s*0.04);
-    ctx.fillRect(s*0.54, s*0.22, s*0.06, s*0.04);
-    ctx.shadowBlur = 0;
-    // Dual daggers
-    ctx.fillStyle = '#71717a';
-    ctx.beginPath();
-    ctx.moveTo(s*0.75, s*0.28);
-    ctx.lineTo(s*0.78, s*0.55);
-    ctx.lineTo(s*0.72, s*0.55);
-    ctx.closePath();
-    ctx.fill();
-    ctx.beginPath();
-    ctx.moveTo(s*0.25, s*0.32);
-    ctx.lineTo(s*0.28, s*0.55);
-    ctx.lineTo(s*0.22, s*0.55);
-    ctx.closePath();
-    ctx.fill();
-    // Cape
-    ctx.fillStyle = colors.tunic;
-    ctx.globalAlpha = 0.7;
-    ctx.beginPath();
-    ctx.moveTo(s*0.28, s*0.35);
-    ctx.quadraticCurveTo(s*0.08, s*0.6, s*0.12, s*0.88);
-    ctx.lineTo(s*0.24, s*0.78);
-    ctx.closePath();
-    ctx.fill();
-    ctx.globalAlpha = 1;
-  } else {
-    // Default hair for evolved classes
-    ctx.fillStyle = colors.hair;
-    ctx.beginPath();
-    ctx.arc(s*0.5, s*0.17, s*0.16, Math.PI, Math.PI * 2);
-    ctx.fill();
-  }
-  
-  // Eyes (base)
-  ctx.fillStyle = '#1e293b';
-  ctx.fillRect(s*0.38, s*0.2, s*0.07, s*0.06);
-  ctx.fillRect(s*0.55, s*0.2, s*0.07, s*0.06);
-  
-  // Legs
-  ctx.fillStyle = '#1e293b';
-  ctx.fillRect(s*0.28, s*0.72, s*0.16, s*0.18);
-  ctx.fillRect(s*0.56, s*0.72, s*0.16, s*0.18);
-  
-  // Boots
-  ctx.fillStyle = '#78350f';
-  ctx.fillRect(s*0.25, s*0.87, s*0.2, s*0.1);
-  ctx.fillRect(s*0.55, s*0.87, s*0.2, s*0.1);
-}
+
 
 export default function CharacterSelect({ onSelect, playerName, onNameChange }) {
   const [selectedIndex, setSelectedIndex] = useState(0);
   const canvasRef = useRef(null);
+  const frameRef = useRef(0); // Para animación
   
-  // Only show base classes
   const appearanceKeys = Object.keys(PLAYER_APPEARANCES);
   const currentAppearance = PLAYER_APPEARANCES[appearanceKeys[selectedIndex]];
   const currentKey = appearanceKeys[selectedIndex];
   
+  // Efecto para dibujar y animar el personaje
   useEffect(() => {
-    if (canvasRef.current && currentAppearance) {
-      const ctx = canvasRef.current.getContext('2d');
-      drawPlayerPreview(ctx, currentAppearance, 128);
-    }
+    let animationId;
+    
+    const render = () => {
+        const canvas = canvasRef.current;
+        if (canvas && currentAppearance) {
+          const ctx = canvas.getContext('2d');
+          const size = 128;
+          
+          ctx.clearRect(0, 0, size, size);
+          
+          // Usamos el renderizador oficial del juego
+          drawPlayer(
+              ctx, 
+              0, 0,       // x, y
+              size,       // tamaño
+              currentAppearance, 
+              currentAppearance.class, 
+              frameRef.current // frame para animación (respiración)
+          );
+        }
+        frameRef.current++;
+        animationId = requestAnimationFrame(render);
+    };
+    
+    render();
+    
+    return () => cancelAnimationFrame(animationId);
   }, [selectedIndex, currentAppearance]);
   
   const prevCharacter = () => {
@@ -259,6 +141,7 @@ export default function CharacterSelect({ onSelect, playerName, onNameChange }) 
         </Button>
         
         <div className="bg-slate-800/50 rounded-xl p-4 border border-slate-700 min-w-[200px]">
+          {/* Canvas para el personaje */}
           <canvas 
             ref={canvasRef} 
             width={128} 
