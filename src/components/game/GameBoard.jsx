@@ -26,7 +26,7 @@ export default function GameBoard({ gameState, viewportWidth = 21, viewportHeigh
     gameStateRef.current = gameState;
   }, [gameState]);
 
-  // --- BUCLE PRINCIPAL DE RENDERIZADO ---
+// --- BUCLE PRINCIPAL DE RENDERIZADO ---
   const renderGameLoop = () => {
     const staticCanvas = staticCanvasRef.current;
     const dynamicCanvas = dynamicCanvasRef.current;
@@ -47,7 +47,6 @@ export default function GameBoard({ gameState, viewportWidth = 21, viewportHeigh
     frameRef.current++;
     
     // 1. CÁMARA (Lógica extraída a map.js)
-    // Calcular objetivo
     const target = getCameraTarget(player, map, viewportWidth, viewportHeight);
     
     // Inicialización inmediata para evitar barrido al cargar nivel
@@ -64,7 +63,7 @@ export default function GameBoard({ gameState, viewportWidth = 21, viewportHeigh
     const offsetX = newPos.x;
     const offsetY = newPos.y;
 
-    // 2. CAPA ESTÁTICA (Mapa - Lógica extraída a map.js)
+    // 2. CAPA ESTÁTICA (Mapa)
     // Redibujamos siempre para el scroll suave (sub-pixel precision)
     const staticCtx = staticCanvas.getContext('2d');
     drawMap(staticCtx, currentState, offsetX, offsetY, viewportWidth, viewportHeight);
@@ -85,16 +84,13 @@ export default function GameBoard({ gameState, viewportWidth = 21, viewportHeigh
         }
     }
 
-    // -- OBJETOS DEL ENTORNO (Antorchas, Cofres, Items) --
-    // Renderizamos solo si están visibles y en pantalla
+    // A) OBJETOS DE SUELO (Siempre debajo de las entidades vivas)
     
-    // Antorchas
+    // Antorchas de pared
     torches.forEach(torch => {
       const sx = (torch.x * SIZE) - (offsetX * SIZE);
       const sy = (torch.y * SIZE) - (offsetY * SIZE);
       
-      // CAMBIO AQUÍ: Usamos 'explored' en lugar de 'visible'
-      // Esto permite que la antorcha se siga viendo si te alejas
       if (currentState.explored[torch.y]?.[torch.x] && isOnScreen(sx, sy, dynamicCanvas.width, dynamicCanvas.height)) {
         drawEnvironmentSprite(ctx, 'wallTorch', sx, sy, SIZE, frameRef.current);
       }
@@ -117,7 +113,6 @@ export default function GameBoard({ gameState, viewportWidth = 21, viewportHeigh
         if (item.category === 'currency') {
           drawEnvironmentSprite(ctx, 'goldPile', sx, sy, SIZE);
         } else {
-          // Fallback simple para items o dibujar sprite específico si existiera
           ctx.fillStyle = '#fff';
           ctx.font = 'bold 14px monospace';
           ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
@@ -126,66 +121,94 @@ export default function GameBoard({ gameState, viewportWidth = 21, viewportHeigh
       }
     });
     
-    // -- ENEMIGOS --
-    enemies.forEach(enemy => {
-      const sx = (enemy.x * SIZE) - (offsetX * SIZE);
-      const sy = (enemy.y * SIZE) - (offsetY * SIZE);
-      
-      if (visible[enemy.y]?.[enemy.x]) {
-        if (sx > -SIZE*2 && sx < dynamicCanvas.width && sy > -SIZE*2 && sy < dynamicCanvas.height) {
-            
-            // CAMBIO: Se considera aturdido si tiene contador O si acaba de perder el turno por stun
-            const isStunnedVisual = enemy.stunned > 0 || enemy.lastAction === 'stunned';
+    // B) LISTA UNIFICADA DE ENTIDADES (Jugador, Enemigos, NPCs)
+    // Se ordenarán por Y para corregir la profundidad
+    const renderList = [];
 
-            if (isLargeEnemy(enemy.type)) {
-                drawLargeEnemy(ctx, enemy.type, sx, sy, SIZE * 2, frameRef.current, isStunnedVisual);
-                drawHealthBar(ctx, sx, sy, SIZE * 2, enemy.hp, enemy.maxHp);
-            } else {
-                const sizeInfo = getEnemySize(enemy.type);
-                const scale = sizeInfo.scale || 1;
-                const drawSize = SIZE * scale;
-                const offsetDraw = (drawSize - SIZE) / 2;
-                
-                drawEnemy(ctx, enemy.type, sx - offsetDraw, sy - offsetDraw, drawSize, frameRef.current, isStunnedVisual);
-                drawHealthBar(ctx, sx - offsetDraw, sy - offsetDraw, drawSize, enemy.hp, enemy.maxHp);
+    // 1. Agregar Enemigos Visibles a la lista
+    enemies.forEach(enemy => {
+      if (visible[enemy.y]?.[enemy.x]) {
+        renderList.push({
+          y: enemy.y,
+          type: 'enemy',
+          draw: () => {
+            const sx = (enemy.x * SIZE) - (offsetX * SIZE);
+            const sy = (enemy.y * SIZE) - (offsetY * SIZE);
+            
+            if (isOnScreen(sx, sy, dynamicCanvas.width, dynamicCanvas.height)) {
+                const isStunnedVisual = enemy.stunned > 0 || enemy.lastAction === 'stunned';
+
+                if (isLargeEnemy(enemy.type)) {
+                    drawLargeEnemy(ctx, enemy.type, sx, sy, SIZE * 2, frameRef.current, isStunnedVisual);
+                    drawHealthBar(ctx, sx, sy, SIZE * 2, enemy.hp, enemy.maxHp);
+                } else {
+                    const sizeInfo = getEnemySize(enemy.type);
+                    const scale = sizeInfo.scale || 1;
+                    const drawSize = SIZE * scale;
+                    const offsetDraw = (drawSize - SIZE) / 2;
+                    
+                    drawEnemy(ctx, enemy.type, sx - offsetDraw, sy - offsetDraw, drawSize, frameRef.current, isStunnedVisual);
+                    drawHealthBar(ctx, sx - offsetDraw, sy - offsetDraw, drawSize, enemy.hp, enemy.maxHp);
+                }
             }
-        }
+          }
+        });
       }
     });
     
-    // -- JUGADOR --
-    const psx = (player.x * SIZE) - (offsetX * SIZE);
-    const psy = (player.y * SIZE) - (offsetY * SIZE);
-
-    // Calculamos si es invisible mirando los buffs
+    // 2. Agregar Jugador a la lista
     const isInvisible = player.skills?.buffs?.some(b => b.invisible) || false;
-    
-    // Glow del jugador (solo si NO es invisible)
-    if (!isInvisible) {
-        const glowSize = SIZE * 2 + Math.sin(frameRef.current * 0.1) * 5;
-        const gradient = ctx.createRadialGradient(
-          psx + SIZE/2, psy + SIZE/2, 0,
-          psx + SIZE/2, psy + SIZE/2, glowSize
-        );
-        gradient.addColorStop(0, 'rgba(59, 130, 246, 0.4)');
-        gradient.addColorStop(1, 'rgba(59, 130, 246, 0)');
-        ctx.fillStyle = gradient;
-        ctx.fillRect(psx - SIZE*1.5, psy - SIZE*1.5, SIZE * 4, SIZE * 4);
-    }
+    renderList.push({
+        y: player.y,
+        type: 'player',
+        draw: () => {
+            const psx = (player.x * SIZE) - (offsetX * SIZE);
+            const psy = (player.y * SIZE) - (offsetY * SIZE);
 
-    drawPlayer(ctx, psx, psy, SIZE, player.appearance, player.class, frameRef.current, player.lastAttackTime || 0, player.lastAttackDir || { x: 0, y: 0 }, player.lastSkillTime || 0, // <--- NUEVO
-        player.lastSkillId || null, isInvisible);
-    
-    // -- NPCS --
-    npcs.forEach(npc => {
-        const sx = (npc.x * SIZE) - (offsetX * SIZE);
-        const sy = (npc.y * SIZE) - (offsetY * SIZE);
-        if (visible[npc.y]?.[npc.x] && isOnScreen(sx, sy, dynamicCanvas.width, dynamicCanvas.height)) {
-            drawNPC(ctx, npc.type, sx, sy, SIZE);
+            // Glow del jugador (solo si NO es invisible)
+            if (!isInvisible) {
+                const glowSize = SIZE * 2 + Math.sin(frameRef.current * 0.1) * 5;
+                const gradient = ctx.createRadialGradient(
+                psx + SIZE/2, psy + SIZE/2, 0,
+                psx + SIZE/2, psy + SIZE/2, glowSize
+                );
+                gradient.addColorStop(0, 'rgba(59, 130, 246, 0.4)');
+                gradient.addColorStop(1, 'rgba(59, 130, 246, 0)');
+                ctx.fillStyle = gradient;
+                ctx.fillRect(psx - SIZE*1.5, psy - SIZE*1.5, SIZE * 4, SIZE * 4);
+            }
+
+            drawPlayer(ctx, psx, psy, SIZE, player.appearance, player.class, frameRef.current, 
+                player.lastAttackTime || 0, player.lastAttackDir || { x: 0, y: 0 }, 
+                player.lastSkillTime || 0, player.lastSkillId || null, isInvisible);
         }
     });
+
+    // 3. Agregar NPCs Visibles a la lista
+    npcs.forEach(npc => {
+        if (visible[npc.y]?.[npc.x]) {
+            renderList.push({
+                y: npc.y,
+                type: 'npc',
+                draw: () => {
+                    const sx = (npc.x * SIZE) - (offsetX * SIZE);
+                    const sy = (npc.y * SIZE) - (offsetY * SIZE);
+                    if (isOnScreen(sx, sy, dynamicCanvas.width, dynamicCanvas.height)) {
+                        drawNPC(ctx, npc.type, sx, sy, SIZE);
+                    }
+                }
+            });
+        }
+    });
+
+    // C) ORDENAR Y DIBUJAR
+    // Ordenar de menor Y (fondo) a mayor Y (frente)
+    renderList.sort((a, b) => a.y - b.y);
+
+    // Ejecutar el dibujo en orden
+    renderList.forEach(entity => entity.draw());
     
-    // -- AMBIENT OVERLAY (Niebla, Ascuas) --
+    // -- AMBIENT OVERLAY (Niebla, Ascuas) - Encima de todo --
     const theme = getThemeForFloor(level);
     if (theme.lavaGlow || theme.embers) {
       drawAmbientOverlay(ctx, dynamicCanvas.width, dynamicCanvas.height, level, frameRef.current);
@@ -199,7 +222,6 @@ export default function GameBoard({ gameState, viewportWidth = 21, viewportHeigh
 
     // 4. CAPA ILUMINACIÓN (Lógica extraída a lighting.js)
     const lightCtx = lightingCanvas.getContext('2d');
-    // Asegurar tamaño correcto si cambia la ventana
     if (lightingCanvas.width !== dynamicCanvas.width) {
         lightingCanvas.width = dynamicCanvas.width;
         lightingCanvas.height = dynamicCanvas.height;

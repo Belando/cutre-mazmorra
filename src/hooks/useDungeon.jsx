@@ -40,16 +40,17 @@ export function useDungeon() {
 
     const newDungeon = generateDungeon(MAP_WIDTH, MAP_HEIGHT, level, playerLevel);
     
-    // Generar NPCs
-    const npcs = generateNPCs(level, newDungeon.rooms, newDungeon.map, [0, newDungeon.rooms.length - 1]);
+    // CORRECCIÓN: Pasamos newDungeon.enemies para evitar colisiones
+    const npcs = generateNPCs(
+        level, 
+        newDungeon.rooms, 
+        newDungeon.map, 
+        [0, newDungeon.rooms.length - 1],
+        newDungeon.enemies 
+    );
     
     // Limpiar cofres que coincidan con NPCs
     const cleanChests = (newDungeon.chests || []).filter(c => !npcs.some(n => n.x === c.x && n.y === c.y));
-
-    // Generar enemigos (ya viene en newDungeon pero lo extraemos para state)
-    // Extraer enemigos de la matriz de entidades para tenerlos en un array manejable
-    const enemiesList = [];
-    // (La lógica de extracción ya la hace generateDungeon y la devuelve en .enemies, la usamos directo)
 
     const initialState = {
       ...newDungeon,

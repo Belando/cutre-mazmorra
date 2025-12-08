@@ -2,10 +2,8 @@ import { ENEMY_STATS } from '@/data/enemies';
 import { SKILLS, SKILL_COLORS } from '@/data/skills';
 import { MATERIAL_TYPES, generateMaterialDrop, generateBossDrop } from "@/engine/systems/CraftingSystem";
 import { calculatePlayerStats } from '@/engine/systems/ItemSystem';
-import { calculateBuffBonuses, canUseSkill, getSkillEffectiveStats, useSkill } from "@/engine/systems/SkillSystem";
+import { calculateBuffBonuses, getSkillEffectiveStats, useSkill } from "@/engine/systems/SkillSystem";
 import { soundManager } from '@/engine/systems/SoundSystem';
-
-
 
 export function useCombatLogic({ 
   dungeon, setDungeon, 
@@ -19,7 +17,6 @@ export function useCombatLogic({
 
   // --- MANEJO DE MUERTE DE ENEMIGOS ---
   const handleEnemyDeath = (enemyIdx) => {
-    // ... (MANTENER ESTA FUNCIÓN IGUAL QUE ANTES) ...
     const enemy = dungeon.enemies[enemyIdx];
     if (!enemy) return dungeon.enemies;
 
@@ -29,11 +26,13 @@ export function useCombatLogic({
     setDungeon(prev => ({ ...prev, enemies: newEnemies }));
     gainExp(info.exp);
     addMessage(`${info.name} derrotado! +${info.exp} XP`, 'death');
+    
     const drops = enemy.isBoss ? generateBossDrop(enemy.type, dungeon.level) : generateMaterialDrop(enemy.type, dungeon.level);
     drops.forEach(d => {
       addMaterial(d.type, d.count);
       addMessage(`Botín: ${d.count} ${MATERIAL_TYPES[d.type]?.name}`, 'pickup');
     });
+    
     if(enemy.isBoss) {
       setDungeon(prev => ({ ...prev, bossDefeated: true }));
       addMessage("¡Jefe de piso eliminado!", 'levelup');
@@ -43,7 +42,7 @@ export function useCombatLogic({
   };
 
   // --- EJECUCIÓN DE HABILIDADES ---
-const executeSkillAction = (skillId, targetEnemy = null) => {
+  const executeSkillAction = (skillId, targetEnemy = null) => {
     const skill = SKILLS[skillId];
     if (!skill) return false;
 
@@ -66,15 +65,38 @@ const executeSkillAction = (skillId, targetEnemy = null) => {
         defense: pStats.defense + buffBonuses.defenseBonus
     };
 
-    const res = useSkill(skillId, player, effectiveStats, targetEnemy, dungeon.enemies, dungeon.visible);
+    const res = useSkill(skillId, player, effectiveStats, targetEnemy, dungeon.enemies, dungeon.visible, dungeon.map);
 
     if (res.success) {
-        // Sonidos específicos según skill
+        // --- NUEVO: EFECTO DE PROYECTIL (Paso 3.2) ---
+        // Disparamos la animación antes de aplicar daños
+        if (skill.type === 'ranged' && targetEnemy) {
+            let projColor = '#fff';
+            let projStyle = 'circle';
+            
+            // Personalización básica según ID o árbol de habilidad
+            if (skillId === 'fireball') { projColor = '#f97316'; projStyle = 'circle'; }
+            else if (skillId === 'ice_shard') { projColor = '#06b6d4'; projStyle = 'circle'; }
+            else if (skillId === 'throwing_knife' || skillId === 'multishot') { projColor = '#cbd5e1'; projStyle = 'arrow'; }
+            else if (skill.tree === 'mage' || skill.tree === 'arcane') { projColor = '#a855f7'; projStyle = 'circle'; }
+            else if (skill.tree === 'archer') { projColor = '#f59e0b'; projStyle = 'arrow'; }
+
+            if (effectsManager.current) {
+                effectsManager.current.addProjectile(
+                    player.x, player.y, 
+                    targetEnemy.x, targetEnemy.y, 
+                    projColor, 
+                    projStyle
+                );
+            }
+        }
+
+        // Sonidos específicos
         if (skillId === 'fireball') soundManager.play('fireball');
         else if (skillId === 'heal') soundManager.play('heal');
         else soundManager.play('magic');
         
-        // --- GESTIÓN DE BUFFS Y INVISIBILIDAD ---
+        // --- GESTIÓN DE BUFFS E INVISIBILIDAD ---
         let currentBuffs = player.skills?.buffs || [];
         
         // Si la habilidad es ofensiva, rompemos la invisibilidad
@@ -82,7 +104,7 @@ const executeSkillAction = (skillId, targetEnemy = null) => {
              currentBuffs = currentBuffs.filter(b => !b.invisible && !b.breaksOnAction);
         }
         
-        // Añadir nuevos buffs (ej. si acabamos de usar la bomba de humo)
+        // Añadir nuevos buffs
         if (res.buff) {
             currentBuffs = [...currentBuffs, res.buff];
             if(effectsManager.current) {
@@ -91,7 +113,7 @@ const executeSkillAction = (skillId, targetEnemy = null) => {
             }
         }
 
-        // --- 3. PREPARAR ACTUALIZACIÓN ÚNICA DEL JUGADOR ---
+        // --- 3. ACTUALIZACIÓN DEL JUGADOR ---
         const updates = {};
 
         // A) Maná
@@ -99,10 +121,10 @@ const executeSkillAction = (skillId, targetEnemy = null) => {
             updates.mp = player.mp - skill.manaCost;
         }
 
-        // B) Animaciones (Corrección: Guardar ID también en melee)
+        // B) Animaciones
         if (skill.type === 'melee' && targetEnemy) {
             updates.lastAttackTime = Date.now();
-            updates.lastSkillId = skillId; // ¡Importante para que se vea la animación especial!
+            updates.lastSkillId = skillId;
             updates.lastAttackDir = { x: targetEnemy.x - player.x, y: targetEnemy.y - player.y };
         } else {
             updates.lastSkillTime = Date.now();
@@ -112,12 +134,12 @@ const executeSkillAction = (skillId, targetEnemy = null) => {
             }
         }
 
-        // C) Skills (Cooldowns y Buffs actualizados)
+        // C) Skills (Cooldowns y Buffs)
         const newSkills = { ...player.skills, buffs: currentBuffs };
         newSkills.cooldowns = { ...newSkills.cooldowns, [skillId]: res.cooldown };
         updates.skills = newSkills;
 
-        // D) Curación (Efectos visuales verdes)
+        // D) Curación
         if (res.heal) {
             updates.hp = Math.min(player.maxHp, player.hp + res.heal);
             if(effectsManager.current) {
@@ -131,10 +153,8 @@ const executeSkillAction = (skillId, targetEnemy = null) => {
         // --- 5. EFECTOS EN ENEMIGOS ---
         let currentEnemiesList = [...dungeon.enemies];
         if (res.damages && res.damages.length > 0) {
-            // Color base de la habilidad
             let damageColor = SKILL_COLORS[skillId] || SKILL_COLORS.default;
 
-            // CAMBIO GUERRERO: Power Strike siempre blanco si no es crítico
             if (skillId === 'power_strike') {
                 damageColor = '#ffffff';
             }
@@ -150,28 +170,24 @@ const executeSkillAction = (skillId, targetEnemy = null) => {
                         effectsManager.current.addExplosion(enemy.x, enemy.y, explosionColor);
                         
                         const isCritical = dmgInfo.isCrit || false;
-                        // Si es crítico, usa el color de crítico, si no, el color calculado arriba (blanco para power strike)
                         const finalColor = isCritical ? '#fef9c3' : damageColor;
                         const textToShow = isCritical ? `${dmgInfo.damage}!` : dmgInfo.damage;
                         
-                        // CAMBIO: Llamada a addText con el nuevo parámetro isSkillHit = true
                         effectsManager.current.addText(
                             enemy.x, enemy.y, 
                             textToShow, 
                             finalColor, 
                             isCritical, 
-                            false, // isSmall flag
-                            true   // NEW: isSkillHit flag (para tamaño mediano-grande)
+                            false, 
+                            true // isSkillHit
                         );
                         
                         if (isCritical) effectsManager.current.addShake(5);
                     }
                     
-                    // CAMBIO GUERRERO: Efecto visual de Stun para Shield Bash
                     if (dmgInfo.stun) {
                         enemy.stunned = dmgInfo.stun;
                         if(effectsManager.current) {
-                            // Añadir estrellitas sobre el enemigo aturdido
                             effectsManager.current.addStunEffect(enemy.x, enemy.y);
                         }
                     }

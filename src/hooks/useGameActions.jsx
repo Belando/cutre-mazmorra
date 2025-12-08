@@ -6,6 +6,7 @@ import { calculatePlayerHit } from '@/engine/systems/CombatSystem';
 import { craftItem, upgradeItem } from '@/engine/systems/CraftingSystem';
 import { useQuickSlot as processQuickSlot, assignToQuickSlot } from '@/components/ui/QuickSlots';
 import { saveGame as saveSystem, loadGame as loadSystem } from '@/engine/systems/SaveSystem';
+import { hasLineOfSight } from '@/engine/core/utils';
 
 import { 
   useItem as useItemLogic, 
@@ -36,62 +37,129 @@ export function useGameActions(context) {
     // UI State Setters
     setGameStarted, setGameOver, setPlayerName, setSelectedSkill, setRangedMode, setRangedTargets, setMessages, updateMapFOV,
     playerName, selectedAppearance, setSelectedAppearance, setPlayerClass,
-    // Combat Logic
-    handleEnemyDeath, executeSkillAction,
-    selectedSkill, executeSkillAction: coreExecuteSkillAction,
+    // Combat Logic (Importamos handleEnemyDeath y executeSkillAction del contexto)
+    handleEnemyDeath, 
+    executeSkillAction: coreExecuteSkillAction, // Renombramos aquí para usarlo internamente
+    selectedSkill
   } = context;
 
   // --- SUB-ACCIONES (Helpers privados) ---
   
   const performAttack = (enemy, enemyIdx) => {
-      // 1. REGISTRAR TIEMPO Y DIRECCIÓN DEL ATAQUE
-      // CAMBIO AQUÍ: Romper invisibilidad al atacar
+      // 1. REGISTRAR DATOS DEL JUGADOR (Animación y buffs)
       const currentBuffs = player.skills?.buffs || [];
-      // Filtramos buffs que sean invisibles o que tengan breaksOnAction
       const newBuffs = currentBuffs.filter(b => !b.invisible && !b.breaksOnAction);
+      
       updatePlayer({ 
           lastAttackTime: Date.now(),
-          // Guardamos el vector de dirección (ej: {x: 1, y: 0} para derecha)
-          lastAttackDir: { x: enemy.x - player.x, y: enemy.y - player.y } ,
+          lastAttackDir: { x: enemy.x - player.x, y: enemy.y - player.y },
           lastSkillId: null,
-          skills: { ...player.skills, buffs: newBuffs } // Actualizamos buffs
+          skills: { ...player.skills, buffs: newBuffs }
       });
 
-      // ... (El resto de la función sigue EXACTAMENTE IGUAL) ...
+      // 2. CÁLCULO DE DAÑO
       const { damage, isCrit } = calculatePlayerHit(player, enemy);
-      // ... sonido, efectos, daño, etc ...
-      soundManager.play(isCrit ? 'critical' : 'attack');
-      effectsManager.current.addBlood(enemy.x, enemy.y);
-      effectsManager.current.addText(enemy.x, enemy.y, damage, isCrit ? '#ef4444' : '#fff', isCrit);
       
-      const shakeAmount = isCrit ? 10 : 3;
-      effectsManager.current.addShake(shakeAmount);
+      // 3. EFECTOS VISUALES Y SONOROS
+      soundManager.play(isCrit ? 'critical' : 'attack');
+      if (effectsManager.current) {
+          effectsManager.current.addBlood(enemy.x, enemy.y);
+          effectsManager.current.addText(enemy.x, enemy.y, damage, isCrit ? '#ef4444' : '#fff', isCrit);
+          effectsManager.current.addShake(isCrit ? 10 : 3);
+      }
 
-      const newEnemies = [...dungeon.enemies];
-      newEnemies[enemyIdx].hp -= damage;
-      setDungeon(prev => ({ ...prev, enemies: newEnemies }));
+      // 4. LÓGICA DE ESTADO (CRÍTICO: No actualizar estado aquí si el enemigo muere)
+      // Trabajamos sobre una copia limpia para calcular el resultado final del turno
+      const nextEnemies = [...dungeon.enemies];
+      nextEnemies[enemyIdx] = { ...enemy, hp: enemy.hp - damage };
       
       addMessage(`Golpeas a ${ENEMY_STATS[enemy.type].name}: ${damage}`, 'player_damage');
       
-      if (newEnemies[enemyIdx].hp <= 0) {
+      // 5. MUERTE O ACTUALIZACIÓN
+      if (nextEnemies[enemyIdx].hp <= 0) {
           soundManager.play('kill');
-          effectsManager.current.addExplosion(enemy.x, enemy.y, '#52525b'); 
+          if (effectsManager.current) {
+              effectsManager.current.addExplosion(enemy.x, enemy.y, '#52525b'); 
+          }
+          // Delegamos en handleEnemyDeath la actualización final del array
           return handleEnemyDeath(enemyIdx); 
       }
-      return newEnemies;
+      
+      // Si no muere, devolvemos el array modificado para que executeTurn lo procese
+      return nextEnemies;
   };
 
   // --- ACCIONES PÚBLICAS ---
 
   const actions = {
+    // Wrapper inteligente para habilidades con auto-apuntado
+    executeSkillAction: (skillId, targetEnemy = null) => {
+        const skill = SKILLS[skillId];
+        if (!skill) return false;
+
+        // LÓGICA DE AUTO-APUNTADO PARA RANGO
+        if (skill.type === 'ranged' && !targetEnemy) {
+            let bestTarget = null;
+            let minDist = Infinity;
+
+            // Buscar enemigo visible más cercano
+            dungeon.enemies.forEach(e => {
+                const dist = Math.abs(e.x - player.x) + Math.abs(e.y - player.y);
+                
+                // CAMBIO: Verificar rango, visibilidad FOV Y línea de tiro real (puertas)
+                if (
+                    dist <= (skill.range || 5) && 
+                    dungeon.visible[e.y]?.[e.x] &&
+                    hasLineOfSight(dungeon.map, player.x, player.y, e.x, e.y) // <--- VALIDACIÓN EXTRA
+                ) {
+                    if (dist < minDist) {
+                        minDist = dist;
+                        bestTarget = e;
+                    }
+                }
+            });
+
+            if (bestTarget) {
+                targetEnemy = bestTarget;
+            } else {
+                addMessage("¡No hay enemigos en rango!", 'info');
+                if (effectsManager.current) {
+                    effectsManager.current.addText(player.x, player.y, "?", '#94a3b8');
+                }
+                return false;
+            }
+        }
+
+        // Llamar a la lógica original
+        return coreExecuteSkillAction(skillId, targetEnemy);
+    },
+
     move: (dx, dy) => {
         const nx = player.x + dx;
         const ny = player.y + dy;
         
         // 1. Límites y Muros
-        if (nx < 0 || nx >= dungeon.map[0].length || ny < 0 || ny >= dungeon.map.length || dungeon.map[ny][nx] === TILE.WALL) return;
+        if (nx < 0 || nx >= dungeon.map[0].length || ny < 0 || ny >= dungeon.map.length) return;
         
-        // 2. Objetos bloqueantes (Cofres y NPCs)
+        const targetTile = dungeon.map[ny][nx];
+        
+        if (targetTile === TILE.WALL) return;
+
+        // --- NUEVO: ABRIR PUERTAS AL CHOCAR ---
+        if (targetTile === TILE.DOOR) {
+            const newMap = [...dungeon.map];
+            newMap[ny] = [...newMap[ny]];
+            newMap[ny][nx] = TILE.DOOR_OPEN;
+            
+            setDungeon(prev => ({ ...prev, map: newMap }));
+            soundManager.play('step'); // O un sonido de puerta si añades uno
+            addMessage("Abres la puerta.", 'info');
+            // Al abrir puerta, actualizamos visión para ver lo que hay detrás
+            updateMapFOV(player.x, player.y);
+            return; // Gastamos el turno abriendo, no nos movemos
+        }
+        
+        // 2. Objetos bloqueantes
         if (dungeon.chests.some(c => c.x === nx && c.y === ny)) {
             addMessage("Un cofre bloquea el camino (Usa 'E')", 'info');
             return;
@@ -101,7 +169,7 @@ export function useGameActions(context) {
             return;
         }
         
-        // 3. --- COMBATE (Colisión Enemigos) ---
+        // 3. COMBATE (Colisión Enemigos)
         const enemyIdx = dungeon.enemies.findIndex(e => e.x === nx && e.y === ny);
         if (enemyIdx !== -1) {
             const enemy = dungeon.enemies[enemyIdx];
@@ -111,8 +179,9 @@ export function useGameActions(context) {
                 const skill = SKILLS[selectedSkill];
                 if (skill.type === 'melee') {
                     if (canUseSkill(selectedSkill, player.skills.cooldowns)) {
-                        const success = executeSkillAction(selectedSkill, enemy);
-                        if (success) return; // Si la skill funcionó, terminamos
+                        // Usamos el wrapper de la acción, no el core directo
+                        const success = actions.executeSkillAction(selectedSkill, enemy);
+                        if (success) return; 
                     } else {
                         addMessage("¡Habilidad en enfriamiento!", 'info');
                         return; 
@@ -120,10 +189,11 @@ export function useGameActions(context) {
                 }
             }
 
-            // Ataque normal (Usa el helper limpio)
+            // Ataque normal
+            // Obtenemos el estado resultante de los enemigos (con daño aplicado o enemigo eliminado)
             const nextEnemiesState = performAttack(enemy, enemyIdx);
             
-            // Pasamos el turno (si murió, nextEnemiesState ya no tiene al enemigo)
+            // Pasamos el turno enviando el NUEVO estado de enemigos para que la IA reaccione a la realidad
             executeTurn(player, nextEnemiesState);
             return;
         }
@@ -131,38 +201,32 @@ export function useGameActions(context) {
         // 4. Movimiento Exitoso
         updatePlayer({ x: nx, y: ny });
         
-        // 5. Recoger Items (Auto-pickup)
+        // 5. Recoger Items (Auto-pickup simplificado)
         const itemIdx = dungeon.items.findIndex(i => i.x === nx && i.y === ny);
         if (itemIdx !== -1) {
             const item = dungeon.items[itemIdx];
-            
+            // ... (Lógica de items se mantiene igual)
             if (item.category === 'currency') {
-                // Oro (siempre se recoge)
                 soundManager.play('pickup');
                 updatePlayer({ gold: player.gold + item.value });
                 addMessage(`+${item.value} Oro`, 'pickup');
-                effectsManager.current.addText(nx, ny, `+${item.value}`, '#fbbf24');
+                if (effectsManager.current) effectsManager.current.addText(nx, ny, `+${item.value}`, '#fbbf24');
                 
-                // Borrar del suelo
                 const newItems = [...dungeon.items];
                 newItems.splice(itemIdx, 1);
                 setDungeon(prev => ({ ...prev, items: newItems }));
-
             } else {
-                // Items normales (verificar espacio)
                 const success = addItem(item);
                 if (success) {
                     soundManager.play('pickup');
-                    effectsManager.current.addSparkles(nx, ny);
+                    if (effectsManager.current) effectsManager.current.addSparkles(nx, ny);
                     addMessage(`Recogiste: ${item.name}`, 'pickup');
                     
-                    // Borrar del suelo
                     const newItems = [...dungeon.items];
                     newItems.splice(itemIdx, 1);
                     setDungeon(prev => ({ ...prev, items: newItems }));
                 } else {
                     addMessage("Inventario lleno", 'info');
-                    // No borramos el item, pero el jugador se mueve encima
                 }
             }
         }
@@ -177,7 +241,7 @@ export function useGameActions(context) {
             const tx = player.x + dx;
             const ty = player.y + dy;
 
-            // Interacción con Cofres
+            // Cofres
             const chestIdx = dungeon.chests.findIndex(c => c.x === tx && c.y === ty);
             if (chestIdx !== -1) {
                 const chest = dungeon.chests[chestIdx];
@@ -186,24 +250,21 @@ export function useGameActions(context) {
                     return null;
                 }
                 soundManager.play('chest'); 
-                effectsManager.current.addSparkles(tx, ty, '#fbbf24');
+                if (effectsManager.current) effectsManager.current.addSparkles(tx, ty, '#fbbf24');
                 const item = chest.item;
                 
                 if (item) {
                     const added = addItem(item);
                     if (added) {
                         addMessage(`Encontraste: ${item.name}`, 'pickup');
-                        effectsManager.current.addText(tx, ty, item.symbol || 'ITEM', '#fff');
-                        // Solo vaciamos el cofre si se pudo recoger
-                        let newItems = [...dungeon.items];
+                        if (effectsManager.current) effectsManager.current.addText(tx, ty, item.symbol || 'ITEM', '#fff');
                         setDungeon(prev => ({
                             ...prev,
-                            items: newItems,
                             chests: prev.chests.map((c, i) => i === chestIdx ? { ...c, isOpen: true } : c)
                         }));
                     } else {
                         addMessage("Inventario lleno.", 'info');
-                        return null; // No abrimos el cofre
+                        return null;
                     }
                 } else {
                     addMessage("El cofre estaba vacío...", 'info');
@@ -215,11 +276,10 @@ export function useGameActions(context) {
                 return { type: 'chest' };
             }
 
-            // Interacción con NPCs
+            // NPCs
             const npc = dungeon.npcs.find(n => n.x === tx && n.y === ty);
             if (npc) {
-                soundManager.play('speech');
-                addMessage(`Hablando con ${npc.name}...`, 'info');
+                soundManager.play('speech'); // Asumiendo que existe, si no, quitar
                 return { type: 'npc', data: npc };
             }
         }
@@ -300,9 +360,9 @@ export function useGameActions(context) {
         const res = useItemLogic(newInv, index, player);
         if (res.success) {
             setInventory(newInv);
-            setPlayer({ ...player }); 
+            setPlayer({ ...player }); // Forzar refresco UI
             res.effects.forEach(m => addMessage(m, 'heal'));
-            showFloatingText(player.x, player.y, "Used", '#fff');
+            if(showFloatingText) showFloatingText(player.x, player.y, "Used", '#fff');
             soundManager.play('heal');
         } else {
             addMessage(res.message, 'info');
@@ -310,7 +370,7 @@ export function useGameActions(context) {
     },
     
     saveGame: () => {
-        saveSystem({ player, inventory, equipment, level: dungeon.level, bossDefeated: dungeon.bossDefeated }, stats, activeQuests, completedQuests, questProgress, materials, quickSlots);
+        saveSystem({ player, inventory, equipment, level: dungeon.level, bossDefeated: dungeon.bossDefeated }, stats, activeQuests, completedQuests, context.questProgress, materials, quickSlots);
         addMessage("Juego guardado", 'info');
     },
     
@@ -360,7 +420,6 @@ export function useGameActions(context) {
         const item = newInv[idx];
         newInv.splice(idx, 1);
         setInventory(newInv);
-        // Soltar item en la posición actual del jugador
         setDungeon(prev => ({ ...prev, items: [...prev.items, { ...item, x: player.x, y: player.y }] }));
         addMessage(`Soltaste ${item.name}`, 'info');
     },
@@ -405,7 +464,6 @@ export function useGameActions(context) {
         }
     },
 
-    // Wrappers para el sistema de habilidades
     learnSkill: (id) => {
         const newSkills = JSON.parse(JSON.stringify(player.skills));
         const res = learnSkill(newSkills, id);
@@ -432,7 +490,7 @@ export function useGameActions(context) {
         if(res.success) {
             updatePlayer({ skills: newSkills });
             addMessage("¡Clase evolucionada!", 'levelup');
-            soundManager.play('start_adventure'); // Sonido épico
+            soundManager.play('start_adventure'); 
         }
     },
 
@@ -443,55 +501,19 @@ export function useGameActions(context) {
             setPlayer(savedGS.player);
             setDungeon({
                 ...savedGS, 
-                // Reiniciar visibilidad al cargar (o podrías guardarla también si quisieras)
                 visible: Array(35).fill().map(() => Array(50).fill(false)),
                 explored: savedGS.explored || Array(35).fill().map(() => Array(50).fill(false)), 
             });
             setInventory(savedGS.inventory);
             setEquipment(savedGS.equipment);
-            setStats(sStats); setActiveQuests(sAQ); setCompletedQuests(sCQ); setQuestProgress(sQP); setMaterials(sMat); setQuickSlots(sQS);
+            setStats(sStats); setActiveQuests(sAQ); setCompletedQuests(sCQ); 
+            // setQuestProgress no estaba en el destructuring original, asumimos que viene del context
+            if(context.setQuestProgress) context.setQuestProgress(sQP); 
+            setMaterials(sMat); setQuickSlots(sQS);
             setGameStarted(true);
             addMessage("Juego cargado", 'info');
             updateMapFOV(savedGS.player.x, savedGS.player.y);
         }
-    },
-
-    executeSkillAction: (skillId, targetEnemy = null) => {
-        const skill = SKILLS[skillId];
-        if (!skill) return false;
-
-        // LÓGICA DE AUTO-APUNTADO
-        // Si es habilidad de rango y no se pasó objetivo (se pulsó Espacio)
-        if (skill.type === 'ranged' && !targetEnemy) {
-            let bestTarget = null;
-            let minDist = Infinity;
-
-            // Buscar enemigo visible más cercano
-            dungeon.enemies.forEach(e => {
-                const dist = Math.abs(e.x - player.x) + Math.abs(e.y - player.y);
-                // Verificar rango y visibilidad
-                if (dist <= (skill.range || 5) && dungeon.visible[e.y]?.[e.x]) {
-                    if (dist < minDist) {
-                        minDist = dist;
-                        bestTarget = e;
-                    }
-                }
-            });
-
-            if (bestTarget) {
-                targetEnemy = bestTarget;
-            } else {
-                addMessage("¡No hay enemigos en rango!", 'info');
-                // Efecto visual opcional
-                if (effectsManager.current) {
-                    effectsManager.current.addText(player.x, player.y, "?", '#94a3b8');
-                }
-                return false;
-            }
-        }
-
-        // Llamar a la lógica original de combate con el objetivo encontrado
-        return coreExecuteSkillAction(skillId, targetEnemy);
     },
 
     setPlayerName, setSelectedSkill, setRangedMode, setRangedTargets

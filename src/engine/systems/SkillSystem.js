@@ -1,5 +1,6 @@
 // Enhanced Skill System with Class Evolution
 import { BASE_CLASSES, CLASS_EVOLUTIONS, SKILL_TREES, SKILLS } from '@/data/skills';
+import { hasLineOfSight } from '@/engine/core/utils';
 
 // Actualizamos initializeSkills para que no se rompa nada
 export function initializeSkills(playerClass = 'warrior') {
@@ -101,7 +102,7 @@ export function canUseSkill(skillId, cooldowns) {
 }
 
 // --- ACTUALIZADO: useSkill usa stats calculados ---
-export function useSkill(skillId, player, playerStats, target, enemies, visible) {
+export function useSkill(skillId, player, playerStats, target, enemies, visible, map) {
   const skill = SKILLS[skillId];
   if (!skill) return { success: false, message: 'Habilidad desconocida' };
   
@@ -137,6 +138,10 @@ export function useSkill(skillId, player, playerStats, target, enemies, visible)
   } else if (skill.type === 'ranged') {
     if (!target) return { success: false, message: '¡Sin objetivo!' };
     const dist = Math.abs(target.x - player.x) + Math.abs(target.y - player.y);
+    // --- NUEVO: VALIDACIÓN DE LÍNEA DE VISIÓN ---
+    if (map && !hasLineOfSight(map, player.x, player.y, target.x, target.y)) {
+        return { success: false, message: '¡Sin línea de visión!' };
+    }
     if (dist > skill.range) return { success: false, message: '¡Muy lejos!' };
     const effect = skill.effect(player, target, playerStats, skillLevel);
     result.message = effect.message;

@@ -42,7 +42,8 @@ function getTileColors(floor) {
     [TILE.WALL]: theme.wall,
     [TILE.FLOOR]: theme.floor,
     [TILE.STAIRS]: theme.floor,
-    [TILE.DOOR]: theme.wall,
+    [TILE.DOOR]: theme.wall,      
+    [TILE.DOOR_OPEN]: theme.floor,
     [TILE.STAIRS_UP]: theme.floor,
   };
 }
@@ -200,6 +201,31 @@ export function drawMap(
                   TILE_SIZE
                 );
             }
+          }
+
+          // --- DIBUJO DE PUERTAS ---
+          if (tile === TILE.DOOR) {
+              // Puerta Cerrada (Madera reforzada)
+              ctx.fillStyle = '#5d4037'; // Marrón madera
+              ctx.fillRect(screenX + 4, screenY + 4, TILE_SIZE - 8, TILE_SIZE - 8);
+              
+              // Detalles (Tablones)
+              ctx.fillStyle = '#3e2723';
+              ctx.fillRect(screenX + 14, screenY + 4, 4, TILE_SIZE - 8);
+              
+              // Pomo
+              ctx.fillStyle = '#fbbf24'; // Dorado
+              ctx.beginPath();
+              ctx.arc(screenX + 24, screenY + TILE_SIZE/2, 3, 0, Math.PI * 2);
+              ctx.fill();
+          } 
+          else if (tile === TILE.DOOR_OPEN) {
+              // Puerta Abierta (Marco)
+              ctx.fillStyle = '#3e2723'; // Marco oscuro
+              // Dibujar marco simple
+              ctx.fillRect(screenX + 2, screenY + 2, 4, TILE_SIZE - 4); // Lado
+              ctx.fillRect(screenX + TILE_SIZE - 6, screenY + 2, 4, TILE_SIZE - 4); // Lado
+              ctx.fillRect(screenX + 2, screenY + 2, TILE_SIZE - 4, 4); // Top
           }
 
           // Escaleras

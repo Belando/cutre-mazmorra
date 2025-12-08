@@ -102,8 +102,12 @@ export function generateDungeon(width, height, level, playerLevel = 1) {
       carveHorizontalCorridor(map, prevCenterX, currCenterX, currCenterY);
     }
   }
+
+  // 3. (NUEVO) COLOCAR PUERTAS
+  // Detectamos entradas a habitaciones y colocamos puertas
+  placeDoors(map, rooms);
   
-  // 3. Colocar al Jugador (Primera habitación)
+  // 4. Colocar al Jugador (Primera habitación)
   const firstRoom = rooms[0];
   const playerX = Math.floor(firstRoom.x + firstRoom.width / 2);
   const playerY = Math.floor(firstRoom.y + firstRoom.height / 2);
@@ -117,19 +121,19 @@ export function generateDungeon(width, height, level, playerLevel = 1) {
     stairsUp = { x: upX, y: upY };
   }
   
-  // 4. Colocar escaleras de bajada (Última habitación)
+  // 5. Colocar escaleras de bajada (Última habitación)
   const lastRoom = rooms[rooms.length - 1];
   const stairsX = Math.floor(lastRoom.x + lastRoom.width / 2);
   const stairsY = Math.floor(lastRoom.y + lastRoom.height / 2);
   map[stairsY][stairsX] = TILE.STAIRS;
   
-  // 5. Generar Enemigos (En la matriz)
+  // 6. Generar Enemigos (En la matriz)
   const enemyTypes = getEnemiesForLevel(level);
   const enemyCount = 4 + level * 2 + Math.floor(Math.random() * 3);
   const lastRoomIndex = rooms.length - 1;
   placeEntities(map, entities, rooms, enemyTypes, enemyCount, [0, lastRoomIndex]);
   
-  // 6. Colocar Jefe (En la habitación de salida)
+  // 7. Colocar Jefe (En la habitación de salida)
   const bossType = getBossForLevel(level);
   const bossRoom = rooms[lastRoomIndex];
   const bossX = Math.floor(bossRoom.x + bossRoom.width / 2);
@@ -139,7 +143,7 @@ export function generateDungeon(width, height, level, playerLevel = 1) {
   const bossOffsetY = bossY !== stairsY ? 0 : (bossY > bossRoom.y + 1 ? -1 : 1);
   entities[bossY + bossOffsetY][bossX + bossOffsetX] = bossType;
   
-  // 7. Generar Botín
+  // 8. Generar Botín
   const generatedItems = generateLevelItems(level, rooms, map, [0]);
   const chests = [];
   const items = [];
@@ -158,7 +162,7 @@ export function generateDungeon(width, height, level, playerLevel = 1) {
     }
   });
   
-  // 8. Colocar decoración
+  // 9. Colocar decoración (Antorchas)
   const torches = [];
   rooms.forEach(room => {
     const torchPositions = [
@@ -181,7 +185,7 @@ export function generateDungeon(width, height, level, playerLevel = 1) {
     });
   });
 
-  // 9. (NUEVO) Compilar lista de enemigos para el estado del juego
+  // 10. Compilar lista de enemigos para el estado del juego
   const enemies = [];
   for (let y = 0; y < height; y++) {
     for (let x = 0; x < width; x++) {
@@ -208,7 +212,7 @@ export function generateDungeon(width, height, level, playerLevel = 1) {
   return { 
     map, 
     entities, 
-    enemies, // <--- Importante: devolvemos la lista generada
+    enemies, 
     rooms, 
     playerStart: { x: playerX, y: playerY }, 
     stairs: { x: stairsX, y: stairsY }, 
@@ -226,6 +230,44 @@ function carveHorizontalCorridor(map, x1, x2, y) {
   for (let x = start; x <= end; x++) {
     if (y > 0 && y < map.length - 1) map[y][x] = TILE.FLOOR;
   }
+}
+
+// --- FUNCIÓN AUXILIAR PARA COLOCAR PUERTAS ---
+function placeDoors(map, rooms) {
+  const tryPlaceDoor = (x, y) => {
+    if (y < 1 || y >= map.length - 1 || x < 1 || x >= map[0].length - 1) return;
+    
+    // Solo colocamos puerta si es suelo (un pasillo excavado)
+    if (map[y][x] === TILE.FLOOR) {
+        const left = map[y][x-1];
+        const right = map[y][x+1];
+        const top = map[y-1][x];
+        const bottom = map[y+1][x];
+
+        // Caso Horizontal: Muros arriba y abajo, suelo a los lados
+        if (top === TILE.WALL && bottom === TILE.WALL && left === TILE.FLOOR && right === TILE.FLOOR) {
+            map[y][x] = TILE.DOOR;
+        }
+        // Caso Vertical: Muros a los lados, suelo arriba y abajo
+        else if (left === TILE.WALL && right === TILE.WALL && top === TILE.FLOOR && bottom === TILE.FLOOR) {
+            map[y][x] = TILE.DOOR;
+        }
+    }
+  };
+
+  rooms.forEach(room => {
+    // Revisar perímetro de la habitación
+    // Bordes verticales
+    for (let y = room.y; y < room.y + room.height; y++) {
+       tryPlaceDoor(room.x - 1, y);
+       tryPlaceDoor(room.x + room.width, y);
+    }
+    // Bordes horizontales
+    for (let x = room.x; x < room.x + room.width; x++) {
+       tryPlaceDoor(x, room.y - 1);
+       tryPlaceDoor(x, room.y + room.height);
+    }
+  });
 }
 
 function carveVerticalCorridor(map, y1, y2, x) {

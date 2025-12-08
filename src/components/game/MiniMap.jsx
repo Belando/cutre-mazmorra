@@ -17,42 +17,60 @@ export default function MiniMap({ gameState, floorHistory = [] }) {
     if (!canvas || !gameState) return;
     
     const ctx = canvas.getContext('2d');
-    const { map, player, explored, stairs } = gameState;
-    const scale = 3;
+    const { map, player, explored, stairs, stairsUp } = gameState;
+    const scale = 3; // Tamaño de pixel del minimapa
     
     canvas.width = map[0].length * scale;
     canvas.height = map.length * scale;
     
+    // Fondo
     ctx.fillStyle = '#0a0a0f';
     ctx.fillRect(0, 0, canvas.width, canvas.height);
     
     for (let y = 0; y < map.length; y++) {
       for (let x = 0; x < map[0].length; x++) {
+        // Solo dibujamos lo explorado
         if (explored[y]?.[x]) {
           const tile = map[y][x];
-          ctx.fillStyle = tile === TILE.WALL ? '#1a1a2e' : '#2a2a4e';
+          
+          if (tile === TILE.WALL) {
+              ctx.fillStyle = '#1a1a2e';
+          } else if (tile === TILE.DOOR) {
+              ctx.fillStyle = '#d97706'; // Ámbar oscuro para puertas cerradas
+          } else if (tile === TILE.DOOR_OPEN) {
+              ctx.fillStyle = '#4b5563'; // Gris para puertas abiertas
+          } else {
+              ctx.fillStyle = '#2a2a4e'; // Suelo normal
+          }
+          
           ctx.fillRect(x * scale, y * scale, scale, scale);
         }
       }
     }
     
-    // Stairs
-    if (explored[stairs.y]?.[stairs.x]) {
-      ctx.fillStyle = '#e94560';
+    // Escaleras Abajo
+    if (stairs && explored[stairs.y]?.[stairs.x]) {
+      ctx.fillStyle = '#ef4444'; // Rojo
       ctx.fillRect(stairs.x * scale, stairs.y * scale, scale, scale);
     }
+
+    // Escaleras Arriba
+    if (stairsUp && explored[stairsUp.y]?.[stairsUp.x]) {
+      ctx.fillStyle = '#22c55e'; // Verde
+      ctx.fillRect(stairsUp.x * scale, stairsUp.y * scale, scale, scale);
+    }
     
-    // NPCs
+    // NPCs (Amarillo)
     if (gameState.npcs) {
       gameState.npcs.forEach(npc => {
         if (explored[npc.y]?.[npc.x]) {
-          ctx.fillStyle = '#fbbf24'; // Gold for NPCs
+          ctx.fillStyle = '#fbbf24'; 
           ctx.fillRect(npc.x * scale, npc.y * scale, scale, scale);
         }
       });
     }
     
-    // Player
+    // Jugador (Azul brillante, siempre visible)
     ctx.fillStyle = '#3b82f6';
     ctx.fillRect(player.x * scale - 1, player.y * scale - 1, scale + 2, scale + 2);
     

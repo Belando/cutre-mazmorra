@@ -29,13 +29,12 @@ export function hasLineOfSight(map, x1, y1, x2, y2) {
   let err = dx - dy;
 
   while (x0 !== xEnd || y0 !== yEnd) {
-    // Si encontramos un muro (0) y no es el punto de inicio ni final
-    if (map[y0]?.[x0] === 0) {
-      if (
-        (x0 !== Math.floor(x1) || y0 !== Math.floor(y1)) &&
-        (x0 !== xEnd || y0 !== yEnd)
-      ) {
-        return false;
+    const tile = map[y0]?.[x0];
+    
+    // Si encontramos un obstáculo y no es el punto de inicio
+    if (tile === TILE.WALL || tile === TILE.DOOR) {
+      if (x0 !== Math.floor(x1) || y0 !== Math.floor(y1)) {
+        return false; // Bloqueado
       }
     }
 

@@ -2,6 +2,7 @@
 import { findPath } from '@/engine/core/pathfinding';
 import { ENEMY_RANGED_INFO } from '@/data/enemies';
 import { hasLineOfSight } from './CombatSystem'; 
+import { TILE } from '@/data/constants';
 
 // Tipos de comportamiento
 export const AI_BEHAVIORS = {
@@ -48,7 +49,15 @@ export function getEnemyRange(enemyType) {
 
 // Comprueba si una casilla está libre de obstáculos
 function isTileFree(x, y, map, enemies, chests, npcs) {
-  if (map[y]?.[x] !== 1 && map[y]?.[x] !== 2) return false;
+  const tile = map[y]?.[x];
+  
+  // CORRECCIÓN: Permitir caminar sobre PUERTAS ABIERTAS (TILE.DOOR_OPEN = 5)
+  // TILE.FLOOR = 1, TILE.STAIRS = 2, TILE.STAIRS_UP = 4, TILE.DOOR_OPEN = 5
+  const isWalkable = tile === TILE.FLOOR || tile === TILE.STAIRS || tile === TILE.STAIRS_UP || tile === TILE.DOOR_OPEN;
+  
+  if (!isWalkable) return false;
+  
+  // Bloqueo por entidades dinámicas
   if (enemies.some(e => e.x === x && e.y === y)) return false;
   if (chests && chests.some(c => c.x === x && c.y === y)) return false;
   if (npcs && npcs.some(n => n.x === x && n.y === y)) return false;

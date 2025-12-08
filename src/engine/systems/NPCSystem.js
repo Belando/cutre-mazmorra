@@ -340,17 +340,21 @@ export function checkQuestProgress(quest, gameState) {
   }
 }
 
-// Generate NPCs for a floor
-export function generateNPCs(floor, rooms, map, excludeRoomIndices = []) {
+// Generar NPCS
+export function generateNPCs(floor, rooms, map, excludeRoomIndices = [], enemies = []) {
   const npcs = [];
   
-  // Merchant appears every 2 floors
+  // Merchant (aparece cada 2 pisos)
   if (floor % 2 === 1 && rooms.length > 2) {
     const merchantRoom = rooms.find((r, i) => !excludeRoomIndices.includes(i) && i !== 0);
     if (merchantRoom) {
       const x = merchantRoom.x + Math.floor(merchantRoom.width / 2);
       const y = merchantRoom.y + Math.floor(merchantRoom.height / 2);
-      if (map[y]?.[x] === 1) {
+      
+      // VERIFICACIÓN DE COLISIÓN CON ENEMIGOS
+      const isOccupiedByEnemy = enemies.some(e => e.x === x && e.y === y);
+      
+      if (map[y]?.[x] === 1 && !isOccupiedByEnemy) {
         npcs.push({
           ...NPCS.merchant,
           x, y,
@@ -360,13 +364,16 @@ export function generateNPCs(floor, rooms, map, excludeRoomIndices = []) {
     }
   }
   
-  // Quest giver on floors 1, 3, 5
+  // Quest giver (pisos 1, 3, 5)
   if ([1, 3, 5].includes(floor) && rooms.length > 3) {
     const questRoom = rooms.find((r, i) => !excludeRoomIndices.includes(i) && i !== 0 && i !== rooms.length - 1);
     if (questRoom) {
       const x = questRoom.x + 1;
       const y = questRoom.y + 1;
-      if (map[y]?.[x] === 1) {
+      
+      const isOccupiedByEnemy = enemies.some(e => e.x === x && e.y === y);
+
+      if (map[y]?.[x] === 1 && !isOccupiedByEnemy) {
         npcs.push({
           ...NPCS.quest_elder,
           x, y,
@@ -376,13 +383,16 @@ export function generateNPCs(floor, rooms, map, excludeRoomIndices = []) {
     }
   }
   
-  // Sage on floor 1 (story intro) and floor 6 (final warning)
+  // Sage (pisos 1, 6)
   if ([1, 6].includes(floor) && rooms.length > 2) {
     const sageRoom = rooms[1];
     if (sageRoom) {
       const x = sageRoom.x + sageRoom.width - 2;
       const y = sageRoom.y + 1;
-      if (map[y]?.[x] === 1) {
+      
+      const isOccupiedByEnemy = enemies.some(e => e.x === x && e.y === y);
+
+      if (map[y]?.[x] === 1 && !isOccupiedByEnemy) {
         npcs.push({
           ...NPCS.sage,
           x, y,

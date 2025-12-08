@@ -1,6 +1,7 @@
 import { calculatePlayerStats } from './ItemSystem';
 import { calculateBuffBonuses } from './SkillSystem';
 import { getWeaponRange, calculateEquipmentStats } from './EquipmentSystem';
+import { TILE } from '@/data/constants';
 
 // --- UTILIDADES BÁSICAS Y VISIÓN ---
 
@@ -21,6 +22,7 @@ export function isInRange(attacker, target, range) {
 
 // Comprobar línea de visión (Algoritmo Bresenham)
 // Retorna false si hay una pared (0) en el camino
+// Comprobar línea de visión (Algoritmo Bresenham Mejorado)
 export function hasLineOfSight(map, x1, y1, x2, y2) {
   const dx = Math.abs(x2 - x1);
   const dy = Math.abs(y2 - y1);
@@ -36,9 +38,14 @@ export function hasLineOfSight(map, x1, y1, x2, y2) {
     if (e2 > -dy) { err -= dy; x += sx; }
     if (e2 < dx) { err += dx; y += sy; }
     
-    if ((x === x1 && y === y1) || (x === x2 && y === y2)) continue;
+    // Si alcanzamos el destino, paramos (para permitir atacar a alguien QUE ESTÁ en una puerta)
+    if (x === x2 && y === y2) break; 
     
-    if (map[y]?.[x] === 0) return false; // Bloqueado por pared
+    const tile = map[y]?.[x];
+    
+    // BLOQUEO: Si es Muro (0) o Puerta Cerrada (3)
+    // TILE.WALL = 0, TILE.DOOR = 3
+    if (tile === TILE.WALL || tile === TILE.DOOR) return false; 
   }
   return true;
 }

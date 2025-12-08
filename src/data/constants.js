@@ -7,6 +7,7 @@ export const TILE = {
   STAIRS: 2,
   DOOR: 3,
   STAIRS_UP: 4,
+  DOOR_OPEN: 5,
 };
 
 export const ENTITY = {

@@ -7,13 +7,12 @@ export class EffectsManager {
     this.screenShake = 0;
   }
 
-  // --- SCREEN SHAKE (Igual) ---
+  // --- SCREEN SHAKE ---
   addShake(amount) {
     this.screenShake = Math.min(this.screenShake + amount, 25);
   }
 
   // --- TEXTO FLOTANTE ---
-  // CAMBIO 1: Añadido parámetro 'isSkillHit'
   addText(x, y, text, color = '#fff', isCritical = false, isSmall = false, isSkillHit = false) {
     this.effects.push({
       id: this.idCounter++,
@@ -23,7 +22,7 @@ export class EffectsManager {
       color,
       isCritical,
       isSmall,
-      isSkillHit, // Guardamos la nueva propiedad
+      isSkillHit,
       life: isCritical ? 90 : 60,
       maxLife: isCritical ? 90 : 60,
       vx: isCritical ? (Math.random() - 0.5) * 0.1 : 0,
@@ -32,7 +31,7 @@ export class EffectsManager {
     });
   }
 
-  // --- NUEVO: EFECTO DE STUN (Estrellas girando) ---
+  // --- EFECTO DE STUN (Estrellas girando) ---
   addStunEffect(x, y) {
     const color = '#fbbf24'; // Amarillo dorado
     for (let i = 0; i < 5; i++) {
@@ -40,26 +39,40 @@ export class EffectsManager {
         id: this.idCounter++,
         type: 'particle',
         style: 'star',
-        // Posición inicial centrada sobre la cabeza
         x: x + 0.5, 
         y: y + 0.2, 
-        z: 0.8, // Altura
-        // Velocidad orbital inicial (se calcula en update)
-        angle: (Math.PI * 2 * i) / 5, // Ángulo inicial distribuido
-        radius: 0.3, // Radio de giro
-        orbitalSpeed: 0.15, // Velocidad de giro
+        z: 0.8,
+        angle: (Math.PI * 2 * i) / 5,
+        radius: 0.3,
+        orbitalSpeed: 0.15,
         vx: 0, vy: 0, vz: 0,
-        life: 60, maxLife: 60, // Dura 1 segundo (o lo que dure el stun)
+        life: 60, maxLife: 60,
         color: color,
         size: 0.12,
         gravity: 0, friction: 1,
-        isOrbiting: true // Marcador para lógica especial en update
+        isOrbiting: true
       });
     }
   }
 
+  // --- NUEVO: AÑADIR PROYECTIL ---
+  addProjectile(startX, startY, targetX, targetY, color = '#fbbf24', style = 'circle') {
+    this.effects.push({
+      id: this.idCounter++,
+      type: 'projectile',
+      x: startX + 0.5,    // Centro de la casilla origen
+      y: startY + 0.5,
+      targetX: targetX + 0.5, // Centro de la casilla destino
+      targetY: targetY + 0.5,
+      color,
+      style, // 'circle', 'arrow', 'fireball'
+      speed: 0.4, // Velocidad de viaje
+      life: 30,   // Tiempo de vida de seguridad
+      reached: false
+    });
+  }
+
   // --- PARTICULAS (Sangre/Explosión/Chispas) ---
-  // (Se mantienen igual que en tu código anterior: addBlood, addExplosion, addSparkles)
   addBlood(x, y, color = '#dc2626') {
     const count = 6 + Math.floor(Math.random() * 6);
     for (let i = 0; i < count; i++) {
@@ -116,24 +129,42 @@ export class EffectsManager {
     }
 
     this.effects.forEach(effect => {
-      if (effect.type === 'particle') {
-        // Lógica especial para partículas orbitales (Stun)
+      // --- LÓGICA PROYECTILES ---
+      if (effect.type === 'projectile') {
+         const dx = effect.targetX - effect.x;
+         const dy = effect.targetY - effect.y;
+         const dist = Math.sqrt(dx*dx + dy*dy);
+         
+         if (dist < effect.speed) {
+             // Llegó al destino: forzamos posición final y matamos efecto
+             effect.x = effect.targetX;
+             effect.y = effect.targetY;
+             effect.reached = true; 
+             effect.life = 0; 
+             // Opcional: Generar chispas al impactar
+             this.addExplosion(Math.floor(effect.x), Math.floor(effect.y), effect.color);
+         } else {
+             // Mover hacia el objetivo
+             const angle = Math.atan2(dy, dx);
+             effect.x += Math.cos(angle) * effect.speed;
+             effect.y += Math.sin(angle) * effect.speed;
+             effect.angle = angle; // Guardamos ángulo para rotar la flecha al dibujar
+         }
+      } 
+      // --- LÓGICA PARTÍCULAS ---
+      else if (effect.type === 'particle') {
         if (effect.isOrbiting) {
             effect.angle += effect.orbitalSpeed;
-            // Recalcular posición basada en el centro original y el ángulo actual
-            // (Necesitamos guardar el centro original, usaremos x/y iniciales como referencia aproximada)
-            const centerX = effect.x; // Simplificación: giran sobre su punto de spawn
+            const centerX = effect.x; 
             const centerY = effect.y;
-            effect.x = centerX + Math.cos(effect.angle) * effect.radius * 0.1; // * 0.1 para que sea sutil el movimiento en X
-            // El movimiento principal es en Z (profundidad) y visualmente en X
+            // Movimiento elíptico (perspectiva)
+            effect.x = centerX + Math.cos(effect.angle) * effect.radius * 0.1;
         } else {
-            // Física normal
             effect.x += effect.vx;
             effect.y += effect.vy;
         }
         
-        // Simulación de Altura (Z)
-        if (effect.z !== undefined && !effect.isOrbiting) { // Los orbitales no caen
+        if (effect.z !== undefined && !effect.isOrbiting) {
             effect.z += effect.vz;
             if (effect.z > 0) {
                 effect.vz -= effect.gravity;
@@ -150,14 +181,19 @@ export class EffectsManager {
         if (effect.friction && !effect.isOrbiting) {
           effect.vx *= effect.friction; effect.vy *= effect.friction;
         }
-      } else if (effect.type === 'text') {
+      } 
+      // --- LÓGICA TEXTO ---
+      else if (effect.type === 'text') {
         effect.x += effect.vx;
         effect.y += effect.vy;
         effect.vy *= 0.9; 
         effect.offsetY += effect.vy; 
       }
       
-      effect.life--;
+      // Reducir vida (si no es proyectil, o si lo es para seguridad)
+      if (effect.type !== 'projectile' || effect.life > 0) {
+          effect.life--;
+      }
     });
 
     this.effects = this.effects.filter(e => e.life > 0);
@@ -169,27 +205,62 @@ export class EffectsManager {
 
     const particles = [];
     const texts = [];
-    this.effects.forEach(e => e.type === 'text' ? texts.push(e) : particles.push(e));
+    const projectiles = [];
 
-    // 1. DIBUJAR PARTÍCULAS
+    // Separar por tipo para dibujar en orden
+    this.effects.forEach(e => {
+        if (e.type === 'text') texts.push(e);
+        else if (e.type === 'projectile') projectiles.push(e);
+        else particles.push(e);
+    });
+
+    // 1. DIBUJAR PROYECTILES (Debajo de partículas y texto)
+    projectiles.forEach(p => {
+        const screenX = (p.x - offsetX) * tileSize;
+        const screenY = (p.y - offsetY) * tileSize;
+        const size = tileSize * 0.3; // Tamaño del proyectil
+
+        ctx.fillStyle = p.color;
+        ctx.save();
+        ctx.translate(screenX, screenY);
+        
+        if (p.style === 'arrow') {
+            ctx.rotate(p.angle || 0);
+            ctx.beginPath();
+            // Forma de flecha simple
+            ctx.moveTo(size/2, 0);
+            ctx.lineTo(-size/2, -size/4);
+            ctx.lineTo(-size/2, size/4);
+            ctx.fill();
+        } else {
+            // Bola de energía/fuego
+            ctx.beginPath(); 
+            ctx.arc(0, 0, size/2, 0, Math.PI*2); 
+            ctx.fill();
+            // Cola/Estela simple
+            ctx.globalAlpha = 0.5;
+            ctx.beginPath(); 
+            ctx.arc(-size/2, 0, size/3, 0, Math.PI*2); 
+            ctx.fill();
+        }
+        ctx.restore();
+    });
+
+    // 2. DIBUJAR PARTÍCULAS
     particles.forEach(effect => {
       const zOffset = effect.z || 0;
       
-      // Para el stun, calculamos la posición orbital visual aquí
       let finalX = effect.x;
       let finalY = effect.y;
       
       if (effect.isOrbiting) {
-          // El movimiento orbital se ve como una elipse sobre la cabeza
           finalX = effect.x + Math.cos(effect.angle) * effect.radius;
-          // Achatamos el círculo en Y para dar perspectiva 
           finalY = effect.y + Math.sin(effect.angle) * effect.radius * 0.3; 
       }
 
       const screenX = (finalX - offsetX) * tileSize;
       const screenY = (finalY - offsetY - zOffset) * tileSize;
 
-      // Sombra (solo para no orbitales)
       if (zOffset > 0.1 && !effect.isOrbiting) {
           ctx.fillStyle = 'rgba(0,0,0,0.3)';
           const shadowY = (finalY - offsetY) * tileSize;
@@ -197,7 +268,7 @@ export class EffectsManager {
           if (shadowSize > 0) ctx.fillRect(screenX, shadowY, shadowSize, shadowSize * 0.5);
       }
 
-      const alpha = Math.min(1, effect.life / (effect.isOrbiting ? 10 : 30)); // Fade out más rápido al final para stun
+      const alpha = Math.min(1, effect.life / (effect.isOrbiting ? 10 : 30));
       ctx.globalAlpha = alpha;
       ctx.fillStyle = effect.color;
 
@@ -208,17 +279,16 @@ export class EffectsManager {
       } else if (effect.style === 'circle') {
         ctx.beginPath(); ctx.arc(screenX, screenY, size, 0, Math.PI * 2); ctx.fill();
       } else if (effect.style === 'star') {
-        // Dibujar una estrella simple (dos rectángulos cruzados rotados)
         ctx.save();
         ctx.translate(screenX, screenY);
-        if(effect.isOrbiting) ctx.rotate(effect.angle * 2); // Que giren sobre sí mismas también
+        if(effect.isOrbiting) ctx.rotate(effect.angle * 2);
         ctx.fillRect(-size/2, -size/6, size, size/3);
         ctx.fillRect(-size/6, -size/2, size/3, size);
         ctx.restore();
       }
     });
 
-    // 2. DIBUJAR TEXTOS
+    // 3. DIBUJAR TEXTOS (Siempre encima)
     texts.forEach(effect => {
       const screenX = (effect.x - offsetX) * tileSize;
       const screenY = (effect.y - offsetY + effect.offsetY) * tileSize;
@@ -227,17 +297,14 @@ export class EffectsManager {
       ctx.globalAlpha = alpha;
       ctx.fillStyle = effect.color;
       
-      // CAMBIO 3: Lógica de tamaño de fuente actualizada
-      // Crítico (20) > Habilidad (18) > Normal (14) > Pequeño (10)
       let fontSize = 14;
-      if (effect.isCritical) fontSize = 24; // Crítico muy grande
-      else if (effect.isSkillHit) fontSize = 18; // Habilidad grande
-      else if (effect.isSmall) fontSize = 10; // Daño recibido pequeño
+      if (effect.isCritical) fontSize = 24;
+      else if (effect.isSkillHit) fontSize = 18;
+      else if (effect.isSmall) fontSize = 10;
       
       ctx.font = `bold ${fontSize}px monospace`;
       ctx.textAlign = 'center';
       
-      // Borde negro para que se lea bien
       ctx.lineWidth = effect.isCritical || effect.isSkillHit ? 4 : 2;
       ctx.strokeStyle = 'black';
       ctx.strokeText(effect.text, screenX + tileSize/2, screenY + tileSize/2);
