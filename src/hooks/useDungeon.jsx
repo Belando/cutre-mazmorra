@@ -15,22 +15,34 @@ export function useDungeon() {
     const visible = Array(MAP_HEIGHT).fill().map(() => Array(MAP_WIDTH).fill(false));
     const explored = currentMap.explored || Array(MAP_HEIGHT).fill().map(() => Array(MAP_WIDTH).fill(false));
     
-    for (let angle = 0; angle < 360; angle += 2) {
+    // Aumentamos la densidad de rayos para que no queden huecos negros en las puertas
+    // Cambiamos el paso del ángulo de 2 a 1 (o incluso 0.5 si se viera mal)
+    for (let angle = 0; angle < 360; angle += 1) { 
       const rad = angle * Math.PI / 180;
       const dx = Math.cos(rad), dy = Math.sin(rad);
       let x = playerX + 0.5, y = playerY + 0.5;
       
-      for (let i = 0; i < 6; i++) { // Radio de visión
+      for (let i = 0; i < 7; i++) { // Aumentamos un poco el radio de visión también
         const tx = Math.floor(x), ty = Math.floor(y);
         if (tx < 0 || tx >= MAP_WIDTH || ty < 0 || ty >= MAP_HEIGHT) break;
+        
         visible[ty][tx] = true;
         explored[ty][tx] = true;
-        if (currentMap.map[ty][tx] === TILE.WALL) break;
+        
+        const tile = currentMap.map[ty][tx];
+
+        // --- CAMBIO CLAVE AQUÍ ---
+        // La luz se detiene si choca con una PARED (0) o una PUERTA CERRADA (3)
+        // La puerta ABIERTA (5) dejará pasar la luz
+        if (tile === TILE.WALL || tile === TILE.DOOR) break;
+        
         x += dx; y += dy;
       }
     }
     return { visible, explored };
   }, []);
+
+  // ... (El resto del archivo generateLevel y demás se mantiene IGUAL) ...
 
   const generateLevel = useCallback((level, playerLevel, savedData = null) => {
     if (savedData) {
@@ -40,16 +52,8 @@ export function useDungeon() {
 
     const newDungeon = generateDungeon(MAP_WIDTH, MAP_HEIGHT, level, playerLevel);
     
-    // CORRECCIÓN: Pasamos newDungeon.enemies para evitar colisiones
-    const npcs = generateNPCs(
-        level, 
-        newDungeon.rooms, 
-        newDungeon.map, 
-        [0, newDungeon.rooms.length - 1],
-        newDungeon.enemies 
-    );
+    const npcs = generateNPCs(level, newDungeon.rooms, newDungeon.map, [0, newDungeon.rooms.length - 1]);
     
-    // Limpiar cofres que coincidan con NPCs
     const cleanChests = (newDungeon.chests || []).filter(c => !npcs.some(n => n.x === c.x && n.y === c.y));
 
     const initialState = {
