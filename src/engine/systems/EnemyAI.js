@@ -51,15 +51,13 @@ function isTileFree(x, y, map, enemies, chests, npcs) {
   if (map[y]?.[x] !== 1 && map[y]?.[x] !== 2) return false;
   if (enemies.some(e => e.x === x && e.y === y)) return false;
   if (chests && chests.some(c => c.x === x && c.y === y)) return false;
-  
-  // CORRECCIÓN: Si hay un NPC en esa posición, no está libre
   if (npcs && npcs.some(n => n.x === x && n.y === y)) return false;
   
   return true;
 }
 
 // Calcular posición de flanqueo
-function getFlankingPosition(player, allies, enemy, map, chests) {
+function getFlankingPosition(player, allies, enemy, map, chests, npcs) {
     const directions = [
       { dx: 1, dy: 0 }, { dx: -1, dy: 0 },
       { dx: 0, dy: 1 }, { dx: 0, dy: -1 },
@@ -73,8 +71,8 @@ function getFlankingPosition(player, allies, enemy, map, chests) {
     for (const dir of directions) {
       const pos = { x: player.x + dir.dx, y: player.y + dir.dy };
       
-      // Usamos isTileFree (sin pasar enemies porque ya filtramos occupiedPositions, pero pasamos chests)
-      if (isTileFree(pos.x, pos.y, map, [], chests) && !occupiedPositions.has(`${pos.x},${pos.y}`)) {
+      // Usamos isTileFree (sin pasar enemies porque ya filtramos occupiedPositions)
+      if (isTileFree(pos.x, pos.y, map, [], chests, npcs) && !occupiedPositions.has(`${pos.x},${pos.y}`)) {
         // Es posición de flanqueo si está opuesta a otro aliado
         const isFlank = allies.some(ally => {
           const dx = Math.sign(player.x - ally.x);
@@ -88,7 +86,7 @@ function getFlankingPosition(player, allies, enemy, map, chests) {
 }
 
 // Moverse lejos del objetivo (Huida/Cautela)
-function moveAway(enemy, player, map, enemies, chests) {
+function moveAway(enemy, player, map, enemies, chests, npcs) {
     const dx = Math.sign(enemy.x - player.x);
     const dy = Math.sign(enemy.y - player.y);
     
@@ -101,13 +99,13 @@ function moveAway(enemy, player, map, enemies, chests) {
     
     for (const move of moves) {
       const otherEnemies = enemies.filter(e => e !== enemy);
-      if (isTileFree(move.x, move.y, map, otherEnemies, chests)) return move;
+      if (isTileFree(move.x, move.y, map, otherEnemies, chests, npcs)) return move;
     }
     return null;
 }
   
 // Movimiento lateral (Strafe)
-function getLateralMove(enemy, player, map, enemies, chests) {
+function getLateralMove(enemy, player, map, enemies, chests, npcs) {
     const dx = player.x - enemy.x;
     const dy = player.y - enemy.y;
     
@@ -121,13 +119,29 @@ function getLateralMove(enemy, player, map, enemies, chests) {
     
     for (const move of lateralMoves) {
       const otherEnemies = enemies.filter(e => e !== enemy);
-      if (isTileFree(move.x, move.y, map, otherEnemies, chests)) return move;
+      if (isTileFree(move.x, move.y, map, otherEnemies, chests, npcs)) return move;
+    }
+    return null;
+}
+
+// Nueva función para movimiento aleatorio (cuando no te ven)
+function moveRandomly(enemy, map, enemies, chests, npcs, player) {
+    const dirs = [[0,1], [0,-1], [1,0], [-1,0]];
+    const randomDir = dirs[Math.floor(Math.random() * dirs.length)];
+    const target = { x: enemy.x + randomDir[0], y: enemy.y + randomDir[1] };
+    
+    // Evitar pisar al jugador explícitamente si es invisible (para no revelar posición por choque)
+    if (target.x === player.x && target.y === player.y) return null;
+
+    const otherEnemies = enemies.filter(e => e !== enemy);
+    if (isTileFree(target.x, target.y, map, otherEnemies, chests, npcs)) {
+        return target;
     }
     return null;
 }
 
 // Mover hacia el objetivo usando A*
-function moveToward(enemy, targetX, targetY, map, enemies, player, chests) {
+function moveToward(enemy, targetX, targetY, map, enemies, player, chests, npcs) {
   // Filtramos enemigos una vez para eficiencia
   const otherEnemies = enemies.filter(e => e !== enemy);
 
@@ -137,16 +151,14 @@ function moveToward(enemy, targetX, targetY, map, enemies, player, chests) {
   // Si A* encuentra un camino
   if (nextStep) {
     // 1a. CAMINO LIBRE: Si el paso óptimo está libre, tómalo.
-    if (isTileFree(nextStep.x, nextStep.y, map, otherEnemies, chests)) {
-      // Evitar pisar al jugador (a menos que sea para atacar, pero el movimiento se detiene antes)
+    if (isTileFree(nextStep.x, nextStep.y, map, otherEnemies, chests, npcs)) {
+      // Evitar pisar al jugador
       if (nextStep.x !== player.x || nextStep.y !== player.y) {
         return nextStep;
       }
     }
     
-    // 1b. FLOCKING (MEJORA): El paso óptimo está bloqueado (probablemente por otro enemigo).
-    // En lugar de esperar, buscamos una casilla adyacente libre que nos acerque al objetivo.
-    
+    // 1b. FLOCKING: Buscar casilla adyacente libre si el camino óptimo está bloqueado
     const neighbors = [
       { x: enemy.x + 1, y: enemy.y },
       { x: enemy.x - 1, y: enemy.y },
@@ -154,28 +166,23 @@ function moveToward(enemy, targetX, targetY, map, enemies, player, chests) {
       { x: enemy.x, y: enemy.y - 1 }
     ];
 
-    // Filtramos solo casillas válidas (suelo, sin obstáculos, sin jugador)
     const validMoves = neighbors.filter(pos => 
-      isTileFree(pos.x, pos.y, map, otherEnemies, chests) &&
+      isTileFree(pos.x, pos.y, map, otherEnemies, chests, npcs) &&
       (pos.x !== player.x || pos.y !== player.y)
     );
 
     if (validMoves.length > 0) {
-      // Ordenamos las opciones por distancia al objetivo (la que más nos acerque)
+      // Ordenamos las opciones por distancia al objetivo
       validMoves.sort((a, b) => {
         const distA = Math.abs(a.x - targetX) + Math.abs(a.y - targetY);
         const distB = Math.abs(b.x - targetX) + Math.abs(b.y - targetY);
         return distA - distB;
       });
-
-      // Tomamos la mejor opción, incluso si no es el camino "óptimo" de A*
-      // Esto hace que los enemigos rodeen obstáculos dinámicos como agua fluyendo.
       return validMoves[0];
     }
   }
 
-  // 2. FALLBACK: Si A* falla (ej. objetivo inalcanzable), movimiento "tonto" directo
-  // Esto es útil si el jugador está en una zona rara o rodeado completamente
+  // 2. FALLBACK: Movimiento directo si A* falla
   const dx = Math.sign(targetX - enemy.x);
   const dy = Math.sign(targetY - enemy.y);
   
@@ -185,7 +192,7 @@ function moveToward(enemy, targetX, targetY, map, enemies, player, chests) {
   
   for (const move of simpleMoves) {
     if ((move.x !== player.x || move.y !== player.y) && 
-        isTileFree(move.x, move.y, map, otherEnemies, chests)) {
+        isTileFree(move.x, move.y, map, otherEnemies, chests, npcs)) {
       return move;
     }
   }
@@ -198,13 +205,17 @@ export function processEnemyTurn(enemy, player, enemies, map, visible, log, ches
   // 1. Estados alterados
   if (enemy.stunned > 0) {
     enemy.stunned--;
+    enemy.lastAction = 'stunned';
     return { action: 'stunned' };
   }
   
   if (enemy.slowed > 0) {
     enemy.slowedTurn = !enemy.slowedTurn;
     enemy.slowed--;
-    if (enemy.slowedTurn) return { action: 'slowed' };
+    if (enemy.slowedTurn) {
+        enemy.lastAction = 'slowed';
+        return { action: 'slowed' };
+    }
   }
   
   if (enemy.poisoned > 0) {
@@ -219,11 +230,22 @@ export function processEnemyTurn(enemy, player, enemies, map, visible, log, ches
   const dist = Math.abs(enemy.x - player.x) + Math.abs(enemy.y - player.y);
   const canSee = visible[enemy.y]?.[enemy.x];
   
-  // Si jugador invisible, perder objetivo
+  // -- CORRECCIÓN INVISIBILIDAD --
+  // Si el jugador es invisible, el enemigo PIERDE EL OBJETIVO SIEMPRE (incluso adyacente)
   const isPlayerInvisible = player.skills?.buffs?.some(b => b.invisible);
-  if (isPlayerInvisible && dist > 2) return { action: 'lost_target' };
   
-  // Ataque cuerpo a cuerpo
+  if (isPlayerInvisible) {
+      // Vagar sin rumbo (movimiento aleatorio)
+      const newPos = moveRandomly(enemy, map, enemies, chests, npcs, player);
+      if (newPos) {
+          enemy.x = newPos.x;
+          enemy.y = newPos.y;
+          return { action: 'wander', x: newPos.x, y: newPos.y };
+      }
+      return { action: 'wait_confused' };
+  }
+  
+  // Ataque cuerpo a cuerpo (Solo si el jugador es visible, garantizado por el if anterior)
   if (dist === 1) return { action: 'melee_attack' };
   
   // Ataque a distancia
@@ -235,14 +257,12 @@ export function processEnemyTurn(enemy, player, enemies, map, visible, log, ches
     }
   }
   
-  // 3. Movimiento
+  // 3. Movimiento Estándar
   let newPos = null;
   
-  // Comportamientos
   switch (behavior) {
     case AI_BEHAVIORS.AGGRESSIVE:
       if (canSee || dist <= 10) {
-        // CORREGIDO: Añadido npcs al final
         newPos = moveToward(enemy, player.x, player.y, map, enemies, player, chests, npcs);
       }
       break;
@@ -252,16 +272,12 @@ export function processEnemyTurn(enemy, player, enemies, map, visible, log, ches
         const optimalRange = ranged ? Math.floor(ranged.range * 0.7) : 4;
         
         if (dist <= 2) {
-            // CORREGIDO: Añadido npcs
             newPos = moveAway(enemy, player, map, enemies, chests, npcs); 
         } else if (dist < optimalRange && canSee) {
-            // CORREGIDO: Añadido npcs
             if (Math.random() < 0.6) newPos = moveAway(enemy, player, map, enemies, chests, npcs);
         } else if (dist > optimalRange + 2 && canSee) {
-            // CORREGIDO: Añadido npcs
             newPos = moveToward(enemy, player.x, player.y, map, enemies, player, chests, npcs); 
         } else if (canSee && Math.random() < 0.2) {
-            // CORREGIDO: Añadido npcs
             const lateralMove = getLateralMove(enemy, player, map, enemies, chests, npcs); 
             if (lateralMove) newPos = lateralMove;
         }
@@ -276,17 +292,13 @@ export function processEnemyTurn(enemy, player, enemies, map, visible, log, ches
             );
             
             if (allies.length > 0) {
-              // CORREGIDO: Añadido npcs
               const flankPos = getFlankingPosition(player, allies, enemy, map, chests, npcs);
               if (flankPos) {
-                // CORREGIDO: Añadido npcs
                 newPos = moveToward(enemy, flankPos.x, flankPos.y, map, enemies, player, chests, npcs);
               } else {
-                // CORREGIDO: Añadido npcs
                 newPos = moveToward(enemy, player.x, player.y, map, enemies, player, chests, npcs);
               }
             } else {
-              // CORREGIDO: Añadido npcs
               newPos = moveToward(enemy, player.x, player.y, map, enemies, player, chests, npcs);
             }
         }
@@ -294,7 +306,6 @@ export function processEnemyTurn(enemy, player, enemies, map, visible, log, ches
       
     case AI_BEHAVIORS.AMBUSH:
         if (dist <= 3) {
-            // CORREGIDO: Añadido npcs
             newPos = moveToward(enemy, player.x, player.y, map, enemies, player, chests, npcs);
         }
         break;
@@ -302,10 +313,8 @@ export function processEnemyTurn(enemy, player, enemies, map, visible, log, ches
     case AI_BEHAVIORS.BOSS:
         if (canSee || dist <= 12) {
             if (dist <= 2 && Math.random() < 0.3) {
-              // CORREGIDO: Añadido npcs
               newPos = moveAway(enemy, player, map, enemies, chests, npcs);
             } else {
-              // CORREGIDO: Añadido npcs
               newPos = moveToward(enemy, player.x, player.y, map, enemies, player, chests, npcs);
             }
         }

@@ -126,7 +126,7 @@ export function useSkill(skillId, player, playerStats, target, enemies, visible)
     if (!target) return { success: false, message: '¡Sin objetivo!' };
     const effect = skill.effect(player, target, playerStats, skillLevel);
     result.message = effect.message;
-    result.damages.push({ target, damage: effect.damage, stun: effect.stun, slow: effect.slow, poison: effect.poison, mark: effect.mark });
+    result.damages.push({ target, damage: effect.damage, stun: effect.stun, slow: effect.slow, poison: effect.poison, mark: effect.mark , isCrit: effect.isCrit});
     if (effect.heal) result.heal = effect.heal;
   } else if (skill.type === 'aoe') {
     const adjacent = enemies.filter(e => Math.abs(e.x - player.x) <= 1 && Math.abs(e.y - player.y) <= 1);

@@ -1366,6 +1366,37 @@ const SPRITES = {
   },
 };
 
+function drawStunStars(ctx, x, y, size, frame) {
+  const s = size;
+  const cx = x + s * 0.5;
+  const cy = y + s * 0.15; // Flotando sobre la cabeza
+  
+  const count = 3; // Número de estrellas
+  const radius = s * 0.3; // Radio de giro
+  
+  ctx.fillStyle = '#fbbf24'; // Amarillo dorado
+  
+  for (let i = 0; i < count; i++) {
+    // Ángulo de rotación constante
+    const angle = (frame * 0.1 + (i * (Math.PI * 2 / count))) % (Math.PI * 2);
+    
+    // Órbita elíptica (perspectiva 2.5D)
+    const px = cx + Math.cos(angle) * radius;
+    const py = cy + Math.sin(angle) * radius * 0.3;
+    
+    // Tamaño pulsante suave
+    const starSize = s * 0.05 * (0.8 + Math.sin(frame * 0.2 + i) * 0.2);
+    
+    ctx.beginPath();
+    // Dibujar estrella simple (rombo)
+    ctx.moveTo(px, py - starSize);
+    ctx.lineTo(px + starSize, py);
+    ctx.lineTo(px, py + starSize);
+    ctx.lineTo(px - starSize, py);
+    ctx.fill();
+  }
+}
+
 // Map enemy types to sprite names
 const ENEMY_SPRITES_MAP = {
   2: "rat",
@@ -1406,7 +1437,7 @@ function drawShadow(ctx, x, y, size) {
   ctx.fill();
 }
 
-export function drawEnemy(ctx, enemyType, x, y, size, frame = 0) {
+export function drawEnemy(ctx, enemyType, x, y, size, frame = 0, isStunned = false) {
   const spriteKey = ENEMY_SPRITES_MAP[enemyType];
   drawShadow(ctx, x, y, size);
 
@@ -1430,6 +1461,9 @@ export function drawEnemy(ctx, enemyType, x, y, size, frame = 0) {
       ctx.lineTo(x + s * 0.7, y + s * 0.2);
       ctx.fill();
     }
+    if (isStunned) {
+    drawStunStars(ctx, x, y, size, frame);
+  }
   }
 }
 

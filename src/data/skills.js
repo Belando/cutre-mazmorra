@@ -20,6 +20,16 @@ export const SKILL_TREES = {
   archer: { name: 'Arquero', color: '#f59e0b', icon: '🏹', description: 'Maestro del combate a distancia', evolvesFrom: 'rogue' },
 };
 
+// --- CONFIGURACIÓN DE COLORES DE DAÑO ---
+export const SKILL_COLORS = {
+    'fireball': '#f97316', 
+    'power_strike': '#dc2626', 
+    'backstab': '#ef4444', 
+    'poison': '#22c55e', 
+    'ice': '#06b6d4', 
+    'default': '#a855f7' 
+};
+
 export const SKILLS = {
   // ============ WARRIOR BASE SKILLS (Coste bajo: 3-8 MP) ============
   power_strike: {
@@ -309,39 +319,49 @@ export const SKILLS = {
   },
 
   // ============ ROGUE SKILLS (Coste medio: 4-8 MP) ============
+  // ============ ROGUE SKILLS ============
   backstab: {
     id: 'backstab',
     name: 'Puñalada Trasera',
-    description: '250% daño a enemigos aturdidos/lentos',
+    description: '¡CRÍTICO GARANTIZADO! (200% daño)',
     icon: '🗡️',
     cooldown: 4,
-    manaCost: 5, // NUEVO
+    manaCost: 5,
     type: 'melee',
     tree: 'rogue',
     unlockLevel: 1,
     maxLevel: 5,
     effect: (player, target, playerStats, skillLevel = 1) => {
-      const isVulnerable = target.stunned > 0 || target.slowed > 0;
-      const multiplier = isVulnerable ? (2.5 + skillLevel * 0.3) : 1.2;
+      // Lógica cambiada: Siempre es crítico
+      const multiplier = 2.0 + (skillLevel * 0.25);
       const damage = Math.floor(playerStats.attack * multiplier);
-      return { damage, message: isVulnerable ? `¡Crítico! ${damage}!` : `Puñalada: ${damage}` };
+      // Devolvemos la bandera isCrit: true
+      return { 
+        damage, 
+        isCrit: true, 
+        message: `¡Puñalada Crítica! ${damage}!` 
+      };
     }
   },
   smoke_bomb: {
     id: 'smoke_bomb',
     name: 'Bomba de Humo',
-    description: 'Invisibilidad por 3 turnos',
+    description: 'Invisibilidad hasta atacar',
     icon: '💨',
     cooldown: 10,
-    manaCost: 8, // NUEVO
+    manaCost: 8,
     type: 'self',
     tree: 'rogue',
     unlockLevel: 1,
     maxLevel: 3,
     effect: (player, target, playerStats, skillLevel = 1) => {
       return { 
-        buff: { invisible: true, duration: 3 + skillLevel }, 
-        message: '¡Desapareces!' 
+        buff: { 
+            invisible: true, 
+            duration: 99, // Duración virtualmente infinita
+            breaksOnAction: true // Nueva propiedad: se rompe al actuar
+        }, 
+        message: '¡Te ocultas en las sombras!' 
       };
     }
   },

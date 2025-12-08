@@ -11,15 +11,16 @@ export function useGameEffects() {
     setMessages(prev => [...prev, { text, type }].slice(-LOG_LENGTH));
   }, []);
 
-  const showFloatingText = useCallback((x, y, text, color) => {
-    effectsManager.current.addText(x, y, text, color);
+  // CAMBIO: Acepta isCritical e isSmall
+  const showFloatingText = useCallback((x, y, text, color, isCritical = false, isSmall = false) => {
+    effectsManager.current.addText(x, y, text, color, isCritical, isSmall);
   }, []);
 
   return {
     messages,
     setMessages,
     addMessage,
-    effectsManager, // Devolvemos la referencia
+    effectsManager, 
     showFloatingText
   };
 }

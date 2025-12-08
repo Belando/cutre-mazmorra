@@ -131,12 +131,14 @@ export default function GameBoard({ gameState, viewportWidth = 21, viewportHeigh
       const sx = (enemy.x * SIZE) - (offsetX * SIZE);
       const sy = (enemy.y * SIZE) - (offsetY * SIZE);
       
-      // Solo dibujar si está visible (Fog of War) y en pantalla
       if (visible[enemy.y]?.[enemy.x]) {
-        // Margen amplio para bosses grandes
         if (sx > -SIZE*2 && sx < dynamicCanvas.width && sy > -SIZE*2 && sy < dynamicCanvas.height) {
+            
+            // CAMBIO: Se considera aturdido si tiene contador O si acaba de perder el turno por stun
+            const isStunnedVisual = enemy.stunned > 0 || enemy.lastAction === 'stunned';
+
             if (isLargeEnemy(enemy.type)) {
-                drawLargeEnemy(ctx, enemy.type, sx, sy, SIZE * 2, frameRef.current);
+                drawLargeEnemy(ctx, enemy.type, sx, sy, SIZE * 2, frameRef.current, isStunnedVisual);
                 drawHealthBar(ctx, sx, sy, SIZE * 2, enemy.hp, enemy.maxHp);
             } else {
                 const sizeInfo = getEnemySize(enemy.type);
@@ -144,7 +146,7 @@ export default function GameBoard({ gameState, viewportWidth = 21, viewportHeigh
                 const drawSize = SIZE * scale;
                 const offsetDraw = (drawSize - SIZE) / 2;
                 
-                drawEnemy(ctx, enemy.type, sx - offsetDraw, sy - offsetDraw, drawSize, frameRef.current);
+                drawEnemy(ctx, enemy.type, sx - offsetDraw, sy - offsetDraw, drawSize, frameRef.current, isStunnedVisual);
                 drawHealthBar(ctx, sx - offsetDraw, sy - offsetDraw, drawSize, enemy.hp, enemy.maxHp);
             }
         }
@@ -154,20 +156,25 @@ export default function GameBoard({ gameState, viewportWidth = 21, viewportHeigh
     // -- JUGADOR --
     const psx = (player.x * SIZE) - (offsetX * SIZE);
     const psy = (player.y * SIZE) - (offsetY * SIZE);
+
+    // Calculamos si es invisible mirando los buffs
+    const isInvisible = player.skills?.buffs?.some(b => b.invisible) || false;
     
-    // Glow del jugador
-    const glowSize = SIZE * 2 + Math.sin(frameRef.current * 0.1) * 5;
-    const gradient = ctx.createRadialGradient(
-      psx + SIZE/2, psy + SIZE/2, 0,
-      psx + SIZE/2, psy + SIZE/2, glowSize
-    );
-    gradient.addColorStop(0, 'rgba(59, 130, 246, 0.4)');
-    gradient.addColorStop(1, 'rgba(59, 130, 246, 0)');
-    ctx.fillStyle = gradient;
-    ctx.fillRect(psx - SIZE*1.5, psy - SIZE*1.5, SIZE * 4, SIZE * 4);
+    // Glow del jugador (solo si NO es invisible)
+    if (!isInvisible) {
+        const glowSize = SIZE * 2 + Math.sin(frameRef.current * 0.1) * 5;
+        const gradient = ctx.createRadialGradient(
+          psx + SIZE/2, psy + SIZE/2, 0,
+          psx + SIZE/2, psy + SIZE/2, glowSize
+        );
+        gradient.addColorStop(0, 'rgba(59, 130, 246, 0.4)');
+        gradient.addColorStop(1, 'rgba(59, 130, 246, 0)');
+        ctx.fillStyle = gradient;
+        ctx.fillRect(psx - SIZE*1.5, psy - SIZE*1.5, SIZE * 4, SIZE * 4);
+    }
 
     drawPlayer(ctx, psx, psy, SIZE, player.appearance, player.class, frameRef.current, player.lastAttackTime || 0, player.lastAttackDir || { x: 0, y: 0 }, player.lastSkillTime || 0, // <--- NUEVO
-        player.lastSkillId || null);
+        player.lastSkillId || null, isInvisible);
     
     // -- NPCS --
     npcs.forEach(npc => {

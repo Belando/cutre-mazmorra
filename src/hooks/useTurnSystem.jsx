@@ -11,11 +11,8 @@ export function useTurnSystem() {
     player, setPlayer,
     addMessage,
     setGameOver,
-    showFloatingText // <--- RECIBIR LA FUNCIÓN PARA EFECTOS VISUALES
+    showFloatingText
   }) => {
-    // 1. Regeneración del Jugador (MP) y Cooldowns
-    // Esto ya se maneja en usePlayer.regenerate(), lo llamaremos desde el Engine.
-
     // 2. IA Enemiga
     const newEnemies = [...dungeon.enemies];
     let playerHit = false;
@@ -32,12 +29,11 @@ export function useTurnSystem() {
         dungeon.visible, 
         addMessage, 
         dungeon.chests,
-        dungeon.npcs // <--- CORRECCIÓN: Añadimos este parámetro al final
+        dungeon.npcs 
       );
       
       if (action.action.includes('attack')) {
         const isRanged = action.action === 'ranged_attack';
-        // Reducir daño si es a distancia (ejemplo de balance)
         const enemyStats = isRanged ? { ...enemy, attack: Math.floor(enemy.attack * 0.7) } : enemy;
         
         const combatResult = calculateEnemyDamage(
@@ -54,7 +50,9 @@ export function useTurnSystem() {
           totalDamage += combatResult.damage;
           playerHit = true;
           addMessage(`${ENEMY_STATS[enemy.type].name} te golpea: -${combatResult.damage} HP`, 'enemy_damage');
-          if (showFloatingText) showFloatingText(player.x, player.y, `-${combatResult.damage}`, '#dc2626');
+          
+          // CAMBIO: Sin el signo menos y activando isSmall (el último true)
+          if (showFloatingText) showFloatingText(player.x, player.y, `${combatResult.damage}`, '#dc2626', false, true);
         }
       }
     });

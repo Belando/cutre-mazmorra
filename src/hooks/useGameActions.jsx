@@ -45,10 +45,16 @@ export function useGameActions(context) {
   
   const performAttack = (enemy, enemyIdx) => {
       // 1. REGISTRAR TIEMPO Y DIRECCIÓN DEL ATAQUE
+      // CAMBIO AQUÍ: Romper invisibilidad al atacar
+      const currentBuffs = player.skills?.buffs || [];
+      // Filtramos buffs que sean invisibles o que tengan breaksOnAction
+      const newBuffs = currentBuffs.filter(b => !b.invisible && !b.breaksOnAction);
       updatePlayer({ 
           lastAttackTime: Date.now(),
           // Guardamos el vector de dirección (ej: {x: 1, y: 0} para derecha)
-          lastAttackDir: { x: enemy.x - player.x, y: enemy.y - player.y } 
+          lastAttackDir: { x: enemy.x - player.x, y: enemy.y - player.y } ,
+          lastSkillId: null,
+          skills: { ...player.skills, buffs: newBuffs } // Actualizamos buffs
       });
 
       // ... (El resto de la función sigue EXACTAMENTE IGUAL) ...
