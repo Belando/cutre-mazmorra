@@ -268,7 +268,7 @@ export default function GameBoard({ gameState, viewportWidth = 21, viewportHeigh
         ref={lightingCanvasRef}
         width={viewportWidth * SIZE}
         height={viewportHeight * SIZE}
-        className="absolute top-0 left-0 z-20 pointer-events-none mix-blend-multiply"
+        className="absolute top-0 left-0 z-20 pointer-events-none mix-blend-soft-light"
       />
     </div>
   );

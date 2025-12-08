@@ -1,10 +1,11 @@
 // src/renderer/lighting.js
+import { TILE } from "@/data/constants";
+
 const TILE_SIZE = 32;
 
 // --- CACHÉ DE LUCES (PRE-RENDER) ---
 const lightCache = {};
 
-// Generador de sprites de luz/sombra
 function getLightSprite(key, colorStart, colorEnd, size = 256, isSoft = false) {
   if (lightCache[key]) return lightCache[key];
 
@@ -16,15 +17,17 @@ function getLightSprite(key, colorStart, colorEnd, size = 256, isSoft = false) {
   const gradient = ctx.createRadialGradient(size / 2, size / 2, 0, size / 2, size / 2, size / 2);
   
   if (isSoft) {
-      // SPRITE PARA RECORTAR NIEBLA (Suave)
+      // SPRITE PARA VISIÓN (Agujero suave)
       gradient.addColorStop(0, 'rgba(0, 0, 0, 1)'); 
       gradient.addColorStop(0.5, 'rgba(0, 0, 0, 1)'); 
       gradient.addColorStop(1, 'rgba(0, 0, 0, 0)');
   } else {
-      // SPRITE PARA BRILLO DE COLOR (Glow)
-      gradient.addColorStop(0, colorStart);
-      gradient.addColorStop(0.2, colorStart.replace(/[\d.]+\)$/, '0.5)')); 
-      gradient.addColorStop(1, colorEnd || 'rgba(0,0,0,0)');
+      // SPRITE PARA ANTORCHA (Glow suave y grande)
+      // Ajustamos los stops para que el centro sea brillante y se difumine mucho
+      gradient.addColorStop(0, colorStart); // Centro intenso
+      gradient.addColorStop(0.1, colorStart); 
+      gradient.addColorStop(0.4, colorStart.replace(/[\d.]+\)$/, '0.3)')); // Medio suave
+      gradient.addColorStop(1, colorEnd || 'rgba(0,0,0,0)'); // Final transparente
   }
 
   ctx.fillStyle = gradient;
@@ -36,19 +39,17 @@ function getLightSprite(key, colorStart, colorEnd, size = 256, isSoft = false) {
 
 const SPRITE_HOLE = 'hole_sprite';
 const SPRITE_TORCH = 'torch_sprite';
-const SPRITE_REVEAL = 'reveal_sprite'; // <--- NUEVO SPRITE PEQUEÑO
+const SPRITE_REVEAL = 'reveal_sprite';
 
 function initSprites() {
     if (!lightCache[SPRITE_HOLE]) {
         getLightSprite(SPRITE_HOLE, 'rgba(0, 0, 0, 1)', 'rgba(0, 0, 0, 0)', 256, true);
     }
     if (!lightCache[SPRITE_TORCH]) {
-        // Luz cálida y brillante para antorchas
-        getLightSprite(SPRITE_TORCH, 'rgba(255, 200, 120, 0.6)', 'rgba(0, 0, 0, 0)');
+        // Volvemos a un color cálido y suave, pero con buena opacidad para el Hard-Light
+        getLightSprite(SPRITE_TORCH, 'rgba(255, 180, 100, 0.9)', 'rgba(0, 0, 0, 0)');
     }
     if (!lightCache[SPRITE_REVEAL]) {
-        // NUEVO: Sprite pequeño para "estampar" cada casilla visible individualmente.
-        // Usamos un tamaño de 64px (2 tiles) para que se solapen suavemente.
         getLightSprite(SPRITE_REVEAL, 'rgba(0,0,0,1)', 'rgba(0,0,0,0)', 64, true);
     }
 }
@@ -56,7 +57,8 @@ function initSprites() {
 export const renderLighting = (ctx, width, height, state, offsetX, offsetY) => {
   initSprites(); 
 
-  const DARKNESS_COLOR = "rgba(5, 5, 15, 0.60)"; // Niebla base suave (60%)
+  // Fondo oscuro base
+  const DARKNESS_COLOR = "rgba(10, 10, 15, 0.95)"; 
 
   // 1. LLENAR TODO DE OSCURIDAD
   ctx.clearRect(0, 0, width, height);
@@ -66,49 +68,36 @@ export const renderLighting = (ctx, width, height, state, offsetX, offsetY) => {
   const { player, torches, items } = state;
   const time = Date.now() / 150;
 
-  // --- PASADA 1: RECORTAR NIEBLA (VISIBILIDAD ORGÁNICA) ---
+  // --- PASADA 1: RECORTAR NIEBLA (VISIBILIDAD) ---
   ctx.globalCompositeOperation = "destination-out";
 
   const startMapX = Math.floor(offsetX);
   const startMapY = Math.floor(offsetY);
-  const tilesX = Math.ceil(width / TILE_SIZE) + 1;
-  const tilesY = Math.ceil(height / TILE_SIZE) + 1;
+  const tilesX = Math.ceil(width / TILE_SIZE) + 2;
+  const tilesY = Math.ceil(height / TILE_SIZE) + 2;
 
-  // NUEVA LÓGICA: En lugar de dibujar rectángulos negros donde NO ves,
-  // dibujamos círculos transparentes donde SÍ ves.
-  // Esto crea bordes redondeados naturales y respeta paredes/puertas automáticamente.
-  
   const revealSprite = lightCache[SPRITE_REVEAL];
-  const revealSize = 60; // Un poco menos de 2 tiles para un solapamiento suave
+  const revealSize = 60; 
   const offsetReveal = revealSize / 2;
 
+  // Dibujamos la visión del jugador (lo que ve actualmente)
   for (let y = -1; y < tilesY; y++) {
     for (let x = -1; x < tilesX; x++) {
       const mapX = startMapX + x;
       const mapY = startMapY + y;
 
       if (state.map[mapY]?.[mapX]) {
-        // Si la casilla es VISIBLE (según el algoritmo de FOV que ya arreglamos)
         if (state.visible[mapY]?.[mapX]) {
             const screenX = Math.floor(mapX * TILE_SIZE - offsetX * TILE_SIZE);
             const screenY = Math.floor(mapY * TILE_SIZE - offsetY * TILE_SIZE);
             
-            // Estampamos el círculo de visión en el centro del tile
-            ctx.drawImage(
-                revealSprite, 
-                screenX + TILE_SIZE/2 - offsetReveal, 
-                screenY + TILE_SIZE/2 - offsetReveal, 
-                revealSize, 
-                revealSize
-            );
+            ctx.drawImage(revealSprite, screenX + TILE_SIZE/2 - offsetReveal, screenY + TILE_SIZE/2 - offsetReveal, revealSize, revealSize);
         }
       }
     }
   }
 
-  // --- PASADA 1.5: LUCES PRINCIPALES (Suma claridad extra) ---
-  // Mantenemos esto para que el jugador y antorchas tengan un núcleo central más limpio
-  
+  // Agujero extra limpio sobre el jugador
   const drawSprite = (spriteKey, x, y, radius) => {
       const sprite = lightCache[spriteKey];
       if (!sprite) return;
@@ -116,41 +105,38 @@ export const renderLighting = (ctx, width, height, state, offsetX, offsetY) => {
       ctx.drawImage(sprite, x - radius, y - radius, size, size);
   };
 
-  // Luz Jugador (Solo el centro muy brillante)
   const px = player.x * TILE_SIZE - offsetX * TILE_SIZE + TILE_SIZE / 2;
   const py = player.y * TILE_SIZE - offsetY * TILE_SIZE + TILE_SIZE / 2;
-  drawSprite(SPRITE_HOLE, px, py, 150); // Radio reducido porque el tile-reveal hace el resto
+  drawSprite(SPRITE_HOLE, px, py, 150); 
 
-  // Luz Antorchas (Para asegurar que el fuego mismo se vea nítido)
+  // --- PASADA 2: LUCES SUAVES (ANTORCHAS) ---
+  // Aquí volvemos a la lógica original de dibujar circulos grandes
+  // pero usaremos el recorte final para que no se salgan.
+  
+  ctx.globalCompositeOperation = "lighter"; // O "screen" si quieres menos intensidad
+
   torches.forEach((torch) => {
-    // IMPORTANTE: Solo dibujamos el "agujero" extra si la antorcha es visible
+    // Si la antorcha no es visible, no la dibujamos
     if (!state.visible[torch.y]?.[torch.x]) return;
 
-    const tx = torch.x * TILE_SIZE - offsetX * TILE_SIZE + TILE_SIZE / 2;
-    const ty = torch.y * TILE_SIZE - offsetY * TILE_SIZE + TILE_SIZE / 2;
-    if (tx > -200 && tx < width + 200 && ty > -200 && ty < height + 200) {
-      const flicker = ((Math.sin(time + torch.x * 10) + 1) / 2) * 0.1;
-      drawSprite(SPRITE_HOLE, tx, ty, 80 + flicker * 10);
-    }
-  });
-
-  // --- PASADA 2: AMBIENTE (COLOR) ---
-  ctx.globalCompositeOperation = "lighter";
-
-  // Antorchas (Glow Dorado)
-  torches.forEach((torch) => {
-    if (!state.visible[torch.y]?.[torch.x]) return; // Respetar paredes
-
+    // Calcular posición en pantalla
     const tx = torch.x * TILE_SIZE - offsetX * TILE_SIZE + TILE_SIZE / 2;
     const ty = torch.y * TILE_SIZE - offsetY * TILE_SIZE + TILE_SIZE / 2;
 
+    // Solo dibujar si está en pantalla
     if (tx > -200 && tx < width + 200 && ty > -200 && ty < height + 200) {
       const flicker = ((Math.sin(time + torch.x * 10) + 1) / 2) * 0.1;
-      drawSprite(SPRITE_TORCH, tx, ty, 200 + flicker * 30);
+      
+      // DIBUJAR UN SOLO CÍRCULO GRANDE Y SUAVE (Como en la foto 2)
+      // Ajusta el radio (280) para hacer la luz más grande o pequeña
+      drawSprite(SPRITE_TORCH, tx, ty, 280 + flicker * 30);
     }
   });
+  
+  // Resetear alpha
+  ctx.globalAlpha = 1.0;
 
-  // Items
+  // Items (Brillo suave)
   items.forEach((item) => {
     if (!state.visible[item.y]?.[item.x]) return;
     const ix = item.x * TILE_SIZE - offsetX * TILE_SIZE + TILE_SIZE / 2;
@@ -169,6 +155,37 @@ export const renderLighting = (ctx, width, height, state, offsetX, offsetY) => {
         }
     }
   });
+
+  // =========================================================
+  // --- PASO 3: LA TIJERA (LIMPIEZA DEL VACÍO) ---
+  // =========================================================
+  // Aquí es donde ocurre la magia. Borramos cualquier píxel de luz
+  // que haya caído fuera del mapa (zona negra).
+  
+  ctx.globalCompositeOperation = "destination-out"; // Modo Borrador
+
+  for (let y = -1; y < tilesY; y++) {
+    for (let x = -1; x < tilesX; x++) {
+      const mapX = startMapX + x;
+      const mapY = startMapY + y;
+
+      // Verificamos si esta coordenada NO existe en el mapa (es vacío/negro)
+      const row = state.map[mapY];
+      // Si la fila no existe o la celda es undefined, es vacío.
+      // IMPORTANTE: NO usamos state.map[y][x] === 0 (pared), porque la luz SÍ debe dar en la pared.
+      // Solo borramos si estamos fuera de los límites del array.
+      const isVoid = !row || row[mapX] === undefined;
+
+      if (isVoid) {
+        const screenX = Math.floor(mapX * TILE_SIZE - offsetX * TILE_SIZE);
+        const screenY = Math.floor(mapY * TILE_SIZE - offsetY * TILE_SIZE);
+
+        // Borramos un cuadrado negro perfecto.
+        // El +1 y -1 es para solapar un poquito y evitar líneas finas.
+        ctx.fillRect(screenX - 1, screenY - 1, TILE_SIZE + 2, TILE_SIZE + 2);
+      }
+    }
+  }
   
   ctx.globalCompositeOperation = "source-over";
 };
