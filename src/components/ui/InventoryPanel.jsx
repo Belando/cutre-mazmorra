@@ -1,10 +1,10 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, Trash2, Shield, Sword, Heart, Zap, ChevronsRight, ArrowRight, ArrowDown } from 'lucide-react';
+import { X, Trash2, Shield, Sword, Heart, Zap, ArrowRight, ArrowDown } from 'lucide-react';
 import { Button } from '../ui/button';
 import { getItemIcon, EQUIPMENT_SLOTS } from '@/data/icons';
-import { canClassEquip, getMissingRequirement, canAssignToQuickSlot } from '@/engine/systems/ItemSystem';
-import { GiBackpack, GiCoins } from 'react-icons/gi';
+import { canClassEquip, canAssignToQuickSlot } from '@/engine/systems/ItemSystem';
+import { GiBackpack, GiCoins, GiMagicTrident, GiMagicShield } from 'react-icons/gi';
 
 // --- COMPONENTES AUXILIARES ---
 
@@ -43,7 +43,6 @@ const ItemSlot = ({ item, onClick, isSelected, isEmpty }) => {
   );
 };
 
-// Modificado: Recibe onSelect en lugar de onUnequip directo
 const EquipSlot = ({ slotKey, equipment, onSelect, isSelected }) => {
   const item = equipment[slotKey];
   const slotInfo = EQUIPMENT_SLOTS[slotKey];
@@ -76,13 +75,28 @@ const ItemIconWrapper = ({ item }) => {
 };
 
 const StatRow = ({ label, value, icon, color }) => (
-  <div className="flex justify-between items-center p-1.5 rounded hover:bg-white/5 transition-colors">
+  <div className="flex items-center justify-between p-1.5 rounded hover:bg-white/5 transition-colors">
     <div className={`flex items-center gap-2 text-xs ${color || 'text-slate-400'}`}>
       {icon} {label}
     </div>
-    <span className="font-bold text-white text-sm">{value}</span>
+    <span className="text-sm font-bold text-white">{value}</span>
   </div>
 );
+
+// Mapa de nombres para stats
+const STAT_LABELS = {
+  attack: "Ataque Físico",
+  magicAttack: "Ataque Mágico",
+  defense: "Defensa Física",
+  magicDefense: "Defensa Mágica",
+  maxHp: "Vida Máxima",
+  maxMp: "Maná Máximo",
+  health: "Cura Vida",
+  mana: "Restaura Maná",
+  critChance: "Crítico %",
+  evasion: "Evasión",
+  blockChance: "Bloqueo"
+};
 
 // --- COMPONENTE PRINCIPAL ---
 
@@ -94,8 +108,14 @@ export default function InventoryPanel({
 
   if (!isOpen) return null;
 
+  // Cálculo de totales para mostrar en el panel izquierdo
+  const totalAttack = (player.baseAttack || 0) + (player.equipAttack || 0);
+  const totalMagicAttack = (player.baseMagicAttack || 0) + (player.equipMagicAttack || 0);
+  const totalDefense = (player.baseDefense || 0) + (player.equipDefense || 0);
+  const totalMagicDefense = (player.baseMagicDefense || 0) + (player.equipMagicDefense || 0);
+
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/90 backdrop-blur-md p-4" onClick={onClose}>
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/90 backdrop-blur-md" onClick={onClose}>
       <motion.div 
         initial={{ scale: 0.95, opacity: 0, y: 20 }}
         animate={{ scale: 1, opacity: 1, y: 0 }}
@@ -105,19 +125,18 @@ export default function InventoryPanel({
       >
         
         {/* COLUMNA 1: PERSONAJE (Equipo + Stats) */}
-        <div className="w-72 bg-slate-900/80 border-r border-slate-700 flex flex-col">
+        <div className="flex flex-col border-r w-72 bg-slate-900/80 border-slate-700">
           <div className="p-4 border-b border-slate-700 bg-slate-950/50">
-            <h2 className="text-lg font-bold text-slate-200 flex items-center gap-2">
+            <h2 className="flex items-center gap-2 text-lg font-bold text-slate-200">
               <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
               {player.name || "Héroe"}
             </h2>
-            <p className="text-xs text-slate-500 ml-4">Nivel {player.level} • {player.class}</p>
+            <p className="ml-4 text-xs text-slate-500">Nivel {player.level} • {player.class}</p>
           </div>
 
-          <div className="p-4 flex-1 overflow-y-auto custom-scrollbar">
+          <div className="flex-1 p-4 overflow-y-auto custom-scrollbar">
             {/* Muñeca de Papel */}
             <div className="flex flex-col items-center gap-2 mb-6">
-              {/* Pasamos isEquipped: true al seleccionar para saber que viene del equipo */}
               <EquipSlot slotKey="helmet" equipment={equipment} 
                 onSelect={(item) => setSelectedItem({ ...item, slot: 'helmet', isEquipped: true })} 
                 isSelected={selectedItem?.isEquipped && selectedItem?.slot === 'helmet'} />
@@ -150,7 +169,7 @@ export default function InventoryPanel({
                   isSelected={selectedItem?.isEquipped && selectedItem?.slot === 'boots'} />
               </div>
               
-              <div className="flex gap-2 mt-2 pt-2 border-t border-slate-800 w-full justify-center">
+              <div className="flex justify-center w-full gap-2 pt-2 mt-2 border-t border-slate-800">
                 <EquipSlot slotKey="necklace" equipment={equipment} 
                   onSelect={(item) => setSelectedItem({ ...item, slot: 'necklace', isEquipped: true })} 
                   isSelected={selectedItem?.isEquipped && selectedItem?.slot === 'necklace'} />
@@ -165,32 +184,35 @@ export default function InventoryPanel({
               </div>
             </div>
 
-            {/* Estadísticas */}
-            <div className="bg-slate-800/40 rounded-lg p-3 border border-slate-700/50 space-y-1">
-              <h3 className="text-xs font-bold text-slate-500 uppercase mb-2">Atributos</h3>
-              <StatRow label="Ataque" value={(player.baseAttack || 0) + (player.equipAttack || 0)} icon={<Sword className="w-3 h-3"/>} color="text-orange-400" />
-              <StatRow label="Defensa" value={(player.baseDefense || 0) + (player.equipDefense || 0)} icon={<Shield className="w-3 h-3"/>} color="text-cyan-400" />
+            {/* Estadísticas Nuevas */}
+            <div className="p-3 space-y-1 border rounded-lg bg-slate-800/40 border-slate-700/50">
+              <h3 className="mb-2 text-xs font-bold uppercase text-slate-500">Atributos</h3>
+              
+              <StatRow label="Ataque Físico" value={totalAttack} icon={<Sword className="w-3 h-3"/>} color="text-orange-400" />
+              <StatRow label="Ataque Mágico" value={totalMagicAttack} icon={<GiMagicTrident className="w-3 h-3"/>} color="text-purple-400" />
+              
+              <div className="my-1 h-px bg-slate-700/50" />
+              
+              <StatRow label="Defensa Física" value={totalDefense} icon={<Shield className="w-3 h-3"/>} color="text-slate-300" />
+              <StatRow label="Defensa Mágica" value={totalMagicDefense} icon={<GiMagicShield className="w-3 h-3"/>} color="text-blue-300" />
+              
+              <div className="my-1 h-px bg-slate-700/50" />
+              
               <StatRow label="Vida" value={`${player.hp}/${player.maxHp}`} icon={<Heart className="w-3 h-3"/>} color="text-pink-400" />
               <StatRow label="Maná" value={`${player.mp}/${player.maxMp}`} icon={<Zap className="w-3 h-3"/>} color="text-blue-400" />
-              <div className="h-px bg-slate-700 my-2" />
-              <div className="grid grid-cols-3 gap-1 text-center">
-                 <div className="bg-slate-900 rounded p-1"><div className="text-red-400 font-bold text-xs">{player.strength}</div><div className="text-[9px] text-slate-500">STR</div></div>
-                 <div className="bg-slate-900 rounded p-1"><div className="text-green-400 font-bold text-xs">{player.dexterity}</div><div className="text-[9px] text-slate-500">DEX</div></div>
-                 <div className="bg-slate-900 rounded p-1"><div className="text-blue-400 font-bold text-xs">{player.intelligence}</div><div className="text-[9px] text-slate-500">INT</div></div>
-              </div>
             </div>
           </div>
         </div>
 
-        {/* COLUMNA 2: MOCHILA (64 Slots) */}
-        <div className="flex-1 flex flex-col bg-slate-900/30">
-          <div className="p-4 border-b border-slate-700 flex justify-between items-center bg-slate-900/80">
-            <h2 className="text-lg font-bold text-amber-100 flex items-center gap-2">
+        {/* COLUMNA 2: MOCHILA */}
+        <div className="flex flex-col flex-1 bg-slate-900/30">
+          <div className="flex items-center justify-between p-4 border-b border-slate-700 bg-slate-900/80">
+            <h2 className="flex items-center gap-2 text-lg font-bold text-amber-100">
               <GiBackpack className="w-6 h-6 text-amber-500" /> Mochila
             </h2>
-            <div className="flex items-center gap-2 bg-black/40 px-3 py-1 rounded-full border border-amber-900/30">
-              <GiCoins className="text-yellow-400 w-4 h-4" />
-              <span className="text-yellow-100 font-bold font-mono">{player.gold}</span>
+            <div className="flex items-center gap-2 px-3 py-1 border rounded-full bg-black/40 border-amber-900/30">
+              <GiCoins className="w-4 h-4 text-yellow-400" />
+              <span className="font-mono font-bold text-yellow-100">{player.gold}</span>
             </div>
           </div>
 
@@ -212,19 +234,19 @@ export default function InventoryPanel({
           </div>
         </div>
 
-        {/* COLUMNA 3: INSPECTOR (Detalles + Acciones) */}
-        <div className="w-80 bg-slate-950 border-l border-slate-700 flex flex-col relative shadow-2xl">
-          <Button variant="ghost" size="icon" className="absolute top-2 right-2 text-slate-500 hover:text-white z-10" onClick={onClose}>
+        {/* COLUMNA 3: INSPECTOR (Detalles) */}
+        <div className="relative flex flex-col border-l shadow-2xl w-80 bg-slate-950 border-slate-700">
+          <Button variant="ghost" size="icon" className="absolute z-10 top-2 right-2 text-slate-500 hover:text-white" onClick={onClose}>
             <X className="w-5 h-5" />
           </Button>
 
           {!selectedItem ? (
-            <div className="flex flex-col items-center justify-center h-full text-slate-600 p-8 text-center">
-              <div className="w-20 h-20 rounded-full bg-slate-900 border-2 border-dashed border-slate-800 flex items-center justify-center mb-4">
+            <div className="flex flex-col items-center justify-center h-full p-8 text-center text-slate-600">
+              <div className="flex items-center justify-center w-20 h-20 mb-4 border-2 border-dashed rounded-full bg-slate-900 border-slate-800">
                 <GiBackpack className="w-8 h-8 opacity-20" />
               </div>
               <p className="text-sm font-medium">Selecciona un objeto</p>
-              <p className="text-xs mt-2">Haz clic en un objeto del inventario o del equipo para ver sus detalles.</p>
+              <p className="mt-2 text-xs">Haz clic en un objeto del inventario o del equipo para ver sus detalles.</p>
             </div>
           ) : (
             <>
@@ -255,19 +277,31 @@ export default function InventoryPanel({
                   }`}>
                     {selectedItem.name} {selectedItem.upgradeLevel > 0 && `+${selectedItem.upgradeLevel}`}
                   </h3>
-                  <span className="text-xs text-slate-500 uppercase tracking-widest mt-1 block">
+                  <span className="block mt-1 text-xs tracking-widest uppercase text-slate-500">
                     {selectedItem.rarity} • {selectedItem.category}
                   </span>
                 </div>
               </div>
 
               {/* Cuerpo del Item */}
-              <div className="p-6 flex-1 overflow-y-auto">
+              <div className="flex-1 p-6 overflow-y-auto">
                 
-                {/* INDICADOR VISUAL DE SLOT */}
+                {/* REQUISITOS DE NIVEL Y CLASE */}
+                {(selectedItem.levelRequirement || selectedItem.weaponType || selectedItem.armorType) && (
+                  <div className="flex flex-wrap gap-2 mb-4">
+                    {selectedItem.levelRequirement && (
+                      <span className={`text-[10px] px-2 py-0.5 rounded border ${player.level >= selectedItem.levelRequirement ? 'border-green-800 bg-green-900/20 text-green-400' : 'border-red-800 bg-red-900/20 text-red-400'}`}>
+                        Nv. {selectedItem.levelRequirement}
+                      </span>
+                    )}
+                    {/* Visualización simple de restricción por código de colores en el botón de equipar */}
+                  </div>
+                )}
+
+                {/* Slot Indicador */}
                 {selectedItem.slot && EQUIPMENT_SLOTS[selectedItem.slot] && (
-                  <div className="mb-4 p-3 bg-slate-900/80 border border-slate-700 rounded-lg flex items-center gap-3">
-                    <div className="w-10 h-10 rounded bg-slate-800 flex items-center justify-center border border-slate-600">
+                  <div className="flex items-center gap-3 p-3 mb-4 border rounded-lg bg-slate-900/80 border-slate-700">
+                    <div className="flex items-center justify-center w-10 h-10 border rounded bg-slate-800 border-slate-600">
                        {React.createElement(EQUIPMENT_SLOTS[selectedItem.slot].icon, { className: "w-6 h-6 text-slate-400" })}
                     </div>
                     <div>
@@ -276,46 +310,40 @@ export default function InventoryPanel({
                       </p>
                       <p className="text-sm font-medium text-blue-300">{EQUIPMENT_SLOTS[selectedItem.slot].name}</p>
                     </div>
-                    {/* Flecha indicativa */}
                     {selectedItem.isEquipped 
-                      ? <ArrowDown className="ml-auto w-4 h-4 text-green-500" />
-                      : <ArrowRight className="ml-auto w-4 h-4 text-slate-600" />
+                      ? <ArrowDown className="w-4 h-4 ml-auto text-green-500" />
+                      : <ArrowRight className="w-4 h-4 ml-auto text-slate-600" />
                     }
                   </div>
                 )}
 
-                {/* Stats */}
+                {/* Stats Detallados */}
                 {selectedItem.stats && (
-                  <div className="space-y-2 mb-6">
+                  <div className="p-1 mb-6 space-y-1 rounded bg-slate-900/50">
                     {Object.entries(selectedItem.stats).map(([key, val]) => (
-                      <div key={key} className="flex justify-between items-center p-2 rounded bg-slate-900 border border-slate-800">
-                        <span className="text-slate-400 text-xs capitalize">{key}</span>
-                        <span className="text-emerald-400 font-mono font-bold">{val > 0 ? `+${val}` : val}</span>
+                      <div key={key} className="flex items-center justify-between px-2 py-1 rounded hover:bg-slate-800/50">
+                        <span className="text-xs text-slate-400 capitalize">
+                          {STAT_LABELS[key] || key}
+                        </span>
+                        <span className="font-mono font-bold text-emerald-400">
+                          {val > 0 ? `+${val}` : val}
+                        </span>
                       </div>
                     ))}
                   </div>
                 )}
 
-                <div className="bg-slate-900/50 p-3 rounded-lg border border-slate-800 text-sm text-slate-400 italic leading-relaxed">
+                <div className="p-3 text-sm italic leading-relaxed border rounded-lg bg-slate-900/50 border-slate-800 text-slate-400">
                   "{selectedItem.description}"
                 </div>
-
-                {/* Requisitos */}
-                {getMissingRequirement(selectedItem, player) && !selectedItem.isEquipped && (
-                  <div className="mt-4 text-xs text-red-400 bg-red-950/30 p-2 rounded border border-red-900/50 flex items-center gap-2">
-                    <X className="w-3 h-3" />
-                    Requiere: {getMissingRequirement(selectedItem, player).attribute} {getMissingRequirement(selectedItem, player).required}
-                  </div>
-                )}
               </div>
 
-              {/* Botones de Acción (LÓGICA MEJORADA) */}
-              <div className="p-4 border-t border-slate-800 bg-slate-950 space-y-2">
+              {/* Botones de Acción */}
+              <div className="p-4 space-y-2 border-t border-slate-800 bg-slate-950">
                 
                 {/* 1. OBJETOS EQUIPABLES */}
                 {(['weapon', 'armor', 'accessory'].includes(selectedItem.category) || selectedItem.slot) ? (
                   selectedItem.isEquipped ? (
-                    // Botón para DESEQUIPAR
                     <Button 
                       className="w-full bg-slate-700 hover:bg-slate-600 text-slate-200"
                       onClick={() => { onUnequipItem(selectedItem.slot); setSelectedItem(null); }}
@@ -323,13 +351,12 @@ export default function InventoryPanel({
                       Desequipar
                     </Button>
                   ) : (
-                    // Botón para EQUIPAR
                     <Button 
-                      className={`w-full ${canClassEquip(selectedItem, player.class, player) ? 'bg-blue-600 hover:bg-blue-500' : 'bg-slate-700 cursor-not-allowed opacity-50'}`}
-                      disabled={!canClassEquip(selectedItem, player.class, player)}
+                      className={`w-full ${canClassEquip(selectedItem, player.class, player.level) ? 'bg-blue-600 hover:bg-blue-500' : 'bg-slate-800 border border-slate-700 text-slate-500 cursor-not-allowed'}`}
+                      disabled={!canClassEquip(selectedItem, player.class, player.level)}
                       onClick={() => { onEquipItem(selectedItem.index); setSelectedItem(null); }}
                     >
-                      {canClassEquip(selectedItem, player.class, player) ? 'Equipar' : 'No equipable'}
+                      {canClassEquip(selectedItem, player.class, player.level) ? 'Equipar' : 'No puedes equipar esto'}
                     </Button>
                   )
                 ) : (
@@ -342,7 +369,7 @@ export default function InventoryPanel({
                   </Button>
                 )}
 
-                {/* Slots Rápidos (Solo para inventario) */}
+                {/* Slots Rápidos */}
                 {canAssignToQuickSlot(selectedItem) && !selectedItem.isEquipped && (
                   <div className="grid grid-cols-3 gap-1">
                     {['Q', 'E', 'R'].map((k, i) => (
@@ -354,7 +381,7 @@ export default function InventoryPanel({
                   </div>
                 )}
 
-                {/* Botón Tirar (Solo inventario) */}
+                {/* Botón Tirar */}
                 {!selectedItem.isEquipped && (
                   <Button 
                     variant="ghost" 

@@ -1,6 +1,6 @@
 import { canAssignToQuickSlot } from "./ItemSystem";
 
-// Crafting and Upgrade System
+// ... (MATERIAL_TYPES, RECIPES, UPGRADE_COSTS y getMaterialItem sin cambios) ...
 export const MATERIAL_TYPES = {
   iron_ore: { name: 'Mineral de Hierro', symbol: '⛏️', color: '#71717a', rarity: 'common' },
   gold_ore: { name: 'Mineral de Oro', symbol: '◎', color: '#fbbf24', rarity: 'uncommon' },
@@ -122,7 +122,6 @@ export const RECIPES = {
   },
 };
 
-// Upgrade costs by level
 export const UPGRADE_COSTS = {
   1: { gold: 50, materials: { iron_ore: 2 } },
   2: { gold: 100, materials: { iron_ore: 3, gold_ore: 1 } },
@@ -131,7 +130,6 @@ export const UPGRADE_COSTS = {
   5: { gold: 800, materials: { crystal: 3, essence: 2, dragon_scale: 1 } },
 };
 
-// --- Helper para crear items de material ---
 export function getMaterialItem(type, count = 1) {
   const mat = MATERIAL_TYPES[type];
   if (!mat) return null;
@@ -149,15 +147,12 @@ export function getMaterialItem(type, count = 1) {
   };
 }
 
-// MODIFICADO: Agregada protección contra inventory null/undefined/object
 export function canCraft(recipe, inventory) {
-  // 1. Protección de seguridad
   if (!inventory || !Array.isArray(inventory)) {
-    return false; // Si no hay inventario válido, no se puede craftear
+    return false; 
   }
 
   for (const [matKey, count] of Object.entries(recipe.materials)) {
-    // Buscamos items con templateKey igual al material
     const item = inventory.find(i => i.templateKey === matKey);
     const available = item ? item.quantity : 0;
     if (available < count) return false;
@@ -166,7 +161,6 @@ export function canCraft(recipe, inventory) {
 }
 
 export function craftItem(recipeKey, inventory) {
-  // 1. Protección de seguridad
   if (!inventory || !Array.isArray(inventory)) {
     return { success: false, message: 'Error: Inventario no cargado' };
   }
@@ -178,7 +172,6 @@ export function craftItem(recipeKey, inventory) {
     return { success: false, message: 'Materiales insuficientes' };
   }
   
-  // Consumir materiales
   for (const [matKey, count] of Object.entries(recipe.materials)) {
     const itemIndex = inventory.findIndex(i => i.templateKey === matKey);
     if (itemIndex !== -1) {
@@ -189,7 +182,6 @@ export function craftItem(recipeKey, inventory) {
     }
   }
   
-  // Crear item resultante
   const item = {
     id: `${recipeKey}_${Date.now()}`,
     templateKey: recipeKey,
@@ -199,19 +191,17 @@ export function craftItem(recipeKey, inventory) {
     rarity: recipe.rarity,
     stackable: recipe.stackable || false,
     quantity: recipe.result.quantity || 1,
-    stats: { ...recipe.result }, // Copia segura de stats
+    stats: { ...recipe.result }, 
     upgradeLevel: 0,
   };
   
   if (recipe.slot) item.slot = recipe.slot;
   
-  // Añadir al inventario
   inventory.push(item);
   
   return { success: true, message: `¡Creaste ${recipe.name}!`, item };
 }
 
-// MODIFICADO: Upgrade consume del inventario
 export function upgradeItem(item, inventory, gold) {
   if (!item) return { success: false, message: 'No hay item' };
   if (item.category === 'potion' || item.category === 'ammo' || item.category === 'material') {
@@ -226,12 +216,10 @@ export function upgradeItem(item, inventory, gold) {
   const cost = UPGRADE_COSTS[currentLevel + 1];
   if (!cost) return { success: false, message: 'Error de mejora' };
   
-  // Check gold
   if (gold < cost.gold) {
     return { success: false, message: `Necesitas ${cost.gold} oro` };
   }
   
-  // Check materials (en inventario)
   for (const [matKey, count] of Object.entries(cost.materials)) {
     const matItem = inventory.find(i => i.templateKey === matKey);
     const available = matItem ? matItem.quantity : 0;
@@ -242,7 +230,6 @@ export function upgradeItem(item, inventory, gold) {
     }
   }
   
-  // Consume resources
   for (const [matKey, count] of Object.entries(cost.materials)) {
     const itemIndex = inventory.findIndex(i => i.templateKey === matKey);
     if (itemIndex !== -1) {
@@ -253,16 +240,13 @@ export function upgradeItem(item, inventory, gold) {
     }
   }
   
-  // Upgrade item
   item.upgradeLevel = currentLevel + 1;
-  // Añadir sufijo solo si no lo tiene
   if (!item.name.includes('+')) {
       item.name = `${item.name} +${item.upgradeLevel}`;
   } else {
       item.name = item.name.replace(/\+\d+$/, `+${item.upgradeLevel}`);
   }
   
-  // Increase stats by 15% per level
   if (item.stats) {
     for (const stat of Object.keys(item.stats)) {
       if (typeof item.stats[stat] === 'number' && stat !== 'quantity') {
@@ -278,34 +262,34 @@ export function upgradeItem(item, inventory, gold) {
   };
 }
 
-// MODIFICADO: Genera items reales
 export function generateMaterialDrop(enemyType, dungeonLevel) {
   const drops = [];
-  const dropChance = 0.3 + (dungeonLevel * 0.05);
+  // AUMENTADO: Drop garantizado del 60% base
+  const dropChance = 0.6 + (dungeonLevel * 0.05);
   
   if (Math.random() > dropChance) return drops;
   
-  if (Math.random() < 0.5) drops.push(getMaterialItem('iron_ore', 1 + Math.floor(Math.random() * 2)));
-  if (Math.random() < 0.3) drops.push(getMaterialItem('leather', 1));
+  // Materiales básicos más comunes
+  if (Math.random() < 0.6) drops.push(getMaterialItem('iron_ore', 1 + Math.floor(Math.random() * 2)));
+  if (Math.random() < 0.4) drops.push(getMaterialItem('leather', 1));
   
-  if (dungeonLevel >= 2 && Math.random() < 0.25) drops.push(getMaterialItem('gold_ore', 1));
-  if (dungeonLevel >= 3 && Math.random() < 0.2) drops.push(getMaterialItem('cloth', 1));
+  if (dungeonLevel >= 2 && Math.random() < 0.3) drops.push(getMaterialItem('gold_ore', 1));
+  if (dungeonLevel >= 3 && Math.random() < 0.25) drops.push(getMaterialItem('cloth', 1));
   
-  if (dungeonLevel >= 4 && Math.random() < 0.15) drops.push(getMaterialItem('crystal', 1));
-  if (dungeonLevel >= 5 && Math.random() < 0.1) drops.push(getMaterialItem('essence', 1));
+  if (dungeonLevel >= 4 && Math.random() < 0.2) drops.push(getMaterialItem('crystal', 1));
+  if (dungeonLevel >= 5 && Math.random() < 0.15) drops.push(getMaterialItem('essence', 1));
   
-  if (dungeonLevel >= 6 && Math.random() < 0.08) drops.push(getMaterialItem('dragon_scale', 1));
+  if (dungeonLevel >= 6 && Math.random() < 0.1) drops.push(getMaterialItem('dragon_scale', 1));
   
   return drops;
 }
 
-// MODIFICADO: Genera items reales
 export function generateBossDrop(bossType, dungeonLevel) {
   const drops = [
-    getMaterialItem('gold_ore', 2 + Math.floor(dungeonLevel / 2))
+    getMaterialItem('gold_ore', 3 + Math.floor(dungeonLevel / 2))
   ];
   
-  if (dungeonLevel >= 3) drops.push(getMaterialItem('crystal', 1 + Math.floor(dungeonLevel / 3)));
+  if (dungeonLevel >= 3) drops.push(getMaterialItem('crystal', 2 + Math.floor(dungeonLevel / 3)));
   if (dungeonLevel >= 5) drops.push(getMaterialItem('essence', 1));
   if (dungeonLevel >= 6) drops.push(getMaterialItem('dragon_scale', 1 + Math.floor((dungeonLevel - 5) / 2)));
   

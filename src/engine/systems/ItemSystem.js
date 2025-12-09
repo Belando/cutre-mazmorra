@@ -1,293 +1,128 @@
-import { ITEM_TEMPLATES, WEAPON_TYPES, ARMOR_TYPES, RARITY_REQUIREMENTS, RARITY_WEIGHTS} from '@/data/items';
+import { ITEM_TEMPLATES, WEAPON_TYPES, ARMOR_TYPES, RARITY_CONFIG } from '@/data/items';
 
-export function getItemRequiredAttribute(item) {
-  if (!item) return null;
-  if (item.weaponType) {
-    if (['sword', 'axe', 'mace', 'shield'].includes(item.weaponType)) return 'strength';
-    if (['dagger', 'bow', 'crossbow', 'quiver'].includes(item.weaponType)) return 'dexterity';
-    if (['staff', 'wand', 'tome'].includes(item.weaponType)) return 'intelligence';
-  }
-  if (item.armorType) {
-    if (item.armorType === 'heavy') return 'strength';
-    if (item.armorType === 'medium') return 'dexterity';
-    if (item.armorType === 'light') return 'intelligence';
-  }
-  return null;
+// --- GENERACIÓN DE OBJETOS ---
+
+// Determinar el nivel del objeto (escalado de 5 en 5: 1, 5, 10, 15...)
+function getItemLevelTier(dungeonLevel) {
+  // Si estamos en nivel 1-4 -> Item Nivel 1
+  // Nivel 5-9 -> Item Nivel 5
+  // etc.
+  return Math.max(1, Math.floor(dungeonLevel / 5) * 5);
 }
 
-export function meetsAttributeRequirements(item, player) {
-  if (!item || !item.rarity) return true;
-  const requirements = RARITY_REQUIREMENTS[item.rarity] || RARITY_REQUIREMENTS.common;
-  const requiredAttr = getItemRequiredAttribute(item);
-  if (!requiredAttr) return true;
-  const playerAttr = player[requiredAttr] || 0;
-  return playerAttr >= requirements[requiredAttr];
-}
-
-export function getMissingRequirement(item, player) {
-  if (!item || !item.rarity) return null;
-  const requirements = RARITY_REQUIREMENTS[item.rarity] || RARITY_REQUIREMENTS.common;
-  const requiredAttr = getItemRequiredAttribute(item);
-  if (!requiredAttr) return null;
-  const playerAttr = player[requiredAttr] || 0;
-  const required = requirements[requiredAttr];
-  if (playerAttr >= required) return null;
-  const attrNames = { strength: 'Fuerza', dexterity: 'Destreza', intelligence: 'Inteligencia' };
-  return { attribute: attrNames[requiredAttr], required, current: playerAttr };
-}
-
-export function canClassEquip(item, playerClass, player = null) {
-  if (!item) return false;
-  if (item.weaponType && WEAPON_TYPES[item.weaponType]) {
-    if (!WEAPON_TYPES[item.weaponType].classes.includes(playerClass)) return false;
-  }
-  if (item.armorType && ARMOR_TYPES[item.armorType]) {
-    if (!ARMOR_TYPES[item.armorType].classes.includes(playerClass)) return false;
-  }
-  if (player && !meetsAttributeRequirements(item, player)) return false;
-  return true;
-}
-
-export function generateRarity(dungeonLevel) {
-  const adjustedWeights = { ...RARITY_WEIGHTS };
-  if (dungeonLevel >= 3) { adjustedWeights.uncommon += 10; adjustedWeights.rare += 5; }
-  if (dungeonLevel >= 5) { adjustedWeights.rare += 10; adjustedWeights.epic += 3; }
-  if (dungeonLevel >= 7) { adjustedWeights.epic += 5; adjustedWeights.legendary += 1; }
-  const totalWeight = Object.values(adjustedWeights).reduce((a, b) => a + b, 0);
+function generateRarity() {
+  const totalWeight = Object.values(RARITY_CONFIG).reduce((sum, r) => sum + r.weight, 0);
   let random = Math.random() * totalWeight;
-  for (const [rarity, weight] of Object.entries(adjustedWeights)) {
-    random -= weight;
-    if (random <= 0) return rarity;
+  
+  for (const [key, config] of Object.entries(RARITY_CONFIG)) {
+    random -= config.weight;
+    if (random <= 0) return key;
   }
   return 'common';
 }
 
 export function generateItem(dungeonLevel, forceType = null) {
-  const rarity = generateRarity(dungeonLevel);
+  const rarityKey = generateRarity();
+  const rarityInfo = RARITY_CONFIG[rarityKey];
+  const itemLevel = getItemLevelTier(dungeonLevel);
   
-  let itemTypes;
-  if (forceType) {
-    itemTypes = [forceType];
-  } else {
-    // Lista base de objetos
-    itemTypes = [
-      'health_potion', 'mana_potion', 'bread', 'gold', 'gold',
-      'sword', 'dagger', 'staff',
-      'leather_chest', 'heavy_chest', 'light_chest',
-      'leather_boots', 'heavy_boots', 'light_boots',
-    ];
-    
-    // Niveles superiores añaden variedad
-    if (dungeonLevel >= 2) {
-        itemTypes.push('axe', 'bow', 'wand', 'ring', 'shield', 'heavy_helmet', 'leather_helmet');
-    }
-    if (dungeonLevel >= 4) {
-        itemTypes.push('necklace', 'earring', 'tome', 'quiver', 'heavy_gloves', 'leather_gloves', 'light_gloves');
-        itemTypes.push('heavy_legs', 'leather_legs', 'light_legs');
-    }
-    if (dungeonLevel >= 6) {
-        itemTypes.push('strength_elixir', 'mana_elixir', 'defense_elixir');
-    }
+  // Selección de plantilla
+  let templateKey = forceType;
+  if (!templateKey) {
+    const keys = Object.keys(ITEM_TEMPLATES);
+    templateKey = keys[Math.floor(Math.random() * keys.length)];
   }
-  
-  const templateKey = itemTypes[Math.floor(Math.random() * itemTypes.length)];
   const template = ITEM_TEMPLATES[templateKey];
-  
   if (!template) return null;
-  
-  const item = {
-    id: `${templateKey}_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-    templateKey,
-    rarity,
-    symbol: template.symbol,
-    category: template.category,
-    description: template.description,
-    stackable: template.stackable,
-    quantity: 1,
-  };
-  
-  if (template.nameVariants && template.nameVariants[rarity]) {
-      // Variantes específicas por rareza si existen
-      const variants = template.nameVariants[rarity];
-      item.name = variants[Math.floor(Math.random() * variants.length)];
-  } else {
-      // Nombre genérico con prefijo
-      const rarityPrefix = rarity === 'common' ? '' : rarity.charAt(0).toUpperCase() + rarity.slice(1) + ' ';
-      item.name = rarityPrefix + template.name;
-  }
-  
-  if (template.slot) item.slot = template.slot;
-  if (template.weaponType) item.weaponType = template.weaponType;
-  if (template.armorType) item.armorType = template.armorType;
-  
+
+  // --- CÁLCULO DE ESTADÍSTICAS ---
+  // Fórmula: Base * Multiplicador de Nivel * Multiplicador de Rareza
+  // Multiplicador Nivel: 1 + (Nivel - 1) * 0.2 (20% mejora por nivel de item)
+  const levelMult = 1 + (itemLevel - 1) * 0.2;
+  const finalMult = levelMult * rarityInfo.multiplier;
+
+  const finalStats = {};
   if (template.baseStats) {
-    const multiplier = template.rarityMultipliers?.[rarity] || 1;
-    item.stats = {};
-    for (const [stat, value] of Object.entries(template.baseStats)) {
-      item.stats[stat] = typeof value === 'number' ? Math.floor(value * multiplier) : value;
+    for (const [key, val] of Object.entries(template.baseStats)) {
+      // Redondeamos hacia abajo, mínimo 1 si el base era > 0
+      finalStats[key] = Math.max(val > 0 ? 1 : 0, Math.floor(val * finalMult));
     }
   }
-  
-  if (template.category === 'currency') {
-    const multiplier = template.rarityMultipliers?.[rarity] || 1;
-    item.value = Math.floor(template.baseValue * multiplier * (0.8 + Math.random() * 0.4));
-  }
-  
-  return item;
-}
 
-export function generateLevelItems(dungeonLevel, rooms, map, excludeRoomIndices = []) {
-  const items = [];
-  const itemCount = 2 + Math.floor(dungeonLevel / 3) + Math.floor(Math.random() * 2);
-  let placed = 0;
-  let attempts = 0;
-  while (placed < itemCount && attempts < 100) {
-    attempts++;
-    const roomIndex = Math.floor(Math.random() * rooms.length);
-    if (excludeRoomIndices.includes(roomIndex)) continue;
-    const room = rooms[roomIndex];
-    const x = room.x + 1 + Math.floor(Math.random() * (room.width - 2));
-    const y = room.y + 1 + Math.floor(Math.random() * (room.height - 2));
-    if (map[y]?.[x] === 1) {
-      const occupied = items.some(i => i.x === x && i.y === y);
-      if (!occupied) {
-        const item = generateItem(dungeonLevel);
-        if (item) {
-          item.x = x;
-          item.y = y;
-          items.push(item);
-          placed++;
-        }
-      }
-    }
-  }
-  return items;
-}
-
-export function addToInventory(inventory, item, maxSlots = 64) {
-  if (!item) return { success: false, reason: 'Item inválido' };
-  if (item.stackable) {
-    const existingIndex = inventory.findIndex(i => i.templateKey === item.templateKey && i.rarity === item.rarity);
-    if (existingIndex !== -1) {
-      inventory[existingIndex].quantity += item.quantity || 1;
-      return { success: true, stacked: true };
-    }
-  }
-  if (inventory.length >= maxSlots) return { success: false, reason: 'Inventario lleno!' };
-  inventory.push({ ...item });
-  return { success: true, stacked: false };
-}
-
-export function useItem(inventory, index, player) {
-  const item = inventory[index];
-  if (!item) return { success: false, message: 'Item no encontrado' };
-  if (!['potion', 'scroll', 'food'].includes(item.category)) return { success: false, message: 'No se puede usar' };
-  
-  const result = { success: true, effects: [] };
-  if (item.stats) {
-    if (item.stats.health) {
-      const healed = Math.min(item.stats.health, player.maxHp - player.hp);
-      player.hp += healed;
-      result.effects.push(`+${healed} Vida`);
-    }
-    if (item.stats.mana) {
-      const restored = Math.min(item.stats.mana, (player.maxMp || 30) - (player.mp || 0));
-      player.mp = (player.mp || 0) + restored;
-      result.effects.push(`+${restored} Maná`);
-    }
-    if (item.stats.attackBoost) {
-        player.baseAttack = (player.baseAttack || 8) + item.stats.attackBoost;
-        result.effects.push(`+${item.stats.attackBoost} ATK Perm.`);
-    }
-  }
-  if (item.quantity > 1) inventory[index].quantity--;
-  else inventory.splice(index, 1);
-  return result;
-}
-
-export function equipItem(inventory, index, equipment, player) {
-  const item = inventory[index];
-  if (!item || !item.slot) return { success: false, message: 'No equipable' };
-  
-  // Validaciones
-  if (!canClassEquip(item, player.class, null)) return { success: false, message: 'Clase incorrecta' };
-  const missing = getMissingRequirement(item, player);
-  if (missing) return { success: false, message: `Falta ${missing.required} ${missing.attribute}` };
-  
-  // 1. CLONAR ESTADOS (Para no mutar los originales)
-  const newInventory = [...inventory];
-  const newEquipment = { ...equipment };
-  let newPlayer = { ...player };
-  
-  const slot = item.slot;
-  
-  // 2. Extraer el item que queremos equipar del inventario
-  // Usamos splice para sacarlo y obtenerlo
-  const [itemToEquip] = newInventory.splice(index, 1);
-  
-  // 3. Manejar intercambio si ya hay algo equipado
-  if (newEquipment[slot]) {
-    const oldItem = newEquipment[slot];
-    // Quitamos los stats del item viejo
-    newPlayer = removeStatsFromPlayer(newPlayer, oldItem);
-    // Devolvemos el item viejo al inventario
-    newInventory.push(oldItem);
-  }
-  
-  // 4. Equipar el nuevo item
-  newEquipment[slot] = itemToEquip;
-  
-  // 5. Aplicar stats del nuevo item
-  newPlayer = addStatsToPlayer(newPlayer, itemToEquip);
-  
-  // 6. Devolver los nuevos estados
-  return { 
-    success: true, 
-    message: `Equipado: ${itemToEquip.name}`,
-    newInventory,
-    newEquipment,
-    newPlayer
+  // --- CONSTRUCCIÓN DEL OBJETO ---
+  return {
+    id: `${templateKey}_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`,
+    templateKey,
+    name: `${template.name} ${rarityInfo.name !== 'Común' ? rarityInfo.name : ''}`, // Ej: Espada Rara
+    levelRequirement: itemLevel, // REQUISITO DE NIVEL
+    rarity: rarityKey,
+    category: template.category,
+    symbol: template.symbol,
+    description: template.description || `Nivel ${itemLevel} - ${rarityInfo.name}`,
+    stats: finalStats,
+    slot: template.slot,
+    weaponType: template.weaponType,
+    armorType: template.armorType,
+    stackable: template.stackable || false,
+    quantity: 1,
+    value: Math.floor(10 * finalMult) // Precio de venta
   };
 }
 
-export function unequipItem(equipment, slot, inventory, player, maxSlots = 64) {
-  const item = equipment[slot];
-  if (!item) return { success: false, message: 'Nada que desequipar' };
-  if (inventory.length >= maxSlots) return { success: false, message: 'Inventario lleno' };
+// --- GESTIÓN DE INVENTARIO Y EQUIPO ---
+
+// Comprobar restricciones de CLASE y NIVEL
+export function canClassEquip(item, playerClass, playerLevel) {
+  if (!item) return false;
   
-  // 1. Clonar estados
-  const newEquipment = { ...equipment };
-  const newInventory = [...inventory];
-  let newPlayer = { ...player };
-  
-  // 2. Quitar stats
-  newPlayer = removeStatsFromPlayer(newPlayer, item);
-  
-  // 3. Mover item al inventario y limpiar slot
-  newInventory.push(item);
-  newEquipment[slot] = null;
-  
-  return { 
-    success: true, 
-    message: `Desequipado: ${item.name}`,
-    newInventory,
-    newEquipment,
-    newPlayer
+  // 1. Restricción de Nivel
+  if (item.levelRequirement && playerLevel < item.levelRequirement) return false;
+
+  // 2. Restricción de Clase (Armas)
+  if (item.weaponType) {
+    const typeInfo = WEAPON_TYPES[item.weaponType];
+    if (typeInfo && !typeInfo.classes.includes(playerClass)) return false;
+  }
+
+  // 3. Restricción de Clase (Armaduras)
+  if (item.armorType) {
+    const typeInfo = ARMOR_TYPES[item.armorType];
+    if (typeInfo && !typeInfo.classes.includes(playerClass)) return false;
+  }
+
+  return true;
+}
+
+// Cálculo de Stats Totales (Base + Equipo)
+export function calculatePlayerStats(player) {
+  return {
+    attack: (player.baseAttack || 0) + (player.equipAttack || 0),
+    magicAttack: (player.baseMagicAttack || 0) + (player.equipMagicAttack || 0),
+    defense: (player.baseDefense || 0) + (player.equipDefense || 0),
+    magicDefense: (player.baseMagicDefense || 0) + (player.equipMagicDefense || 0),
+    maxHp: player.maxHp,
+    maxMp: player.maxMp,
   };
 }
 
+// Funciones auxiliares de equipo (modificadas para los nuevos stats)
 function addStatsToPlayer(player, item) {
   const p = { ...player };
   if (item.stats) {
     if (item.stats.attack) p.equipAttack = (p.equipAttack || 0) + item.stats.attack;
+    if (item.stats.magicAttack) p.equipMagicAttack = (p.equipMagicAttack || 0) + item.stats.magicAttack;
     if (item.stats.defense) p.equipDefense = (p.equipDefense || 0) + item.stats.defense;
+    if (item.stats.magicDefense) p.equipMagicDefense = (p.equipMagicDefense || 0) + item.stats.magicDefense;
+    
     if (item.stats.maxHp) { 
       p.equipMaxHp = (p.equipMaxHp || 0) + item.stats.maxHp; 
       p.maxHp = (p.maxHp || 0) + item.stats.maxHp; 
-      // Al equipar vida extra, curamos esa cantidad para que se note
       p.hp += item.stats.maxHp; 
     }
-    if (item.stats.magicPower) p.equipMagic = (p.equipMagic || 0) + item.stats.magicPower;
+    if (item.stats.maxMp) {
+      p.equipMaxMp = (p.equipMaxMp || 0) + item.stats.maxMp;
+      p.maxMp = (p.maxMp || 0) + item.stats.maxMp;
+    }
   }
   return p;
 }
@@ -296,26 +131,132 @@ function removeStatsFromPlayer(player, item) {
   const p = { ...player };
   if (item.stats) {
     if (item.stats.attack) p.equipAttack = (p.equipAttack || 0) - item.stats.attack;
+    if (item.stats.magicAttack) p.equipMagicAttack = (p.equipMagicAttack || 0) - item.stats.magicAttack;
     if (item.stats.defense) p.equipDefense = (p.equipDefense || 0) - item.stats.defense;
+    if (item.stats.magicDefense) p.equipMagicDefense = (p.equipMagicDefense || 0) - item.stats.magicDefense;
+    
     if (item.stats.maxHp) { 
       p.equipMaxHp = (p.equipMaxHp || 0) - item.stats.maxHp; 
       p.maxHp = (p.maxHp || 0) - item.stats.maxHp; 
-      // Si la vida actual es mayor que la nueva máxima, la recortamos
       p.hp = Math.min(p.hp, p.maxHp); 
     }
-    if (item.stats.magicPower) p.equipMagic = (p.equipMagic || 0) - item.stats.magicPower;
+    if (item.stats.maxMp) {
+      p.equipMaxMp = (p.equipMaxMp || 0) - item.stats.maxMp;
+      p.maxMp = (p.maxMp || 0) - item.stats.maxMp;
+      p.mp = Math.min(p.mp || 0, p.maxMp);
+    }
   }
   return p;
 }
 
-export function calculatePlayerStats(player) {
-  return {
-    attack: (player.baseAttack || 8) + (player.equipAttack || 0),
-    defense: (player.baseDefense || 3) + (player.equipDefense || 0),
-    maxHp: player.maxHp,
-  };
+// --- RE-EXPORTAR FUNCIONES DE INVENTARIO (Necesarias para otros ficheros) ---
+export function equipItem(inventory, index, equipment, player) {
+  const item = inventory[index];
+  if (!item || !item.slot) return { success: false, message: 'No equipable' };
+  
+  // Validar usando player.level
+  if (!canClassEquip(item, player.class, player.level)) {
+      if (item.levelRequirement && player.level < item.levelRequirement) {
+          return { success: false, message: `Requiere Nivel ${item.levelRequirement}` };
+      }
+      return { success: false, message: 'Clase incorrecta' };
+  }
+  
+  const newInventory = [...inventory];
+  const newEquipment = { ...equipment };
+  let newPlayer = { ...player };
+  const slot = item.slot;
+  const [itemToEquip] = newInventory.splice(index, 1);
+  
+  if (newEquipment[slot]) {
+    const oldItem = newEquipment[slot];
+    newPlayer = removeStatsFromPlayer(newPlayer, oldItem);
+    newInventory.push(oldItem);
+  }
+  newEquipment[slot] = itemToEquip;
+  newPlayer = addStatsToPlayer(newPlayer, itemToEquip);
+  
+  return { success: true, message: `Equipado: ${itemToEquip.name}`, newInventory, newEquipment, newPlayer };
+}
+
+export function unequipItem(equipment, slot, inventory, player, maxSlots = 64) {
+  const item = equipment[slot];
+  if (!item) return { success: false, message: 'Nada' };
+  if (inventory.length >= maxSlots) return { success: false, message: 'Lleno' };
+  
+  const newEquipment = { ...equipment };
+  const newInventory = [...inventory];
+  let newPlayer = { ...player };
+  
+  newPlayer = removeStatsFromPlayer(newPlayer, item);
+  newInventory.push(item);
+  newEquipment[slot] = null;
+  
+  return { success: true, message: `Desequipado`, newInventory, newEquipment, newPlayer };
+}
+
+export function addToInventory(inventory, item, maxSlots = 64) {
+  if (!item) return { success: false, reason: 'Error' };
+  if (item.stackable) {
+    const existingIndex = inventory.findIndex(i => i.templateKey === item.templateKey && i.rarity === item.rarity);
+    if (existingIndex !== -1) {
+      inventory[existingIndex].quantity = (inventory[existingIndex].quantity || 1) + (item.quantity || 1);
+      return { success: true, stacked: true };
+    }
+  }
+  if (inventory.length >= maxSlots) return { success: false, reason: 'Lleno' };
+  inventory.push({ ...item });
+  return { success: true, stacked: false };
+}
+
+export function useItem(inventory, index, player) {
+    const item = inventory[index];
+    if (!item) return { success: false, message: 'Error' };
+    
+    // Lógica básica de pociones
+    const result = { success: true, effects: [] };
+    if (item.category === 'potion') {
+        if (item.stats?.health) {
+            const heal = Math.min(item.stats.health, player.maxHp - player.hp);
+            player.hp += heal;
+            result.effects.push(`+${heal} HP`);
+        }
+        if (item.stats?.mana) {
+            const mana = Math.min(item.stats.mana, player.maxMp - player.mp);
+            player.mp += mana;
+            result.effects.push(`+${mana} MP`);
+        }
+    }
+    
+    if (item.quantity > 1) inventory[index].quantity--;
+    else inventory.splice(index, 1);
+    
+    return result;
 }
 
 export function canAssignToQuickSlot(item) {
-  return item && ['potion', 'scroll', 'food'].includes(item.category);
+    return item && ['potion', 'food'].includes(item.category);
+}
+
+// Re-exportamos generateLevelItems para DungeonGenerator
+export function generateLevelItems(dungeonLevel, rooms, map, excludeRoomIndices = []) {
+  const items = [];
+  const itemCount = 2 + Math.floor(Math.random() * 3);
+  let placed = 0;
+  let attempts = 0;
+  while (placed < itemCount && attempts < 50) {
+    attempts++;
+    const room = rooms[Math.floor(Math.random() * rooms.length)];
+    const x = room.x + 1 + Math.floor(Math.random() * (room.width - 2));
+    const y = room.y + 1 + Math.floor(Math.random() * (room.height - 2));
+    if (map[y]?.[x] === 1) { // Suelo
+        const item = generateItem(dungeonLevel);
+        if (item) {
+            item.x = x; item.y = y;
+            items.push(item);
+            placed++;
+        }
+    }
+  }
+  return items;
 }

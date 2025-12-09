@@ -20,8 +20,6 @@ export function isInRange(attacker, target, range) {
   return getDistance(attacker, target) <= range;
 }
 
-// Comprobar línea de visión (Algoritmo Bresenham)
-// Retorna false si hay una pared (0) en el camino
 // Comprobar línea de visión (Algoritmo Bresenham Mejorado)
 export function hasLineOfSight(map, x1, y1, x2, y2) {
   const dx = Math.abs(x2 - x1);
@@ -44,14 +42,12 @@ export function hasLineOfSight(map, x1, y1, x2, y2) {
     const tile = map[y]?.[x];
     
     // BLOQUEO: Si es Muro (0) o Puerta Cerrada (3)
-    // TILE.WALL = 0, TILE.DOOR = 3
     if (tile === TILE.WALL || tile === TILE.DOOR) return false; 
   }
   return true;
 }
 
 // Obtener la trayectoria del proyectil (útil para animaciones)
-// (Traído de RangedCombat.jsx)
 export function getProjectilePath(x1, y1, x2, y2, map, maxRange = 8) {
   const path = [];
   const dx = Math.abs(x2 - x1);
@@ -102,8 +98,15 @@ export function executeRangedAttack(player, target, equipment, playerStats, map)
   
   // Penalización por distancia
   const rangePenalty = Math.max(0, (dist - 2) * 0.05); 
-  const baseDamage = playerStats.attack;
   
+  // Determinar ataque (Físico vs Mágico)
+  // Asumimos que si equipa algo a distancia que no es arco, podría ser bastón
+  let attackPower = playerStats.attack;
+  if (['mage', 'arcane', 'druid'].includes(player.class)) {
+      attackPower = playerStats.magicAttack;
+  }
+
+  const baseDamage = attackPower;
   const damage = Math.max(1, Math.floor(baseDamage * (1 - rangePenalty) - (target.defense || 0)));
   
   const critChance = (playerStats.critChance || 5) / 100;
@@ -120,7 +123,7 @@ export function executeRangedAttack(player, target, equipment, playerStats, map)
   };
 }
 
-// Calcular daño cuerpo a cuerpo
+// Calcular daño cuerpo a cuerpo (Genérico)
 export function calculateMeleeDamage(attacker, defender, attackerStats) {
   const baseDamage = attackerStats.attack || attacker.attack || 5;
   const defense = defender.defense || 0;
@@ -137,6 +140,7 @@ export function calculateMeleeDamage(attacker, defender, attackerStats) {
   };
 }
 
+// NUEVO: Calcular daño del jugador al golpear (Usado en el turno)
 export function calculatePlayerHit(player, targetEnemy) {
   // 1. Obtener stats base + equipo
   const stats = calculatePlayerStats(player);
@@ -144,14 +148,24 @@ export function calculatePlayerHit(player, targetEnemy) {
   // 2. Aplicar buffs activos
   const buffs = calculateBuffBonuses(player.skills?.buffs || [], stats);
   
-  // 3. Stats finales
-  const attack = stats.attack + buffs.attackBonus;
-  const critChance = (stats.critChance || 5) + (buffs.critChance || 0); // Asumiendo que añades critChance
+  // 3. Stats finales + Decisión de tipo de daño
+  let attackPower = stats.attack + buffs.attackBonus;
+  let damageType = 'physical';
+
+  // Si es una clase mágica, usa Magic Attack
+  if (['mage', 'arcane', 'druid'].includes(player.class)) {
+      attackPower = stats.magicAttack + (buffs.magicAttackBonus || 0); // Asumiendo que añades bonus mágico
+      damageType = 'magical';
+  }
+
+  const critChance = (stats.critChance || 5) + (buffs.critChance || 0);
   
   // 4. Cálculo de daño
-  const defense = targetEnemy.defense || 0;
+  // Por ahora los enemigos tienen defensa genérica 'defense'
+  const enemyDef = targetEnemy.defense || 0;
+  
   const variance = Math.floor(Math.random() * 3); // Variación 0-2
-  let damage = Math.max(1, attack - defense + variance);
+  let damage = Math.max(1, attackPower - enemyDef + variance);
   
   // 5. Crítico
   const isCrit = Math.random() * 100 < critChance;
@@ -159,7 +173,7 @@ export function calculatePlayerHit(player, targetEnemy) {
     damage = Math.floor(damage * 1.5);
   }
   
-  return { damage, isCrit };
+  return { damage, isCrit, type: damageType };
 }
 
 // --- COMBATE ENEMIGO ---
@@ -186,11 +200,48 @@ export function processEnemyRangedAttack(enemy, player, map) {
   if (dist > info.range || dist < 2) return null;
   if (!hasLineOfSight(map, enemy.x, enemy.y, player.x, player.y)) return null;
   
+  // Daño base un poco reducido por ser a distancia
   const damage = Math.floor(enemy.attack * 0.8);
   return { type: 'ranged', attackType: info.type, damage, color: info.color };
 }
 
-// --- SISTEMA TÁCTICO (Traído de RangedCombat) ---
+// NUEVO: Calcular daño recibido por el jugador (Defensa Física vs Mágica)
+export function calculateEnemyDamage(enemy, player, playerStats, playerBuffs) {
+  // Stats efectivos del jugador
+  const physDef = playerStats.defense;
+  const magicDef = playerStats.magicDefense;
+  
+  // Determinar tipo de ataque del enemigo
+  // Asumimos físico por defecto, mágico si es un tipo específico
+  const isMagicEnemy = [10, 11, 12, 15, 104, 105].includes(enemy.type); 
+  
+  // Elegir la defensa correcta
+  const defense = isMagicEnemy ? magicDef : physDef;
+  
+  let baseDamage = Math.max(1, enemy.attack - defense);
+  
+  // Variación aleatoria
+  baseDamage += Math.floor(Math.random() * 3);
+
+  // Evasión
+  const evasionBonus = playerBuffs.reduce((sum, b) => sum + (b.evasion || 0), 0);
+  if (evasionBonus > 0 && Math.random() < evasionBonus * 0.5) {
+    return { damage: 0, evaded: true };
+  }
+  
+  // Escudos / Absorción
+  const absorbPercent = playerBuffs.reduce((sum, b) => sum + (b.absorb || 0), 0);
+  if (absorbPercent > 0) {
+    baseDamage = Math.floor(baseDamage * (1 - absorbPercent));
+  }
+  
+  // Marcado (Debuff en el jugador si lo hubiera, aquí usamos enemy.marked para daño AL enemigo, no DEL enemigo)
+  // Si quisieras que el enemigo haga menos daño si está "debilitado", iría aquí.
+  
+  return { damage: Math.max(1, baseDamage), evaded: false };
+}
+
+// --- SISTEMA TÁCTICO ---
 
 // Evaluar qué tan buena es una posición para cubrirse
 export function evaluateTacticalPosition(x, y, enemies, map) {

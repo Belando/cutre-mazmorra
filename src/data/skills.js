@@ -17,9 +17,15 @@ import {
   GiDeathSkull, GiShadowFollower,
   // Archer
   GiSplitArrows, GiArrowCluster,
-  // Class Icons
+  // Class Icons (BASE)
   GiBroadsword, GiMagicTrident, GiDaggers,
-  GiVisoredHelm, GiWarAxe, GiCrystalWand, GiOakLeaf, GiHood, GiBowman
+  // Class Icons (EVOLUTION - CORREGIDOS)
+  GiClosedBarbute,   // Knight
+  GiBarbarian,       // Berserker
+  GiCultist,         // Arcane
+  GiDeerHead,        // Druid (Sustituye a GiCernunnos para arreglar el error)
+  GiHood,            // Assassin (Sustituye a GiCowled para evitar errores)
+  GiBowman           // Archer
 } from 'react-icons/gi';
 
 export const BASE_CLASSES = ['warrior', 'mage', 'rogue'];
@@ -36,15 +42,14 @@ export const SKILL_TREES = {
   mage: { name: 'Mago', color: '#3b82f6', icon: GiMagicTrident, description: 'Dominador de las artes arcanas' },
   rogue: { name: 'Pícaro', color: '#22c55e', icon: GiDaggers, description: 'Asesino sigiloso y letal' },
   // Evolved classes
-  knight: { name: 'Caballero', color: '#64748b', icon: GiVisoredHelm, description: 'Defensor imparable con armadura pesada', evolvesFrom: 'warrior' },
-  berserker: { name: 'Berserker', color: '#dc2626', icon: GiWarAxe, description: 'Furia desatada, daño brutal', evolvesFrom: 'warrior' },
-  arcane: { name: 'Arcano', color: '#8b5cf6', icon: GiCrystalWand, description: 'Maestro de la magia destructiva', evolvesFrom: 'mage' },
-  druid: { name: 'Druida', color: '#22c55e', icon: GiOakLeaf, description: 'Curador y protector de la naturaleza', evolvesFrom: 'mage' },
+  knight: { name: 'Caballero', color: '#64748b', icon: GiClosedBarbute, description: 'Defensor imparable con armadura pesada', evolvesFrom: 'warrior' },
+  berserker: { name: 'Berserker', color: '#dc2626', icon: GiBarbarian, description: 'Furia desatada, daño brutal', evolvesFrom: 'warrior' },
+  arcane: { name: 'Arcano', color: '#8b5cf6', icon: GiCultist, description: 'Maestro de la magia destructiva', evolvesFrom: 'mage' },
+  druid: { name: 'Druida', color: '#22c55e', icon: GiDeerHead, description: 'Curador y protector de la naturaleza', evolvesFrom: 'mage' },
   assassin: { name: 'Asesino', color: '#1e1e1e', icon: GiHood, description: 'Muerte silenciosa desde las sombras', evolvesFrom: 'rogue' },
   archer: { name: 'Arquero', color: '#f59e0b', icon: GiBowman, description: 'Maestro del combate a distancia', evolvesFrom: 'rogue' },
 };
 
-// --- CONFIGURACIÓN DE COLORES DE DAÑO ---
 export const SKILL_COLORS = {
     'fireball': '#f97316', 
     'power_strike': '#dc2626', 
@@ -54,13 +59,14 @@ export const SKILL_COLORS = {
     'default': '#a855f7' 
 };
 
+// ... El resto de tu objeto SKILLS se mantiene exactamente igual abajo ...
 export const SKILLS = {
   // ============ WARRIOR BASE SKILLS ============
   power_strike: {
     id: 'power_strike',
     name: 'Golpe Poderoso',
     description: 'Inflige 150% + (25% x nivel) de daño',
-    icon: GiHammerDrop, // Corregido
+    icon: GiHammerDrop, 
     cooldown: 3,
     manaCost: 3,
     type: 'melee',
@@ -130,7 +136,7 @@ export const SKILLS = {
     id: 'iron_fortress',
     name: 'Fortaleza de Hierro',
     description: 'Reduce daño 70% por 4 turnos',
-    icon: GiStoneTower, // Corregido
+    icon: GiStoneTower, 
     cooldown: 15,
     manaCost: 6,
     type: 'self',
@@ -231,7 +237,8 @@ export const SKILLS = {
     unlockLevel: 1,
     maxLevel: 5,
     effect: (player, target, playerStats, skillLevel = 1) => {
-      const damage = Math.floor(playerStats.attack * (1.75 + skillLevel * 0.25));
+      const atk = playerStats.magicAttack || playerStats.attack;
+      const damage = Math.floor(atk * (1.75 + skillLevel * 0.25));
       return { damage, message: `¡Bola de Fuego Nv.${skillLevel}: ${damage}!` };
     }
   },
@@ -248,7 +255,8 @@ export const SKILLS = {
     unlockLevel: 3,
     maxLevel: 5,
     effect: (player, target, playerStats, skillLevel = 1) => {
-      const damage = Math.floor(playerStats.attack * (1.25 + skillLevel * 0.15));
+      const atk = playerStats.magicAttack || playerStats.attack;
+      const damage = Math.floor(atk * (1.25 + skillLevel * 0.15));
       return { damage, slow: 3 + skillLevel, message: `¡Fragmento de Hielo: ${damage}!` };
     }
   },
@@ -276,7 +284,7 @@ export const SKILLS = {
     id: 'meteor',
     name: 'Meteoro',
     description: 'Destrucción masiva en área',
-    icon: GiFallingStar, // Corregido
+    icon: GiFallingStar, 
     cooldown: 15,
     manaCost: 25,
     type: 'ultimate',
@@ -284,7 +292,8 @@ export const SKILLS = {
     unlockLevel: 10,
     maxLevel: 5,
     effect: (player, targets, playerStats, skillLevel = 1) => {
-      const damage = Math.floor(playerStats.attack * (2.5 + skillLevel * 0.3));
+      const atk = playerStats.magicAttack || playerStats.attack;
+      const damage = Math.floor(atk * (2.5 + skillLevel * 0.3));
       return { damage, hitAllVisible: true, message: `¡METEORO! ${damage} a todos!` };
     }
   },
@@ -337,7 +346,8 @@ export const SKILLS = {
     unlockLevel: 12,
     maxLevel: 5,
     effect: (player, targets, playerStats, skillLevel = 1) => {
-      const damage = Math.floor(playerStats.attack * (1.2 + skillLevel * 0.2));
+      const atk = playerStats.magicAttack || playerStats.attack;
+      const damage = Math.floor(atk * (1.2 + skillLevel * 0.2));
       return { damage, hitAll: true, stun: 1, message: `¡Ira de la Naturaleza! ${damage} a todos!` };
     }
   },
@@ -427,7 +437,7 @@ export const SKILLS = {
     id: 'death_mark',
     name: 'Marca de Muerte',
     description: 'Todo daño al objetivo x2',
-    icon: GiDeathSkull, // Corregido
+    icon: GiDeathSkull, 
     cooldown: 15,
     manaCost: 8,
     type: 'melee',
@@ -480,7 +490,7 @@ export const SKILLS = {
     id: 'rain_of_arrows',
     name: 'Lluvia de Flechas',
     description: 'Daño masivo en área',
-    icon: GiArrowCluster, // Corregido
+    icon: GiArrowCluster, 
     cooldown: 12,
     manaCost: 20,
     type: 'ultimate',

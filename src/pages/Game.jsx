@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { Button } from "@/components/ui/button";
-import { GiAnvil, GiTreeGrowth, GiScrollQuill } from 'react-icons/gi'; // NUEVOS ICONOS
+import { GiTreeGrowth, GiScrollQuill } from 'react-icons/gi'; // ELIMINADO GiAnvil
 
 // --- RUTAS ACTUALIZADAS ---
 import GameBoard from "@/components/game/GameBoard";
@@ -99,11 +99,8 @@ export default function Game() {
           <PlayerStats player={gameState?.player} dungeonLevel={gameState?.level} onOpenInventory={() => setInventoryOpen(true)} inventoryCount={gameState?.inventory?.length} appearance={playerInfo.appearance} playerClass={playerInfo.class} />
           <MiniMap gameState={gameState} />
           
-          {/* BOTONES DE MENÚ ACTUALIZADOS */}
           <div className="flex flex-col gap-1 mt-2">
-            <Button onClick={() => setCraftingOpen(true)} className="h-8 text-xs border bg-amber-900/80 hover:bg-amber-800 border-amber-700/50 flex items-center justify-center gap-2">
-              <GiAnvil className="w-4 h-4" /> Artesanía [C]
-            </Button>
+            {/* ELIMINADO: Botón de Artesanía [C] */}
             <Button onClick={() => setSkillTreeOpen(true)} className="h-8 text-xs border bg-purple-900/80 hover:bg-purple-800 border-purple-700/50 flex items-center justify-center gap-2">
               <GiTreeGrowth className="w-4 h-4" /> Habilidades [T]
             </Button>

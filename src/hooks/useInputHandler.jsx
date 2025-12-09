@@ -28,7 +28,7 @@ export function useInputHandler({
 
       // -- ACCIONES DE INTERFAZ --
       if (key === 'i') { setInventoryOpen(p => !p); return; }
-      if (key === 'c') { setCraftingOpen(p => !p); return; }
+      // ELIMINADO: if (key === 'c') { setCraftingOpen(p => !p); return; }
       if (key === 't') { setSkillTreeOpen(p => !p); return; }
       
       if (e.key === 'Escape') {
@@ -40,6 +40,7 @@ export function useInputHandler({
 
       if (inventoryOpen || craftingOpen || skillTreeOpen || activeNPC) return;
 
+      // ... resto del código igual ...
       const now = Date.now();
       if (now - lastActionTime.current < INPUT_COOLDOWN) return;
 
@@ -47,19 +48,13 @@ export function useInputHandler({
 
       switch (e.key) {
         case ' ': 
-          // LÓGICA ESPACIO: Solo habilidades, sin esperar turno
           if (uiState.selectedSkill) {
              const skill = SKILLS[uiState.selectedSkill];
-             
-             // Si es una habilidad y NO es melee (es decir, es ranged, self o aoe)
-             // intentamos ejecutarla. El auto-apuntado se maneja en executeSkillAction.
              if (skill && skill.type !== 'melee') {
                  actions.executeSkillAction(uiState.selectedSkill);
                  actionTaken = true;
              }
-             // Si es melee, no hacemos nada (el usuario debe moverse hacia el enemigo)
           }
-          // Si no hay skill seleccionada, NO HACEMOS NADA.
           break;
           
         case 'Enter': 
@@ -77,7 +72,6 @@ export function useInputHandler({
         }
       }
 
-      // Habilidades (1-6)
       if (e.key >= '1' && e.key <= '6' && !e.code.startsWith('Numpad')) {
         const index = parseInt(e.key) - 1;
         if (gameState?.player?.skills) {
@@ -88,7 +82,6 @@ export function useInputHandler({
         }
       }
       
-      // Slots Rápidos
       if ((QUICK_SLOT_HOTKEYS.includes(key) && key !== 'e') || (key === 'e' && !actionTaken)) { 
         const idx = QUICK_SLOT_HOTKEYS.indexOf(key);
         if (idx !== -1) {
@@ -112,7 +105,7 @@ export function useInputHandler({
     };
   }, [gameStarted, gameOver, uiState, gameState, modals, actions]);
 
-  // --- 2. BUCLE DE MOVIMIENTO ---
+  // --- 2. BUCLE DE MOVIMIENTO (Sin cambios) ---
   useEffect(() => {
     if (!gameStarted || gameOver) return;
 
