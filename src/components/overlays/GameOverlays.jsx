@@ -44,6 +44,7 @@ export default function GameOverlays({
             onDropItem={actions.dropItem}
             onAssignQuickSlot={actions.assignQuickSlot}
             quickSlots={uiState.quickSlots}
+            onReorder={actions.reorderInventory}
           />
         )}
         

@@ -1,18 +1,52 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, Trash2, Shield, Sword, Heart, Zap, ArrowRight, ArrowDown } from 'lucide-react';
+import { X, Trash2, Shield, Sword, Heart, Zap, ArrowRight, ArrowDown, Users } from 'lucide-react';
 import { Button } from '../ui/button';
 import { getItemIcon, EQUIPMENT_SLOTS } from '@/data/icons';
 import { canClassEquip, canAssignToQuickSlot } from '@/engine/systems/ItemSystem';
+import { WEAPON_TYPES, ARMOR_TYPES } from '@/data/items';
 import { GiBackpack, GiCoins, GiMagicTrident, GiMagicShield } from 'react-icons/gi';
+
+// --- HELPERS PARA TRADUCCIÓN DE CLASES ---
+const CLASS_NAMES = {
+  warrior: 'Guerrero',
+  knight: 'Caballero',
+  berserker: 'Berserker',
+  mage: 'Mago',
+  arcane: 'Arcano',
+  druid: 'Druida',
+  rogue: 'Pícaro',
+  assassin: 'Asesino',
+  archer: 'Arquero'
+};
+
+const getClassRestrictionText = (item) => {
+  let classes = [];
+  if (item.weaponType && WEAPON_TYPES[item.weaponType]) {
+    classes = WEAPON_TYPES[item.weaponType].classes;
+  } else if (item.armorType && ARMOR_TYPES[item.armorType]) {
+    classes = ARMOR_TYPES[item.armorType].classes;
+  }
+
+  if (!classes || classes.length === 0) return null; // Universal
+
+  return classes.map(c => CLASS_NAMES[c] || c).join(', ');
+};
 
 // --- COMPONENTES AUXILIARES ---
 
-const ItemSlot = ({ item, onClick, isSelected, isEmpty }) => {
+// MODIFICADO: Acepta props para Drag & Drop
+const ItemSlot = ({ item, onClick, isSelected, isEmpty, index, onDragStart, onDrop, onDragOver }) => {
   const Icon = getItemIcon(item);
   
   if (isEmpty) {
-    return <div className="w-10 h-10 rounded bg-slate-950/50 border border-slate-800/60 shadow-inner" />;
+    return (
+      <div 
+        className="w-10 h-10 rounded bg-slate-950/50 border border-slate-800/60 shadow-inner"
+        onDrop={(e) => onDrop(e, index)} // Permitir soltar en huecos vacíos
+        onDragOver={onDragOver}
+      />
+    );
   }
 
   const rarityStyles = {
@@ -26,9 +60,13 @@ const ItemSlot = ({ item, onClick, isSelected, isEmpty }) => {
   return (
     <button
       onClick={onClick}
+      draggable={true} // Habilitar arrastre
+      onDragStart={(e) => onDragStart(e, index)}
+      onDrop={(e) => onDrop(e, index)}
+      onDragOver={onDragOver}
       className={`relative w-10 h-10 rounded border-2 flex items-center justify-center transition-all group ${rarityStyles} ${isSelected ? 'ring-2 ring-white scale-110 z-10' : 'hover:scale-105 hover:brightness-110'}`}
     >
-      <Icon className="w-6 h-6 drop-shadow-md" />
+      <Icon className="w-6 h-6 drop-shadow-md pointer-events-none" />
       {item.quantity > 1 && (
         <span className="absolute bottom-0 right-0 text-[9px] bg-black/90 px-1 rounded-tl text-white font-bold border-t border-l border-slate-700 leading-none">
           {item.quantity}
@@ -95,24 +133,44 @@ const STAT_LABELS = {
   mana: "Restaura Maná",
   critChance: "Crítico %",
   evasion: "Evasión",
-  blockChance: "Bloqueo"
+  blockChance: "Bloqueo",
+  attackSpeed: "Velocidad"
 };
 
 // --- COMPONENTE PRINCIPAL ---
 
 export default function InventoryPanel({ 
   isOpen, onClose, inventory, equipment, player,
-  onUseItem, onEquipItem, onUnequipItem, onDropItem, onAssignQuickSlot 
+  onUseItem, onEquipItem, onUnequipItem, onDropItem, onAssignQuickSlot, onReorder // <--- Agregado onReorder
 }) {
   const [selectedItem, setSelectedItem] = useState(null);
 
   if (!isOpen) return null;
 
-  // Cálculo de totales para mostrar en el panel izquierdo
+  // Cálculo de totales
   const totalAttack = (player.baseAttack || 0) + (player.equipAttack || 0);
   const totalMagicAttack = (player.baseMagicAttack || 0) + (player.equipMagicAttack || 0);
   const totalDefense = (player.baseDefense || 0) + (player.equipDefense || 0);
   const totalMagicDefense = (player.baseMagicDefense || 0) + (player.equipMagicDefense || 0);
+
+  // --- HANDLERS PARA DRAG & DROP ---
+  const handleDragStart = (e, index) => {
+    e.dataTransfer.setData('sourceIndex', index);
+    e.dataTransfer.effectAllowed = 'move';
+  };
+
+  const handleDrop = (e, targetIndex) => {
+    e.preventDefault();
+    const sourceIndex = parseInt(e.dataTransfer.getData('sourceIndex'));
+    if (!isNaN(sourceIndex) && sourceIndex !== targetIndex && onReorder) {
+      onReorder(sourceIndex, targetIndex);
+    }
+  };
+
+  const handleDragOver = (e) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+  };
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/90 backdrop-blur-md" onClick={onClose}>
@@ -124,7 +182,7 @@ export default function InventoryPanel({
         onClick={e => e.stopPropagation()}
       >
         
-        {/* COLUMNA 1: PERSONAJE (Equipo + Stats) */}
+        {/* COLUMNA 1: PERSONAJE */}
         <div className="flex flex-col border-r w-72 bg-slate-900/80 border-slate-700">
           <div className="p-4 border-b border-slate-700 bg-slate-950/50">
             <h2 className="flex items-center gap-2 text-lg font-bold text-slate-200">
@@ -145,11 +203,9 @@ export default function InventoryPanel({
                 <EquipSlot slotKey="weapon" equipment={equipment} 
                   onSelect={(item) => setSelectedItem({ ...item, slot: 'weapon', isEquipped: true })} 
                   isSelected={selectedItem?.isEquipped && selectedItem?.slot === 'weapon'} />
-                
                 <EquipSlot slotKey="chest" equipment={equipment} 
                   onSelect={(item) => setSelectedItem({ ...item, slot: 'chest', isEquipped: true })} 
                   isSelected={selectedItem?.isEquipped && selectedItem?.slot === 'chest'} />
-                
                 <EquipSlot slotKey="offhand" equipment={equipment} 
                   onSelect={(item) => setSelectedItem({ ...item, slot: 'offhand', isEquipped: true })} 
                   isSelected={selectedItem?.isEquipped && selectedItem?.slot === 'offhand'} />
@@ -159,11 +215,9 @@ export default function InventoryPanel({
                 <EquipSlot slotKey="gloves" equipment={equipment} 
                   onSelect={(item) => setSelectedItem({ ...item, slot: 'gloves', isEquipped: true })} 
                   isSelected={selectedItem?.isEquipped && selectedItem?.slot === 'gloves'} />
-                
                 <EquipSlot slotKey="legs" equipment={equipment} 
                   onSelect={(item) => setSelectedItem({ ...item, slot: 'legs', isEquipped: true })} 
                   isSelected={selectedItem?.isEquipped && selectedItem?.slot === 'legs'} />
-                
                 <EquipSlot slotKey="boots" equipment={equipment} 
                   onSelect={(item) => setSelectedItem({ ...item, slot: 'boots', isEquipped: true })} 
                   isSelected={selectedItem?.isEquipped && selectedItem?.slot === 'boots'} />
@@ -173,31 +227,24 @@ export default function InventoryPanel({
                 <EquipSlot slotKey="necklace" equipment={equipment} 
                   onSelect={(item) => setSelectedItem({ ...item, slot: 'necklace', isEquipped: true })} 
                   isSelected={selectedItem?.isEquipped && selectedItem?.slot === 'necklace'} />
-                
                 <EquipSlot slotKey="ring" equipment={equipment} 
                   onSelect={(item) => setSelectedItem({ ...item, slot: 'ring', isEquipped: true })} 
                   isSelected={selectedItem?.isEquipped && selectedItem?.slot === 'ring'} />
-                
                 <EquipSlot slotKey="earring" equipment={equipment} 
                   onSelect={(item) => setSelectedItem({ ...item, slot: 'earring', isEquipped: true })} 
                   isSelected={selectedItem?.isEquipped && selectedItem?.slot === 'earring'} />
               </div>
             </div>
 
-            {/* Estadísticas Nuevas */}
+            {/* Estadísticas */}
             <div className="p-3 space-y-1 border rounded-lg bg-slate-800/40 border-slate-700/50">
               <h3 className="mb-2 text-xs font-bold uppercase text-slate-500">Atributos</h3>
-              
               <StatRow label="Ataque Físico" value={totalAttack} icon={<Sword className="w-3 h-3"/>} color="text-orange-400" />
               <StatRow label="Ataque Mágico" value={totalMagicAttack} icon={<GiMagicTrident className="w-3 h-3"/>} color="text-purple-400" />
-              
               <div className="my-1 h-px bg-slate-700/50" />
-              
               <StatRow label="Defensa Física" value={totalDefense} icon={<Shield className="w-3 h-3"/>} color="text-slate-300" />
               <StatRow label="Defensa Mágica" value={totalMagicDefense} icon={<GiMagicShield className="w-3 h-3"/>} color="text-blue-300" />
-              
               <div className="my-1 h-px bg-slate-700/50" />
-              
               <StatRow label="Vida" value={`${player.hp}/${player.maxHp}`} icon={<Heart className="w-3 h-3"/>} color="text-pink-400" />
               <StatRow label="Maná" value={`${player.mp}/${player.maxMp}`} icon={<Zap className="w-3 h-3"/>} color="text-blue-400" />
             </div>
@@ -221,20 +268,30 @@ export default function InventoryPanel({
               {inventory.map((item, idx) => (
                 <ItemSlot 
                   key={idx} 
+                  index={idx}
                   item={item} 
                   onClick={() => setSelectedItem({ ...item, index: idx, isEquipped: false })}
                   isSelected={selectedItem?.index === idx && !selectedItem?.isEquipped}
+                  onDragStart={handleDragStart} // Pasar handler
+                  onDrop={handleDrop} // Pasar handler
+                  onDragOver={handleDragOver} // Pasar handler
                 />
               ))}
-              {/* Rellenar huecos hasta 64 */}
+              {/* Rellenar huecos */}
               {Array.from({ length: Math.max(0, 64 - inventory.length) }).map((_, i) => (
-                <ItemSlot key={`empty-${i}`} isEmpty />
+                <ItemSlot 
+                  key={`empty-${i}`} 
+                  index={inventory.length + i} 
+                  isEmpty 
+                  onDrop={handleDrop} // Permitir soltar en vacíos
+                  onDragOver={handleDragOver} 
+                />
               ))}
             </div>
           </div>
         </div>
 
-        {/* COLUMNA 3: INSPECTOR (Detalles) */}
+        {/* COLUMNA 3: INSPECTOR */}
         <div className="relative flex flex-col border-l shadow-2xl w-80 bg-slate-950 border-slate-700">
           <Button variant="ghost" size="icon" className="absolute z-10 top-2 right-2 text-slate-500 hover:text-white" onClick={onClose}>
             <X className="w-5 h-5" />
@@ -246,11 +303,10 @@ export default function InventoryPanel({
                 <GiBackpack className="w-8 h-8 opacity-20" />
               </div>
               <p className="text-sm font-medium">Selecciona un objeto</p>
-              <p className="mt-2 text-xs">Haz clic en un objeto del inventario o del equipo para ver sus detalles.</p>
+              <p className="mt-2 text-xs">Haz clic para detalles. Arrastra para ordenar.</p>
             </div>
           ) : (
             <>
-              {/* Cabecera del Item */}
               <div className="p-6 pb-4 border-b border-slate-800 bg-gradient-to-b from-slate-900 to-slate-950">
                 <div className="flex justify-center mb-4">
                   <div className={`w-20 h-20 rounded-xl border-2 flex items-center justify-center bg-slate-900 shadow-lg ${
@@ -278,23 +334,31 @@ export default function InventoryPanel({
                     {selectedItem.name} {selectedItem.upgradeLevel > 0 && `+${selectedItem.upgradeLevel}`}
                   </h3>
                   <span className="block mt-1 text-xs tracking-widest uppercase text-slate-500">
-                    {selectedItem.rarity} • {selectedItem.category}
+                    {selectedItem.rarity} • {selectedItem.category === 'weapon' ? (WEAPON_TYPES[selectedItem.weaponType]?.name || selectedItem.category) : selectedItem.category}
                   </span>
                 </div>
               </div>
 
-              {/* Cuerpo del Item */}
               <div className="flex-1 p-6 overflow-y-auto">
-                
-                {/* REQUISITOS DE NIVEL Y CLASE */}
-                {(selectedItem.levelRequirement || selectedItem.weaponType || selectedItem.armorType) && (
-                  <div className="flex flex-wrap gap-2 mb-4">
-                    {selectedItem.levelRequirement && (
-                      <span className={`text-[10px] px-2 py-0.5 rounded border ${player.level >= selectedItem.levelRequirement ? 'border-green-800 bg-green-900/20 text-green-400' : 'border-red-800 bg-red-900/20 text-red-400'}`}>
-                        Nv. {selectedItem.levelRequirement}
-                      </span>
-                    )}
-                    {/* Visualización simple de restricción por código de colores en el botón de equipar */}
+                {/* CLASES PERMITIDAS */}
+                {getClassRestrictionText(selectedItem) && (
+                  <div className="flex items-start gap-2 mb-4 p-2 bg-slate-900/50 rounded border border-slate-800">
+                    <Users className="w-4 h-4 text-slate-500 mt-0.5" />
+                    <div>
+                        <p className="text-[10px] text-slate-500 uppercase font-bold">Clases</p>
+                        <p className="text-xs text-slate-300 leading-tight">
+                            {getClassRestrictionText(selectedItem)}
+                        </p>
+                    </div>
+                  </div>
+                )}
+
+                {/* REQUISITOS DE NIVEL */}
+                {selectedItem.levelRequirement && (
+                  <div className="mb-4">
+                    <span className={`text-[10px] px-2 py-1 rounded border ${player.level >= selectedItem.levelRequirement ? 'border-green-800 bg-green-900/20 text-green-400' : 'border-red-800 bg-red-900/20 text-red-400'}`}>
+                      Requiere Nivel {selectedItem.levelRequirement}
+                    </span>
                   </div>
                 )}
 
@@ -360,13 +424,22 @@ export default function InventoryPanel({
                     </Button>
                   )
                 ) : (
-                  // 2. CONSUMIBLES
-                  <Button 
-                    className="w-full bg-emerald-600 hover:bg-emerald-500"
-                    onClick={() => { onUseItem(selectedItem.index); setSelectedItem(null); }}
-                  >
-                    Usar
-                  </Button>
+                  // 2. CONSUMIBLES VS MATERIALES
+                  selectedItem.category === 'material' ? (
+                    <Button 
+                      className="w-full bg-slate-800 border border-slate-700 text-slate-500 cursor-not-allowed"
+                      disabled
+                    >
+                      Material de Crafteo
+                    </Button>
+                  ) : (
+                    <Button 
+                      className="w-full bg-emerald-600 hover:bg-emerald-500"
+                      onClick={() => { onUseItem(selectedItem.index); setSelectedItem(null); }}
+                    >
+                      Usar
+                    </Button>
+                  )
                 )}
 
                 {/* Slots Rápidos */}

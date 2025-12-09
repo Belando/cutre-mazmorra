@@ -21,22 +21,42 @@ export function useInventory() {
     }
   }, []);
 
-  // Función auxiliar para añadir items (Usada por GameActions al recoger botín)
+  const resetInventory = useCallback(() => {
+    setInventory([]);
+    setEquipment({ 
+      weapon: null, offhand: null, helmet: null, chest: null, 
+      legs: null, boots: null, gloves: null, ring: null, 
+      earring: null, necklace: null 
+    });
+    setMaterials({});
+    setQuickSlots([null, null, null]);
+  }, []);
+
+  // --- NUEVO: Función para reordenar (Intercambiar posiciones) ---
+  const reorderInventory = useCallback((fromIndex, toIndex) => {
+    setInventory(prev => {
+      if (fromIndex === toIndex) return prev;
+      const newInv = [...prev];
+      // Verificar límites
+      if (fromIndex < 0 || fromIndex >= newInv.length || toIndex < 0 || toIndex >= newInv.length) return prev;
+      
+      // Intercambio simple (Swap)
+      const temp = newInv[fromIndex];
+      newInv[fromIndex] = newInv[toIndex];
+      newInv[toIndex] = temp;
+      
+      return newInv;
+    });
+  }, []);
+  // -------------------------------------------------------------
+
   const addItem = useCallback((item) => {
-    // Usamos el callback de setInventory para asegurar que tenemos el estado más reciente
-    // pero como addItemLogic devuelve un booleano success, necesitamos calcularlo antes.
-    // En este caso, dependemos de que 'inventory' esté actualizado en el cierre del hook.
-    
     const newInv = [...inventory];
     const res = addItemLogic(newInv, item);
-    
-    if (res.success) {
-      setInventory(newInv);
-    }
+    if (res.success) setInventory(newInv);
     return res.success;
   }, [inventory]);
 
-  // Función auxiliar para añadir materiales (Simple suma)
   const addMaterial = useCallback((type, amount) => {
     setMaterials(prev => ({ ...prev, [type]: (prev[type] || 0) + amount }));
   }, []);
@@ -47,7 +67,9 @@ export function useInventory() {
     materials, setMaterials,
     quickSlots, setQuickSlots,
     initInventory,
+    resetInventory,
     addItem,
-    addMaterial
+    addMaterial,
+    reorderInventory // <--- EXPORTAR
   };
 }

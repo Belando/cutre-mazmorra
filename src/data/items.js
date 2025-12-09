@@ -1,14 +1,14 @@
 import {
   // Consumibles
-  GiHealthPotion, GiManaFlask,
+  GiHealthPotion, GiWaterFlask,
   // Armas
-  GiBroadsword, GiBattleAxe, GiDaggers, GiLongbow, GiWizardStaff, GiFairyWand,
+  GiBroadsword, GiBattleAxe, GiDaggers, GiPocketBow, GiWizardStaff, GiFairyWand,
   // Offhands
   GiRoundShield, GiSpellBook, GiQuiver,
   // Heavy Armor (Placas)
-  GiClosedBarbute, GiBreastplate, GiLegArmor, GiArmoredBoot, GiGauntlet,
+  GiClosedBarbute, GiBreastplate, GiLegArmor, GiMetalBoot, GiGauntlet,
   // Medium Armor (Cuero)
-  GiHood, GiLeatherArmor, GiTrousers, GiLeatherBoot, GiLeatherGloves,
+  GiHood, GiLeatherArmor, GiTrousers, GiLeatherBoot, GiBracers,
   // Light Armor (Tela)
   GiPointyHat, GiRobe, GiSkirt, GiBoots, GiGloves,
   // Accesorios
@@ -42,13 +42,13 @@ export const WEAPON_TYPES = {
 export const ITEM_TEMPLATES = {
   // --- CONSUMIBLES ---
   health_potion: { name: 'Poción de Vida', category: 'potion', symbol: GiHealthPotion, description: 'Restaura vida.', stackable: true, baseStats: { health: 50 } },
-  mana_potion: { name: 'Poción de Maná', category: 'potion', symbol: GiManaFlask, description: 'Restaura maná.', stackable: true, baseStats: { mana: 30 } },
+  mana_potion: { name: 'Poción de Maná', category: 'potion', symbol: GiWaterFlask, description: 'Restaura maná.', stackable: true, baseStats: { mana: 30 } },
   
   // --- ARMAS (Stats base para Nivel 1 Común) ---
   sword: { name: 'Espada', category: 'weapon', slot: 'weapon', weaponType: 'sword', symbol: GiBroadsword, baseStats: { attack: 4 } },
   axe: { name: 'Hacha', category: 'weapon', slot: 'weapon', weaponType: 'axe', symbol: GiBattleAxe, baseStats: { attack: 5, attackSpeed: -1 } }, 
   dagger: { name: 'Daga', category: 'weapon', slot: 'weapon', weaponType: 'dagger', symbol: GiDaggers, baseStats: { attack: 2, critChance: 10 } },
-  bow: { name: 'Arco', category: 'weapon', slot: 'weapon', weaponType: 'bow', symbol: GiLongbow, baseStats: { attack: 3 } },
+  bow: { name: 'Arco', category: 'weapon', slot: 'weapon', weaponType: 'bow', symbol: GiPocketBow, baseStats: { attack: 3 } },
   staff: { name: 'Bastón', category: 'weapon', slot: 'weapon', weaponType: 'staff', symbol: GiWizardStaff, baseStats: { magicAttack: 5 } },
   wand: { name: 'Varita', category: 'weapon', slot: 'weapon', weaponType: 'wand', symbol: GiFairyWand, baseStats: { magicAttack: 3 } },
 
@@ -62,7 +62,7 @@ export const ITEM_TEMPLATES = {
   heavy_helmet: { name: 'Yelmo de Placas', category: 'armor', slot: 'helmet', armorType: 'heavy', symbol: GiClosedBarbute, baseStats: { defense: 2 } },
   heavy_chest: { name: 'Coraza de Placas', category: 'armor', slot: 'chest', armorType: 'heavy', symbol: GiBreastplate, baseStats: { defense: 4, maxHp: 10 } },
   heavy_legs: { name: 'Grebas de Placas', category: 'armor', slot: 'legs', armorType: 'heavy', symbol: GiLegArmor, baseStats: { defense: 3 } },
-  heavy_boots: { name: 'Botas de Placas', category: 'armor', slot: 'boots', armorType: 'heavy', symbol: GiArmoredBoot, baseStats: { defense: 2 } },
+  heavy_boots: { name: 'Botas de Placas', category: 'armor', slot: 'boots', armorType: 'heavy', symbol: GiMetalBoot, baseStats: { defense: 2 } },
   heavy_gloves: { name: 'Guanteletes', category: 'armor', slot: 'gloves', armorType: 'heavy', symbol: GiGauntlet, baseStats: { defense: 1, attack: 1 } },
 
   // Medium (Pícaro)
@@ -70,7 +70,7 @@ export const ITEM_TEMPLATES = {
   leather_chest: { name: 'Jubón', category: 'armor', slot: 'chest', armorType: 'medium', symbol: GiLeatherArmor, baseStats: { defense: 2, magicDefense: 2 } },
   leather_legs: { name: 'Pantalones', category: 'armor', slot: 'legs', armorType: 'medium', symbol: GiTrousers, baseStats: { defense: 2, magicDefense: 1 } },
   leather_boots: { name: 'Botas de Cuero', category: 'armor', slot: 'boots', armorType: 'medium', symbol: GiLeatherBoot, baseStats: { defense: 1, evasion: 2 } },
-  leather_gloves: { name: 'Guantes de Cuero', category: 'armor', slot: 'gloves', armorType: 'medium', symbol: GiLeatherGloves, baseStats: { defense: 1, critChance: 1 } },
+  leather_gloves: { name: 'Guantes de Cuero', category: 'armor', slot: 'gloves', armorType: 'medium', symbol: GiBracers, baseStats: { defense: 1, critChance: 1 } },
 
   // Light (Mago)
   light_helmet: { name: 'Sombrero', category: 'armor', slot: 'helmet', armorType: 'light', symbol: GiPointyHat, baseStats: { magicDefense: 3, maxMp: 5 } },

@@ -32,21 +32,16 @@ export function useGameActions(context) {
     stats, setStats,
     activeQuests, setActiveQuests,
     completedQuests, setCompletedQuests,
-    // Funciones del Engine/Effects
     initGame, executeTurn, addMessage, showFloatingText, effectsManager,
-    // UI State Setters
     setGameStarted, setGameOver, setPlayerName, setSelectedSkill, setRangedMode, setRangedTargets, setMessages, updateMapFOV,
     playerName, selectedAppearance, setSelectedAppearance, setPlayerClass,
-    // Combat Logic (Importamos handleEnemyDeath y executeSkillAction del contexto)
     handleEnemyDeath, 
-    executeSkillAction: coreExecuteSkillAction, // Renombramos aquí para usarlo internamente
+    reorderInventory,
+    executeSkillAction: coreExecuteSkillAction, 
     selectedSkill
   } = context;
 
-  // --- SUB-ACCIONES (Helpers privados) ---
-  
   const performAttack = (enemy, enemyIdx) => {
-      // 1. REGISTRAR DATOS DEL JUGADOR (Animación y buffs)
       const currentBuffs = player.skills?.buffs || [];
       const newBuffs = currentBuffs.filter(b => !b.invisible && !b.breaksOnAction);
       
@@ -57,10 +52,8 @@ export function useGameActions(context) {
           skills: { ...player.skills, buffs: newBuffs }
       });
 
-      // 2. CÁLCULO DE DAÑO
       const { damage, isCrit } = calculatePlayerHit(player, enemy);
       
-      // 3. EFECTOS VISUALES Y SONOROS
       soundManager.play(isCrit ? 'critical' : 'attack');
       if (effectsManager.current) {
           effectsManager.current.addBlood(enemy.x, enemy.y);
@@ -68,49 +61,37 @@ export function useGameActions(context) {
           effectsManager.current.addShake(isCrit ? 10 : 3);
       }
 
-      // 4. LÓGICA DE ESTADO (CRÍTICO: No actualizar estado aquí si el enemigo muere)
-      // Trabajamos sobre una copia limpia para calcular el resultado final del turno
       const nextEnemies = [...dungeon.enemies];
       nextEnemies[enemyIdx] = { ...enemy, hp: enemy.hp - damage };
       
       addMessage(`Golpeas a ${ENEMY_STATS[enemy.type].name}: ${damage}`, 'player_damage');
       
-      // 5. MUERTE O ACTUALIZACIÓN
       if (nextEnemies[enemyIdx].hp <= 0) {
           soundManager.play('kill');
           if (effectsManager.current) {
               effectsManager.current.addExplosion(enemy.x, enemy.y, '#52525b'); 
           }
-          // Delegamos en handleEnemyDeath la actualización final del array
           return handleEnemyDeath(enemyIdx); 
       }
       
-      // Si no muere, devolvemos el array modificado para que executeTurn lo procese
       return nextEnemies;
   };
 
-  // --- ACCIONES PÚBLICAS ---
-
   const actions = {
-    // Wrapper inteligente para habilidades con auto-apuntado
     executeSkillAction: (skillId, targetEnemy = null) => {
         const skill = SKILLS[skillId];
         if (!skill) return false;
 
-        // LÓGICA DE AUTO-APUNTADO PARA RANGO
         if (skill.type === 'ranged' && !targetEnemy) {
             let bestTarget = null;
             let minDist = Infinity;
 
-            // Buscar enemigo visible más cercano
             dungeon.enemies.forEach(e => {
                 const dist = Math.abs(e.x - player.x) + Math.abs(e.y - player.y);
-                
-                // CAMBIO: Verificar rango, visibilidad FOV Y línea de tiro real (puertas)
                 if (
                     dist <= (skill.range || 5) && 
                     dungeon.visible[e.y]?.[e.x] &&
-                    hasLineOfSight(dungeon.map, player.x, player.y, e.x, e.y) // <--- VALIDACIÓN EXTRA
+                    hasLineOfSight(dungeon.map, player.x, player.y, e.x, e.y) 
                 ) {
                     if (dist < minDist) {
                         minDist = dist;
@@ -130,7 +111,6 @@ export function useGameActions(context) {
             }
         }
 
-        // Llamar a la lógica original
         return coreExecuteSkillAction(skillId, targetEnemy);
     },
 
@@ -138,28 +118,24 @@ export function useGameActions(context) {
         const nx = player.x + dx;
         const ny = player.y + dy;
         
-        // 1. Límites y Muros
         if (nx < 0 || nx >= dungeon.map[0].length || ny < 0 || ny >= dungeon.map.length) return;
         
         const targetTile = dungeon.map[ny][nx];
         
         if (targetTile === TILE.WALL) return;
 
-        // --- NUEVO: ABRIR PUERTAS AL CHOCAR ---
         if (targetTile === TILE.DOOR) {
             const newMap = [...dungeon.map];
             newMap[ny] = [...newMap[ny]];
             newMap[ny][nx] = TILE.DOOR_OPEN;
             
             setDungeon(prev => ({ ...prev, map: newMap }));
-            soundManager.play('step'); // O un sonido de puerta si añades uno
+            soundManager.play('step'); 
             addMessage("Abres la puerta.", 'info');
-            // Al abrir puerta, actualizamos visión para ver lo que hay detrás
             updateMapFOV(player.x, player.y);
-            return; // Gastamos el turno abriendo, no nos movemos
+            return; 
         }
         
-        // 2. Objetos bloqueantes
         if (dungeon.chests.some(c => c.x === nx && c.y === ny)) {
             addMessage("Un cofre bloquea el camino (Usa 'E')", 'info');
             return;
@@ -169,17 +145,14 @@ export function useGameActions(context) {
             return;
         }
         
-        // 3. COMBATE (Colisión Enemigos)
         const enemyIdx = dungeon.enemies.findIndex(e => e.x === nx && e.y === ny);
         if (enemyIdx !== -1) {
             const enemy = dungeon.enemies[enemyIdx];
 
-            // Prioridad a Habilidad Melee seleccionada
             if (selectedSkill && SKILLS[selectedSkill]) {
                 const skill = SKILLS[selectedSkill];
                 if (skill.type === 'melee') {
                     if (canUseSkill(selectedSkill, player.skills.cooldowns)) {
-                        // Usamos el wrapper de la acción, no el core directo
                         const success = actions.executeSkillAction(selectedSkill, enemy);
                         if (success) return; 
                     } else {
@@ -189,23 +162,16 @@ export function useGameActions(context) {
                 }
             }
 
-            // Ataque normal
-            // Obtenemos el estado resultante de los enemigos (con daño aplicado o enemigo eliminado)
             const nextEnemiesState = performAttack(enemy, enemyIdx);
-            
-            // Pasamos el turno enviando el NUEVO estado de enemigos para que la IA reaccione a la realidad
             executeTurn(player, nextEnemiesState);
             return;
         }
         
-        // 4. Movimiento Exitoso
         updatePlayer({ x: nx, y: ny });
         
-        // 5. Recoger Items (Auto-pickup simplificado)
         const itemIdx = dungeon.items.findIndex(i => i.x === nx && i.y === ny);
         if (itemIdx !== -1) {
             const item = dungeon.items[itemIdx];
-            // ... (Lógica de items se mantiene igual)
             if (item.category === 'currency') {
                 soundManager.play('pickup');
                 updatePlayer({ gold: player.gold + item.value });
@@ -231,7 +197,6 @@ export function useGameActions(context) {
             }
         }
         
-        // Finalizar turno de movimiento
         executeTurn({ ...player, x: nx, y: ny });
     },
 
@@ -241,7 +206,6 @@ export function useGameActions(context) {
             const tx = player.x + dx;
             const ty = player.y + dy;
 
-            // Cofres
             const chestIdx = dungeon.chests.findIndex(c => c.x === tx && c.y === ty);
             if (chestIdx !== -1) {
                 const chest = dungeon.chests[chestIdx];
@@ -257,7 +221,14 @@ export function useGameActions(context) {
                     const added = addItem(item);
                     if (added) {
                         addMessage(`Encontraste: ${item.name}`, 'pickup');
-                        if (effectsManager.current) effectsManager.current.addText(tx, ty, item.symbol || 'ITEM', '#fff');
+                        
+                        let floatText = "ITEM";
+                        if (typeof item.symbol === 'string') floatText = item.symbol;
+                        else if (item.category === 'weapon') floatText = "⚔️";
+                        else if (item.category === 'armor') floatText = "🛡️";
+                        else if (item.category === 'potion') floatText = "♥";
+                        
+                        if (effectsManager.current) effectsManager.current.addText(tx, ty, floatText, '#fff');
                         setDungeon(prev => ({
                             ...prev,
                             chests: prev.chests.map((c, i) => i === chestIdx ? { ...c, isOpen: true } : c)
@@ -276,10 +247,9 @@ export function useGameActions(context) {
                 return { type: 'chest' };
             }
 
-            // NPCs
             const npc = dungeon.npcs.find(n => n.x === tx && n.y === ty);
             if (npc) {
-                soundManager.play('speech'); // Asumiendo que existe, si no, quitar
+                soundManager.play('speech'); 
                 return { type: 'npc', data: npc };
             }
         }
@@ -360,7 +330,7 @@ export function useGameActions(context) {
         const res = useItemLogic(newInv, index, player);
         if (res.success) {
             setInventory(newInv);
-            setPlayer({ ...player }); // Forzar refresco UI
+            setPlayer({ ...player });
             res.effects.forEach(m => addMessage(m, 'heal'));
             if(showFloatingText) showFloatingText(player.x, player.y, "Used", '#fff');
             soundManager.play('heal');
@@ -387,7 +357,26 @@ export function useGameActions(context) {
         setGameOver(false); 
         setPlayer(null);
         setMessages([]);
+
+        // REINICIAR INVENTARIO Y EQUIPO
+        setInventory([]);
+        setEquipment({ 
+            weapon: null, offhand: null, helmet: null, chest: null, 
+            legs: null, boots: null, gloves: null, ring: null, 
+            earring: null, necklace: null 
+        });
+        setMaterials({});
+        setQuickSlots([null, null, null]);
+
+        // REINICIAR ESTADÍSTICAS GLOBALES
+        setStats({ maxLevel: 1, kills: 0, gold: 0, playerLevel: 1 });
+
+        // REINICIAR MISIONES
+        setActiveQuests([]);
+        setCompletedQuests([]);
+        if (context.setQuestProgress) context.setQuestProgress({});
     },
+    reorderInventory,
     
     equipItem: (idx) => {
         const res = equipItemLogic(inventory, idx, equipment, player);
@@ -507,7 +496,6 @@ export function useGameActions(context) {
             setInventory(savedGS.inventory);
             setEquipment(savedGS.equipment);
             setStats(sStats); setActiveQuests(sAQ); setCompletedQuests(sCQ); 
-            // setQuestProgress no estaba en el destructuring original, asumimos que viene del context
             if(context.setQuestProgress) context.setQuestProgress(sQP); 
             setMaterials(sMat); setQuickSlots(sQS);
             setGameStarted(true);

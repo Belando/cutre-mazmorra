@@ -1,11 +1,21 @@
+
 import { 
+  // Equipment Slots Defaults
   GiBroadsword, GiCheckedShield, GiHood, GiChestArmor, 
   GiArmoredPants, GiBoots, GiGauntlet, GiRing, 
-  GiEarrings, GiNecklace, GiHealthPotion, GiScrollUnfurled,
-  GiMeat, GiTwoCoins, GiSwapBag, GiCrossbow, GiMagicTrident,
-  GiDaggers, GiGoldNuggets, GiCrystalBars, 
-  GiDrop, GiSewingString, GiStoneBlock, GiScales, GiAnimalHide, // CORREGIDO: GiScales en lugar de GiDragonScale
-  GiMeeple, GiChest, GiStairs, GiDoor, GiConversation, GiDeathSkull
+  GiEarrings, GiNecklace, 
+  // Categories
+  GiHealthPotion, GiScrollUnfurled, GiMeat, GiTwoCoins, GiSwapBag, GiCrossbow,
+  // Materials
+  GiGoldNuggets, GiCrystalBars, GiDrop, GiSewingString, GiStoneBlock, GiScales, GiAnimalHide,
+  // Map
+  GiMeeple, GiChest, GiStairs, GiDoor, GiConversation, GiDeathSkull,
+  // Specific Weapons
+  GiBattleAxe, GiDaggers, GiPocketBow, GiWizardStaff, GiFairyWand, GiSpellBook, GiQuiver, GiWarPick,
+  // Specific Armor
+  GiClosedBarbute, GiBreastplate, GiLegArmor, GiMetalBoot, // Heavy
+  GiLeatherArmor, GiLeatherBoot, // Medium
+  GiPointyHat, GiRobe, GiSkirt, // Light
 } from 'react-icons/gi';
 
 export const EQUIPMENT_SLOTS = {
@@ -30,37 +40,72 @@ export const CATEGORY_ICONS = {
   currency: GiTwoCoins,
   ammo: GiCrossbow,
   accessory: GiRing,
-  material: GiSwapBag, // Icono por defecto para materiales desconocidos
+  material: GiSwapBag,
   default: GiSwapBag
 };
 
 // Mapa de iconos específicos para materiales
 const MATERIAL_ICONS = {
-  iron_ore: GiStoneBlock,   // Mineral de Hierro
-  gold_ore: GiGoldNuggets,  // Mineral de Oro
-  crystal: GiCrystalBars,   // Cristal
-  dragon_scale: GiScales,   // CORREGIDO: Usamos GiScales
-  essence: GiDrop,          // Esencia
-  leather: GiAnimalHide,    // Cuero
-  cloth: GiSewingString     // Tela
+  iron_ore: GiStoneBlock,
+  gold_ore: GiGoldNuggets,
+  crystal: GiCrystalBars,
+  dragon_scale: GiScales,
+  essence: GiDrop,
+  leather: GiAnimalHide,
+  cloth: GiSewingString
 };
 
 export const getItemIcon = (item) => {
   if (!item) return GiSwapBag;
   
-  // Prioridad a materiales específicos
+  // 1. Prioridad: Materiales específicos por templateKey
   if (item.category === 'material' && item.templateKey && MATERIAL_ICONS[item.templateKey]) {
       return MATERIAL_ICONS[item.templateKey];
   }
   
-  if (item.weaponType === 'dagger') return GiDaggers;
-  if (item.weaponType === 'staff') return GiMagicTrident;
+  // 2. Prioridad: Tipos de Arma Específicos
+  if (item.weaponType) {
+      switch (item.weaponType) {
+          case 'axe': return GiBattleAxe;
+          case 'dagger': return GiDaggers;
+          case 'bow': return GiPocketBow;
+          case 'staff': return GiWizardStaff;
+          case 'wand': return GiFairyWand;
+          case 'tome': return GiSpellBook;
+          case 'shield': return GiCheckedShield;
+          case 'quiver': return GiQuiver;
+          case 'mace': return GiWarPick;
+          default: return GiBroadsword;
+      }
+  }
+
+  // 3. Prioridad: Tipos de Armadura Específicos
+  if (item.armorType) {
+      // Heavy
+      if (item.armorType === 'heavy') {
+          if (item.slot === 'helmet') return GiClosedBarbute;
+          if (item.slot === 'chest') return GiBreastplate;
+          if (item.slot === 'legs') return GiLegArmor;
+          if (item.slot === 'boots') return GiMetalBoot;
+      }
+      // Light / Mage
+      if (item.armorType === 'light') {
+          if (item.slot === 'helmet') return GiPointyHat;
+          if (item.slot === 'chest') return GiRobe;
+          if (item.slot === 'legs') return GiSkirt;
+      }
+      // Medium / Generic Fallbacks
+      if (item.slot === 'chest') return GiLeatherArmor;
+      if (item.slot === 'boots') return GiLeatherBoot;
+  }
   
+  // 4. Fallback por Slot Genérico
   if (item.slot && EQUIPMENT_SLOTS[item.slot]) return EQUIPMENT_SLOTS[item.slot].icon;
+  
+  // 5. Fallback por Categoría
   return CATEGORY_ICONS[item.category] || CATEGORY_ICONS.default;
 };
 
-// Exportamos iconos para el Minimapa
 export const MAP_ICONS = {
     player: GiMeeple,
     chest: GiChest,
