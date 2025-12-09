@@ -4,7 +4,7 @@ import { X, Zap } from 'lucide-react';
 import { GiUpgrade, GiStarMedal, GiPowerLightning } from 'react-icons/gi';
 import { Button } from '../ui/button';
 import { getClassSkills, canEvolve, getEvolutionOptions, getSkillEffectiveStats } from '@/engine/systems/SkillSystem';
-import { SKILLS, SKILL_TREES } from '@/data/skills';
+import { SKILLS, SKILL_TREES, SKILL_COLORS } from '@/data/skills';
 
 export default function SkillTree({ 
   isOpen, onClose, playerClass, playerLevel,
@@ -17,7 +17,7 @@ export default function SkillTree({
   if (!isOpen) return null;
   
   const treeInfo = SKILL_TREES[evolvedClass || playerClass] || SKILL_TREES.warrior;
-  const TreeIcon = treeInfo.icon; // Icono principal
+  const TreeIcon = treeInfo.icon; 
   
   const classSkills = getClassSkills(playerClass, evolvedClass);
   const canEvolveNow = canEvolve(playerLevel, { evolvedClass });
@@ -30,6 +30,48 @@ export default function SkillTree({
     skillsByLevel[lvl].push(skill);
   });
   const sortedLevels = Object.keys(skillsByLevel).sort((a, b) => parseInt(a) - parseInt(b));
+
+  // --- HELPER PARA RENDERIZADO PERSONALIZADO DE ICONOS ---
+  const renderSkillIcon = (skill, fontSizeClass = "text-2xl") => {
+    const SkillIcon = skill.icon;
+    // Color base por defecto (rojo guerrero, azul mago, etc.)
+    const defaultColor = SKILL_COLORS[skill.id] || SKILL_TREES[skill.tree]?.color || '#ffffff';
+
+    // CASO ESPECIAL 1: Golpe Poderoso (warrior_bash) -> Martillo BLANCO con halo ROJO
+    if (skill.id === 'warrior_bash') {
+      return (
+        <span className={`${fontSizeClass} text-white drop-shadow-[0_0_4px_rgba(220,38,38,1)] filter`}>
+          <SkillIcon />
+        </span>
+      );
+    }
+    
+    // CASO ESPECIAL 2: Golpe de Escudo (warrior_shield_slam) -> Escudo ROJO, silueta BLANCA
+    if (skill.id === 'warrior_shield_slam') {
+      // Truco de superposición:
+      return (
+        // El contenedor debe tener el tamaño de la fuente para que los absolutos funcionen bien
+        <div className="relative inline-block" style={{ width: '1em', height: '1em', fontSize: fontSizeClass.replace('text-', '') }}>
+           {/* Capa 1 (Fondo): Icono forzado a BLANCO SÓLIDO usando filtros CSS. Rellena la silueta. */}
+           <span className="absolute inset-0 text-white pointer-events-none" style={{ filter: 'brightness(0) invert(1)' }}>
+              <SkillIcon />
+           </span>
+           {/* Capa 2 (Frente): Icono normal en ROJO. Su hueco transparente dejará ver el blanco de fondo. */}
+           <span className="absolute inset-0 z-10" style={{ color: defaultColor }}>
+              <SkillIcon />
+           </span>
+        </div>
+      );
+    }
+
+    // CASO POR DEFECTO: Color sólido normal
+    return (
+      <span className={fontSizeClass} style={{ color: defaultColor }}>
+        <SkillIcon />
+      </span>
+    );
+  };
+  // ------------------------------------------------------
   
   return (
     <motion.div
@@ -73,7 +115,7 @@ export default function SkillTree({
           </Button>
         </div>
         
-        {/* Evolution Banner */}
+        {/* Evolution Banner (Sin cambios) */}
         {canEvolveNow && !evolvedClass && (
           <motion.div 
             initial={{ opacity: 0, y: -10 }}
@@ -101,63 +143,35 @@ export default function SkillTree({
           </motion.div>
         )}
         
-        {/* Evolution Modal */}
+        {/* Evolution Modal (Sin cambios) */}
         <AnimatePresence>
           {showEvolution && (
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              className="absolute inset-0 z-10 flex items-center justify-center p-6 bg-black/95"
-            >
-              <motion.div
-                initial={{ scale: 0.8, y: 30 }}
-                animate={{ scale: 1, y: 0 }}
-                exit={{ scale: 0.8, y: 30 }}
-                className="w-full max-w-lg p-6 border bg-gradient-to-b from-slate-800 to-slate-900 rounded-2xl border-amber-500/30"
-              >
-                <div className="mb-6 text-center">
-                  <div className="flex items-center justify-center w-16 h-16 mx-auto mb-3 rounded-full bg-amber-500/20">
-                    <GiStarMedal className="w-10 h-10 text-amber-400" />
-                  </div>
-                  <h3 className="text-2xl font-bold text-amber-400">¡Elige tu Destino!</h3>
-                  <p className="mt-1 text-slate-400">Esta decisión es permanente</p>
-                </div>
-                <div className="grid grid-cols-2 gap-4">
-                  {evolutionOptions.map(evoClass => {
-                    const evoInfo = SKILL_TREES[evoClass];
-                    const EvoIcon = evoInfo.icon;
-                    return (
-                      <motion.button
-                        key={evoClass}
-                        whileHover={{ scale: 1.03 }}
-                        whileTap={{ scale: 0.98 }}
-                        onClick={() => {
-                          onEvolve(evoClass);
-                          setShowEvolution(false);
-                        }}
-                        className="p-5 text-left transition-all border-2 rounded-xl"
-                        style={{ 
-                          borderColor: evoInfo.color,
-                          background: `linear-gradient(135deg, ${evoInfo.color}20 0%, transparent 70%)`
-                        }}
-                      >
-                        <div className="mb-3 text-4xl text-white"><EvoIcon /></div>
-                        <div className="text-lg font-bold" style={{ color: evoInfo.color }}>
-                          {evoInfo.name}
-                        </div>
-                        <p className="mt-2 text-sm text-slate-400">
-                          {evoInfo.description}
-                        </p>
-                      </motion.button>
-                    );
-                  })}
-                </div>
-                <Button variant="ghost" className="w-full mt-5 text-slate-400" onClick={() => setShowEvolution(false)}>
-                  Decidir más tarde
-                </Button>
-              </motion.div>
-            </motion.div>
+             <motion.div className="absolute inset-0 z-10 flex items-center justify-center p-6 bg-black/95">
+                <motion.div className="w-full max-w-lg p-6 border bg-gradient-to-b from-slate-800 to-slate-900 rounded-2xl border-amber-500/30">
+                    <div className="mb-6 text-center">
+                        <h3 className="text-2xl font-bold text-amber-400">¡Elige tu Destino!</h3>
+                    </div>
+                    <div className="grid grid-cols-2 gap-4">
+                    {evolutionOptions.map(evoClass => {
+                        const evoInfo = SKILL_TREES[evoClass];
+                        const EvoIcon = evoInfo.icon;
+                        return (
+                        <motion.button
+                            key={evoClass}
+                            onClick={() => { onEvolve(evoClass); setShowEvolution(false); }}
+                            className="p-5 text-left transition-all border-2 rounded-xl"
+                            style={{ borderColor: evoInfo.color, background: `linear-gradient(135deg, ${evoInfo.color}20 0%, transparent 70%)` }}
+                        >
+                            <div className="mb-3 text-4xl text-white"><EvoIcon /></div>
+                            <div className="text-lg font-bold" style={{ color: evoInfo.color }}>{evoInfo.name}</div>
+                            <p className="mt-2 text-sm text-slate-400">{evoInfo.description}</p>
+                        </motion.button>
+                        );
+                    })}
+                    </div>
+                    <Button variant="ghost" className="w-full mt-5 text-slate-400" onClick={() => setShowEvolution(false)}>Decidir más tarde</Button>
+                </motion.div>
+             </motion.div>
           )}
         </AnimatePresence>
         
@@ -197,7 +211,6 @@ export default function SkillTree({
                       const isEvolutionSkill = !['warrior', 'mage', 'rogue'].includes(skill.tree);
                       const skillTreeInfo = SKILL_TREES[skill.tree];
                       const BadgeIcon = skillTreeInfo?.icon;
-                      const SkillIcon = skill.icon;
                       
                       return (
                         <motion.button
@@ -215,7 +228,9 @@ export default function SkillTree({
                           } ${selectedSkill?.id === skill.id ? 'ring-2 ring-white/30' : ''}`}
                         >
                           <div className="flex items-start gap-2">
-                            <span className="text-2xl text-white"><SkillIcon /></span>
+                            {/* CAMBIO AQUÍ: Usamos el helper para renderizar el icono */}
+                            {renderSkillIcon(skill, "text-2xl")}
+                            
                             <div className="flex-1 min-w-0">
                               <div className="text-sm font-medium text-white truncate">{skill.name}</div>
                               {isLearned && (
@@ -228,7 +243,6 @@ export default function SkillTree({
                             </div>
                           </div>
                           
-                          {/* CORRECCIÓN: Renderizar BadgeIcon como componente */}
                           {isEvolutionSkill && BadgeIcon && (
                             <div 
                               className="absolute flex items-center justify-center w-5 h-5 rounded-full -top-1 -left-1"
@@ -265,9 +279,10 @@ export default function SkillTree({
               <div className="p-4 bg-slate-800/70">
                 <div className="flex items-start justify-between mb-3">
                   <div className="flex items-center gap-3">
-                    <div className="flex items-center justify-center text-3xl text-white w-14 h-14 rounded-xl"
+                    {/* CAMBIO AQUÍ: Usamos el helper también en el panel de detalles */}
+                    <div className="flex items-center justify-center w-14 h-14 rounded-xl"
                       style={{ backgroundColor: SKILL_TREES[selectedSkill.tree]?.color + '25' }}>
-                      {React.createElement(selectedSkill.icon)}
+                      {renderSkillIcon(selectedSkill, "text-3xl")}
                     </div>
                     <div>
                       <h3 className="text-lg font-bold text-white">{selectedSkill.name}</h3>

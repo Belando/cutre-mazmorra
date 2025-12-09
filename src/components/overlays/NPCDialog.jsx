@@ -2,7 +2,8 @@ import React, { useState } from 'react';
 import { motion } from 'framer-motion';
 import { X, Coins, ShoppingBag, Scroll, MessageCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { NPC_TYPES, QUESTS, getAvailableQuests, checkQuestProgress } from '@/engine/systems/NPCSystem'; 
+import { NPC_TYPES, QUESTS, getAvailableQuests, checkQuestProgress } from '@/engine/systems/NPCSystem';
+import { getItemIcon } from '@/data/icons'; // Importamos el helper de iconos
 
 function getSellPrice(item) {
   const rarityMultiplier = {
@@ -27,6 +28,12 @@ function getRarityTextColor(rarity) {
     default: return 'text-slate-300';
   }
 }
+
+// Helper para renderizar iconos de forma segura
+const IconWrapper = ({ item, className }) => {
+  const Icon = getItemIcon(item);
+  return <Icon className={className} />;
+};
 
 export default function NPCDialog({ 
   npc, 
@@ -143,9 +150,12 @@ export default function NPCDialog({
               {npc.inventory.map((item, i) => (
                 <div key={i} className="flex items-center justify-between p-2 rounded bg-slate-800/50">
                   <div className="flex items-center gap-2">
-                    <span className="text-lg">{item.symbol}</span>
+                    {/* CAMBIO: Icono real en lugar de texto */}
+                    <div className={`p-1 rounded bg-slate-950/50 ${getRarityTextColor(item.rarity)}`}>
+                        <IconWrapper item={item} className="w-6 h-6" />
+                    </div>
                     <div>
-                      <p className="text-xs font-medium text-white">{item.name}</p>
+                      <p className={`text-xs font-medium ${getRarityTextColor(item.rarity)}`}>{item.name}</p>
                       <p className="text-[10px] text-slate-400">
                         {item.stats?.attack && `+${item.stats.attack} ATK `}
                         {item.stats?.defense && `+${item.stats.defense} DEF `}
@@ -183,7 +193,10 @@ export default function NPCDialog({
                   return (
                     <div key={i} className="flex items-center justify-between p-2 rounded bg-slate-800/50">
                       <div className="flex items-center gap-2">
-                        <span className="text-lg">{item.symbol}</span>
+                        {/* CAMBIO: Icono real en lugar de texto */}
+                        <div className={`p-1 rounded bg-slate-950/50 ${getRarityTextColor(item.rarity)}`}>
+                            <IconWrapper item={item} className="w-6 h-6" />
+                        </div>
                         <div>
                           <p className={`text-xs font-medium ${getRarityTextColor(item.rarity)}`}>{item.name}</p>
                           <p className="text-[10px] text-slate-400">

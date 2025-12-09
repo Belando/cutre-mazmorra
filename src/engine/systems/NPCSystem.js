@@ -1,9 +1,12 @@
+import { TILE } from '@/data/constants'; // Importamos TILE para detectar puertas
+
 // NPC System - Merchants and Quest Givers
 
 export const NPC_TYPES = {
   MERCHANT: 'merchant',
   QUEST_GIVER: 'quest_giver',
   SAGE: 'sage',
+  BLACKSMITH: 'blacksmith',
 };
 
 export const NPCS = {
@@ -19,11 +22,11 @@ export const NPCS = {
       farewell: '¡Buena suerte en tu aventura!',
     },
     inventory: [
-      { id: 'health_potion', name: 'Poción de Vida', price: 25, stats: { health: 30 }, category: 'potion', symbol: '♥', rarity: 'uncommon' },
-      { id: 'strength_elixir', name: 'Elixir de Fuerza', price: 50, stats: { attackBoost: 2 }, category: 'potion', symbol: '⚡', rarity: 'rare' },
-      { id: 'iron_sword', name: 'Espada de Hierro', price: 80, stats: { attack: 5 }, category: 'weapon', slot: 'weapon', symbol: '†', rarity: 'uncommon' },
-      { id: 'chain_mail', name: 'Cota de Malla', price: 100, stats: { defense: 4, maxHp: 10 }, category: 'armor', slot: 'armor', symbol: '🛡', rarity: 'uncommon' },
-      { id: 'lucky_ring', name: 'Anillo de la Suerte', price: 150, stats: { attack: 2, defense: 2 }, category: 'armor', slot: 'accessory', symbol: '◯', rarity: 'rare' },
+      { id: 'health_potion', name: 'Poción de Vida', price: 25, stats: { health: 30 }, category: 'potion', rarity: 'uncommon' },
+      { id: 'strength_elixir', name: 'Elixir de Fuerza', price: 50, stats: { attackBoost: 2 }, category: 'potion', rarity: 'rare' },
+      { id: 'iron_sword', name: 'Espada de Hierro', price: 80, stats: { attack: 5 }, category: 'weapon', slot: 'weapon', weaponType: 'sword', rarity: 'uncommon' },
+      { id: 'chain_mail', name: 'Cota de Malla', price: 100, stats: { defense: 4, maxHp: 10 }, category: 'armor', slot: 'chest', armorType: 'heavy', rarity: 'uncommon' },
+      { id: 'lucky_ring', name: 'Anillo de la Suerte', price: 150, stats: { attack: 2, defense: 2 }, category: 'accessory', slot: 'ring', rarity: 'rare' },
     ],
   },
   quest_elder: {
@@ -48,6 +51,16 @@ export const NPCS = {
       lore: 'El Dragón Ancestral fue sellado hace eones. Pero el sello se debilita...',
       farewell: 'Recuerda: la oscuridad teme a quienes no la temen.',
     },
+  },
+  blacksmith: {
+    name: 'Herrero Enano',
+    type: NPC_TYPES.BLACKSMITH,
+    symbol: '⚒',
+    color: '#f97316',
+    dialogue: {
+      greeting: '¡El acero y el fuego nunca mienten! ¿Qué necesitas forjar?',
+      farewell: 'Mantén tu hoja afilada.',
+    }
   },
 };
 
@@ -272,7 +285,6 @@ export function checkQuestProgress(quest, gameState) {
       };
     
     case 'multi_kill':
-      // For multi-target quests, progress is stored as object
       const multiProgress = gameState.questProgress?.[quest.id] || {};
       let allComplete = true;
       let progressStr = '';
@@ -308,7 +320,6 @@ export function checkQuestProgress(quest, gameState) {
       };
     
     case 'boss':
-      // Boss kills tracked separately
       const bossKilled = gameState.questProgress?.[quest.id] || 0;
       return {
         complete: bossKilled >= 1,
@@ -340,66 +351,99 @@ export function checkQuestProgress(quest, gameState) {
   }
 }
 
-// Generar NPCS
+// --- LÓGICA DE GENERACIÓN DE NPCs (ACTUALIZADA Y ESTRICTA) ---
 export function generateNPCs(floor, rooms, map, excludeRoomIndices = [], enemies = []) {
   const npcs = [];
   
-  // Merchant (aparece cada 2 pisos)
-  if (floor % 2 === 1 && rooms.length > 2) {
-    const merchantRoom = rooms.find((r, i) => !excludeRoomIndices.includes(i) && i !== 0);
-    if (merchantRoom) {
-      const x = merchantRoom.x + Math.floor(merchantRoom.width / 2);
-      const y = merchantRoom.y + Math.floor(merchantRoom.height / 2);
+  // Helper: Comprobar si la habitación tiene una puerta (TILE.DOOR = 3)
+  const roomHasDoor = (room) => {
+    // Revisar perímetro superior e inferior
+    for (let x = room.x; x < room.x + room.width; x++) {
+      if (map[room.y - 1]?.[x] === TILE.DOOR || map[room.y + room.height]?.[x] === TILE.DOOR) return true;
+    }
+    // Revisar perímetro lateral
+    for (let y = room.y; y < room.y + room.height; y++) {
+      if (map[y]?.[room.x - 1] === TILE.DOOR || map[y]?.[room.x + room.width] === TILE.DOOR) return true;
+    }
+    return false;
+  };
+
+  // Helper: Comprobar si hay algún enemigo DENTRO de la habitación
+  const roomHasEnemies = (room) => {
+    return enemies.some(e => 
+      e.x >= room.x && e.x < room.x + room.width &&
+      e.y >= room.y && e.y < room.y + room.height
+    );
+  };
+
+  // Helper: Comprobar si hay otro NPC en la habitación (para que estén separados)
+  const roomHasNPC = (room) => {
+    return npcs.some(n => 
+      n.x >= room.x && n.x < room.x + room.width &&
+      n.y >= room.y && n.y < room.y + room.height
+    );
+  };
+
+  // Función para colocar un NPC buscando en la lista de habitaciones candidatas
+  const placeNPC = (npcTemplate, candidateRooms, idPrefix) => {
+    for (const room of candidateRooms) {
       
-      // VERIFICACIÓN DE COLISIÓN CON ENEMIGOS
-      const isOccupiedByEnemy = enemies.some(e => e.x === x && e.y === y);
+      // REGLA 1: La habitación debe tener puerta (estar cerrada)
+      if (!roomHasDoor(room)) continue;
+
+      // REGLA 2: No puede haber enemigos en la habitación
+      if (roomHasEnemies(room)) continue;
+
+      // REGLA 3: No puede haber otro NPC en la habitación (aparecer por separado)
+      if (roomHasNPC(room)) continue;
+
+      // Si pasa los filtros, colocamos el NPC en el centro
+      const x = room.x + Math.floor(room.width / 2);
+      const y = room.y + Math.floor(room.height / 2);
       
-      if (map[y]?.[x] === 1 && !isOccupiedByEnemy) {
+      if (map[y]?.[x] === TILE.FLOOR) {
         npcs.push({
-          ...NPCS.merchant,
+          ...npcTemplate,
           x, y,
-          id: 'merchant_' + floor,
+          id: `${idPrefix}_${floor}`
         });
+        return true; // Éxito
       }
     }
+    return false; // No se encontró sitio válido
+  };
+
+  // 1. Merchant (Pisos Impares)
+  if (floor % 2 === 1) {
+    // Candidatos: Todas menos la inicial
+    const candidates = rooms.filter((r, i) => !excludeRoomIndices.includes(i) && i !== 0);
+    placeNPC(NPCS.merchant, candidates, 'merchant');
   }
   
-  // Quest giver (pisos 1, 3, 5)
-  if ([1, 3, 5].includes(floor) && rooms.length > 3) {
-    const questRoom = rooms.find((r, i) => !excludeRoomIndices.includes(i) && i !== 0 && i !== rooms.length - 1);
-    if (questRoom) {
-      const x = questRoom.x + 1;
-      const y = questRoom.y + 1;
-      
-      const isOccupiedByEnemy = enemies.some(e => e.x === x && e.y === y);
-
-      if (map[y]?.[x] === 1 && !isOccupiedByEnemy) {
-        npcs.push({
-          ...NPCS.quest_elder,
-          x, y,
-          id: 'quest_elder_' + floor,
-        });
-      }
-    }
+  // 2. Quest Giver (Pisos 1, 3, 5)
+  if ([1, 3, 5].includes(floor)) {
+    const candidates = rooms.filter((r, i) => !excludeRoomIndices.includes(i) && i !== 0);
+    placeNPC(NPCS.quest_elder, candidates, 'quest_elder');
   }
   
-  // Sage (pisos 1, 6)
-  if ([1, 6].includes(floor) && rooms.length > 2) {
-    const sageRoom = rooms[1];
-    if (sageRoom) {
-      const x = sageRoom.x + sageRoom.width - 2;
-      const y = sageRoom.y + 1;
-      
-      const isOccupiedByEnemy = enemies.some(e => e.x === x && e.y === y);
+  // 3. Sage (Pisos 1, 6)
+  if ([1, 6].includes(floor)) {
+    // Preferencia inicial: habitaciones tempranas (ej. índice 1) pero flexibles
+    const candidates = rooms.filter((r, i) => !excludeRoomIndices.includes(i) && i !== 0);
+    // Ordenamos para dar preferencia a la habitación 1 si es posible, sino cualquiera
+    candidates.sort((a, b) => (a === rooms[1] ? -1 : 1));
+    
+    placeNPC(NPCS.sage, candidates, 'sage');
+  }
 
-      if (map[y]?.[x] === 1 && !isOccupiedByEnemy) {
-        npcs.push({
-          ...NPCS.sage,
-          x, y,
-          id: 'sage_' + floor,
-        });
-      }
-    }
+  // 4. Herrero (Piso 1 y Pisos Pares)
+  if (floor === 1 || floor % 2 === 0) {
+    // Candidatos: Preferiblemente habitaciones más profundas (i > 1) para variar
+    const candidates = rooms.filter((r, i) => !excludeRoomIndices.includes(i) && i !== 0);
+    // Ordenamos para intentar ponerlo en habitaciones finales si es posible
+    candidates.sort((a, b) => rooms.indexOf(b) - rooms.indexOf(a));
+    
+    placeNPC(NPCS.blacksmith, candidates, 'blacksmith');
   }
   
   return npcs;

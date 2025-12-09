@@ -4,7 +4,7 @@ import {
   GiEarrings, GiNecklace, GiHealthPotion, GiScrollUnfurled,
   GiMeat, GiTwoCoins, GiSwapBag, GiCrossbow, GiMagicTrident,
   GiDaggers, GiGoldNuggets, GiCrystalBars, 
-  GiDrop, GiSewingString,
+  GiDrop, GiSewingString, GiStoneBlock, GiScales, GiAnimalHide, // CORREGIDO: GiScales en lugar de GiDragonScale
   GiMeeple, GiChest, GiStairs, GiDoor, GiConversation, GiDeathSkull
 } from 'react-icons/gi';
 
@@ -30,25 +30,26 @@ export const CATEGORY_ICONS = {
   currency: GiTwoCoins,
   ammo: GiCrossbow,
   accessory: GiRing,
-  material: GiSwapBag, // Icono por defecto para materiales
+  material: GiSwapBag, // Icono por defecto para materiales desconocidos
   default: GiSwapBag
 };
 
 // Mapa de iconos específicos para materiales
 const MATERIAL_ICONS = {
-  iron_ore: GiSwapBag,
-  gold_ore: GiGoldNuggets,
-  crystal: GiCrystalBars,
-  dragon_scale: GiSwapBag,
-  essence: GiDrop,
-  leather: GiSwapBag,
-  cloth: GiSewingString
+  iron_ore: GiStoneBlock,   // Mineral de Hierro
+  gold_ore: GiGoldNuggets,  // Mineral de Oro
+  crystal: GiCrystalBars,   // Cristal
+  dragon_scale: GiScales,   // CORREGIDO: Usamos GiScales
+  essence: GiDrop,          // Esencia
+  leather: GiAnimalHide,    // Cuero
+  cloth: GiSewingString     // Tela
 };
 
 export const getItemIcon = (item) => {
   if (!item) return GiSwapBag;
   
-  if (item.category === 'material' && MATERIAL_ICONS[item.templateKey]) {
+  // Prioridad a materiales específicos
+  if (item.category === 'material' && item.templateKey && MATERIAL_ICONS[item.templateKey]) {
       return MATERIAL_ICONS[item.templateKey];
   }
   

@@ -97,27 +97,62 @@ export const NPC_SPRITES = {
       ctx.shadowBlur = 0;
     },
   },
+  blacksmith: {
+    draw: (ctx, x, y, size) => {
+      const s = size;
+      // Cuerpo robusto
+      ctx.fillStyle = "#431407"; // Marrón muy oscuro
+      ctx.beginPath();
+      ctx.moveTo(x + s * 0.5, y + s * 0.25);
+      ctx.lineTo(x + s * 0.85, y + s * 0.9);
+      ctx.lineTo(x + s * 0.15, y + s * 0.9);
+      ctx.closePath();
+      ctx.fill();
+      
+      // Delantal
+      ctx.fillStyle = "#9a3412"; // Naranja óxido
+      ctx.fillRect(x + s * 0.3, y + s * 0.4, s * 0.4, s * 0.45);
+      
+      // Cabeza
+      ctx.fillStyle = "#d4a574";
+      ctx.beginPath();
+      ctx.arc(x + s * 0.5, y + s * 0.28, s * 0.14, 0, Math.PI * 2);
+      ctx.fill();
+      
+      // Barba negra espesa
+      ctx.fillStyle = "#1c1917";
+      ctx.beginPath();
+      ctx.ellipse(x + s * 0.5, y + s * 0.35, s * 0.12, s * 0.1, 0, 0, Math.PI);
+      ctx.fill();
+      
+      // Martillo en mano
+      ctx.fillStyle = "#52525b"; // Mango
+      ctx.save();
+      ctx.translate(x + s * 0.8, y + s * 0.5);
+      ctx.rotate(-0.4);
+      ctx.fillRect(-s*0.05, -s*0.2, s*0.1, s*0.4); 
+      ctx.fillStyle = "#a1a1aa"; // Cabeza
+      ctx.fillRect(-s*0.15, -s*0.25, s*0.3, s*0.15);
+      ctx.restore();
+    },
+  },
 };
 
 function drawShadow(ctx, x, y, size) {
   const s = size;
   ctx.fillStyle = "rgba(0, 0, 0, 0.35)";
   ctx.beginPath();
-  // Elipse aplastada en la base del tile
   ctx.ellipse(x + s * 0.5, y + s * 0.85, s * 0.3, s * 0.1, 0, 0, Math.PI * 2);
   ctx.fill();
 }
 
 export function drawNPC(ctx, npcType, x, y, size) {
   drawShadow(ctx, x, y, size);
-  const spriteKey =
-    npcType === "merchant"
-      ? "merchant"
-      : npcType === "quest_giver"
-      ? "quest_elder"
-      : npcType === "sage"
-      ? "sage"
-      : null;
+  // Mapeo simple de tipo a key de sprite
+  const spriteKey = npcType === "merchant" ? "merchant" :
+                    npcType === "quest_giver" ? "quest_elder" :
+                    npcType === "sage" ? "sage" :
+                    npcType === "blacksmith" ? "blacksmith" : null;
 
   if (spriteKey && NPC_SPRITES[spriteKey]) {
     NPC_SPRITES[spriteKey].draw(ctx, x, y, size);

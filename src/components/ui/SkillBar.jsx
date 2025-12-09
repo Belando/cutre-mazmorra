@@ -1,6 +1,6 @@
 import React from 'react';
 import { canUseSkill, getUnlockedSkills } from '@/engine/systems/SkillSystem';
-import { SKILLS } from '@/data/skills';
+import { SKILLS, SKILL_COLORS, SKILL_TREES } from '@/data/skills'; // Importamos colores y árboles
 import { cn } from '@/engine/core/utils';
 import { useGame } from '@/context/GameContext';
 
@@ -26,6 +26,9 @@ export default function SkillBar({ disabled }) {
           const isSelected = selectedSkill === skill.id;
           const SkillIcon = skill.icon;
           
+          // Lógica de color: Color específico > Color de clase > Blanco por defecto
+          const iconColor = SKILL_COLORS[skill.id] || SKILL_TREES[skill.tree]?.color || '#ffffff';
+          
           return (
             <button
               key={skill.id}
@@ -40,9 +43,11 @@ export default function SkillBar({ disabled }) {
                 !isOnCooldown && !disabled && "hover:scale-105"
               )}
               title={`${skill.name}: ${skill.description}`}
+              // Opcional: Si quieres que el borde también tenga un toque del color de la habilidad cuando no está seleccionado
+              style={!isSelected ? { borderColor: `${iconColor}60` } : {}}
             >
-              {/* Renderizamos el icono como componente */}
-              <SkillIcon className="text-xl text-white" />
+              {/* Renderizamos el icono con el color dinámico */}
+              <SkillIcon className="text-xl" style={{ color: iconColor }} />
               
               {isOnCooldown && (
                 <div className="absolute inset-0 flex items-center justify-center rounded-lg bg-black/60">

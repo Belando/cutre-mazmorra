@@ -50,6 +50,7 @@ export const NPC_TYPES = {
   MERCHANT: "merchant",
   QUEST_GIVER: "quest_giver",
   SAGE: "sage",
+  BLACKSMITH: "blacksmith", // NUEVO TIPO
 };
 
 export const SIZE = 32;

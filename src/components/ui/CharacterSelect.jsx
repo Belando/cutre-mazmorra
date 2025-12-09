@@ -1,9 +1,8 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState } from 'react';
 import { motion } from 'framer-motion';
 import { Play, ChevronLeft, ChevronRight } from 'lucide-react';
 import { Button } from '../ui/button';
 import { SKILL_TREES } from '@/data/skills';
-import { drawPlayer } from '@/renderer/player';
 
 // Only 3 base classes available at start
 export const PLAYER_APPEARANCES = {
@@ -29,42 +28,10 @@ export const PLAYER_APPEARANCES = {
 
 export default function CharacterSelect({ onSelect, playerName, onNameChange }) {
   const [selectedIndex, setSelectedIndex] = useState(0);
-  const canvasRef = useRef(null);
-  const frameRef = useRef(0);
   
   const appearanceKeys = Object.keys(PLAYER_APPEARANCES);
   const currentAppearance = PLAYER_APPEARANCES[appearanceKeys[selectedIndex]];
   const currentKey = appearanceKeys[selectedIndex];
-  
-  // Efecto para dibujar y animar el personaje
-  useEffect(() => {
-    let animationId;
-    
-    const render = () => {
-        const canvas = canvasRef.current;
-        if (canvas && currentAppearance) {
-          const ctx = canvas.getContext('2d');
-          const size = 128;
-          
-          ctx.clearRect(0, 0, size, size);
-          
-          drawPlayer(
-              ctx, 
-              0, 0,       
-              size,       
-              currentAppearance, 
-              currentAppearance.class, 
-              frameRef.current 
-          );
-        }
-        frameRef.current++;
-        animationId = requestAnimationFrame(render);
-    };
-    
-    render();
-    
-    return () => cancelAnimationFrame(animationId);
-  }, [selectedIndex, currentAppearance]);
   
   const prevCharacter = () => {
     setSelectedIndex((prev) => (prev - 1 + appearanceKeys.length) % appearanceKeys.length);
@@ -75,8 +42,8 @@ export default function CharacterSelect({ onSelect, playerName, onNameChange }) 
   };
   
   const treeInfo = SKILL_TREES[currentAppearance?.class] || SKILL_TREES.warrior;
-  // CORRECCIÓN: Obtenemos el icono como componente
-  const TreeIcon = treeInfo.icon;
+  // Obtenemos el icono como componente para renderizarlo
+  const ClassIcon = treeInfo.icon;
   
   return (
     <motion.div
@@ -84,8 +51,9 @@ export default function CharacterSelect({ onSelect, playerName, onNameChange }) 
       animate={{ opacity: 1, y: 0 }}
       className="max-w-lg mx-auto text-center"
     >
+      {/* CAMBIO 1: Título actualizado */}
       <h1 className="mb-2 text-3xl font-bold text-white">
-        Dungeon<span className="text-blue-500">Crawler</span>
+        Cutre<span className="text-blue-500">Mazmorra</span>
       </h1>
       <p className="mb-6 text-sm text-slate-400">Elige tu clase</p>
       
@@ -95,28 +63,26 @@ export default function CharacterSelect({ onSelect, playerName, onNameChange }) 
           <ChevronLeft className="w-6 h-6" />
         </Button>
         
-        <div className="bg-slate-800/50 rounded-xl p-4 border border-slate-700 min-w-[200px]">
-          {/* Canvas para el personaje */}
-          <canvas 
-            ref={canvasRef} 
-            width={128} 
-            height={128}
-            className="mx-auto rounded"
-          />
-          <h2 className="mt-2 text-xl font-bold text-white">{currentAppearance?.name || 'Guerrero'}</h2>
-          <p className="text-xs text-slate-400 min-h-[32px]">{currentAppearance?.description || ''}</p>
+        <div className="bg-slate-800/50 rounded-xl p-6 border border-slate-700 min-w-[220px] flex flex-col items-center shadow-2xl">
           
-          <div className="flex items-center justify-center gap-2 mt-2">
-            {/* CORRECCIÓN: Renderizamos el componente del icono, no la variable */}
-            <span className="text-lg text-amber-500 flex items-center">
-              <TreeIcon />
-            </span>
-            <span className="text-sm font-medium" style={{ color: treeInfo.color }}>
-              {treeInfo.name}
-            </span>
+          {/* CAMBIO 2 y 3: Icono estático en lugar de Canvas animado */}
+          <div 
+            className="w-32 h-32 mb-4 rounded-full flex items-center justify-center border-4 shadow-[0_0_20px_rgba(0,0,0,0.5)] bg-slate-900/50"
+            style={{ borderColor: treeInfo.color }}
+          >
+            <ClassIcon className="w-20 h-20" style={{ color: treeInfo.color }} />
           </div>
+
+          {/* CAMBIO 4: Nombre de clase una sola vez */}
+          <h2 className="text-2xl font-bold text-white mb-2" style={{ color: treeInfo.color }}>
+            {treeInfo.name}
+          </h2>
           
-          <p className="text-[10px] text-amber-500 mt-2">
+          <p className="text-xs text-slate-400 min-h-[40px] leading-relaxed">
+            {currentAppearance?.description || ''}
+          </p>
+          
+          <p className="text-[10px] text-amber-500 mt-4 font-medium bg-amber-950/30 px-3 py-1 rounded-full border border-amber-900/50">
             ¡Al nivel 10 podrás evolucionar!
           </p>
         </div>
@@ -127,11 +93,11 @@ export default function CharacterSelect({ onSelect, playerName, onNameChange }) 
       </div>
       
       {/* Appearance indicators */}
-      <div className="flex justify-center gap-1 mb-4">
+      <div className="flex justify-center gap-2 mb-6">
         {appearanceKeys.map((_, i) => (
           <div 
             key={i}
-            className={`w-2 h-2 rounded-full transition-colors ${i === selectedIndex ? 'bg-blue-500' : 'bg-slate-600'}`}
+            className={`w-2 h-2 rounded-full transition-colors ${i === selectedIndex ? 'bg-blue-500 scale-125' : 'bg-slate-600'}`}
           />
         ))}
       </div>
@@ -144,22 +110,27 @@ export default function CharacterSelect({ onSelect, playerName, onNameChange }) 
           onChange={(e) => onNameChange(e.target.value)}
           placeholder="Nombre del héroe..."
           maxLength={16}
-          className="w-full px-4 py-2 text-center text-white border rounded-lg bg-slate-800 border-slate-600 focus:outline-none focus:border-blue-500"
+          className="w-full px-4 py-3 text-center text-white border rounded-lg bg-slate-800 border-slate-600 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 placeholder:text-slate-500"
         />
       </div>
       
       {/* Start button */}
       <Button 
         onClick={() => onSelect(currentKey, currentAppearance)}
-        className="w-full bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-500 hover:to-purple-500"
+        className="w-full h-12 text-lg font-bold shadow-lg bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-500 hover:to-purple-500"
       >
-        <Play className="w-4 h-4 mr-2" />
+        <Play className="w-5 h-5 mr-2" />
         Comenzar Aventura
       </Button>
       
       {/* Quick info */}
-      <div className="mt-4 text-[10px] text-slate-500">
-        WASD: mover | I: inventario | C: artesanía | T: habilidades | 1-6: habilidades
+      <div className="mt-6 text-[10px] text-slate-500 flex flex-wrap justify-center gap-3 opacity-60">
+        <span>WASD: Mover</span>
+        <span>I: Inventario</span>
+        <span>C: Artesanía</span>
+        <span>T: Habilidades</span>
+        <span>1-6: Skills</span>
+        <span>Espacio: Usar Skill</span>
       </div>
     </motion.div>
   );

@@ -2,7 +2,8 @@ import React, { useState } from 'react';
 import { motion } from 'framer-motion';
 import { X, Hammer, ArrowUp, Package } from 'lucide-react';
 import { Button } from '../ui/button';
-import { RECIPES, MATERIAL_TYPES, UPGRADE_COSTS, canCraft, craftItem, upgradeItem } from '@/engine/systems/CraftingSystem';
+import { RECIPES, MATERIAL_TYPES, UPGRADE_COSTS, canCraft } from '@/engine/systems/CraftingSystem';
+import { getItemIcon } from '@/data/icons'; // Importamos el helper de iconos
 
 export default function CraftingPanel({ 
   isOpen, 
@@ -29,6 +30,12 @@ export default function CraftingPanel({
   const equippedItems = Object.entries(equipment || {})
     .filter(([_, item]) => item)
     .map(([slot, item]) => ({ ...item, slot }));
+
+  // Helper para renderizar iconos de forma segura
+  const IconWrapper = ({ item, className }) => {
+    const Icon = getItemIcon(item);
+    return <Icon className={className} />;
+  };
 
   return (
     <motion.div
@@ -82,20 +89,37 @@ export default function CraftingPanel({
           {tab === 'craft' && (
             <div className="space-y-2">
               {Object.entries(RECIPES).map(([key, recipe]) => {
-                const canMake = canCraft(recipe, materials);
+                const canMake = canCraft(recipe, inventory); // Corregido: usa inventory, no materials
+                
+                // Construimos objetos dummy para obtener los iconos correctos
+                const resultItem = { ...recipe, templateKey: key };
+                
                 return (
                   <div key={key} className={`p-2 rounded border ${canMake ? 'bg-slate-800/50 border-slate-600' : 'bg-slate-900/50 border-slate-800 opacity-60'}`}>
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-2">
-                        <span className="text-lg">{recipe.symbol}</span>
+                        {/* Icono del resultado */}
+                        <div className={`p-1 rounded bg-slate-950/50 ${rarityColors[recipe.rarity]}`}>
+                           <IconWrapper item={resultItem} className="w-6 h-6" />
+                        </div>
+                        
                         <div>
                           <p className={`text-xs font-medium ${rarityColors[recipe.rarity]}`}>{recipe.name}</p>
-                          <div className="flex gap-2 text-[10px] text-slate-500">
-                            {Object.entries(recipe.materials).map(([mat, count]) => (
-                              <span key={mat} className={(materials[mat] || 0) >= count ? 'text-green-400' : 'text-red-400'}>
-                                {MATERIAL_TYPES[mat]?.symbol} {count}
-                              </span>
-                            ))}
+                          <div className="flex flex-wrap gap-2 text-[10px] text-slate-500 mt-1">
+                            {Object.entries(recipe.materials).map(([matKey, count]) => {
+                              // Buscar en inventario la cantidad real
+                              const invItem = inventory.find(i => i.templateKey === matKey);
+                              const have = invItem ? invItem.quantity : 0;
+                              // Dummy item para el icono del material
+                              const matItemDummy = { category: 'material', templateKey: matKey };
+                              
+                              return (
+                                <span key={matKey} className={`flex items-center gap-1 ${have >= count ? 'text-green-400' : 'text-red-400'}`}>
+                                  <IconWrapper item={matItemDummy} className="w-3 h-3" /> 
+                                  {have}/{count}
+                                </span>
+                              );
+                            })}
                           </div>
                         </div>
                       </div>
@@ -108,7 +132,7 @@ export default function CraftingPanel({
                         Crear
                       </Button>
                     </div>
-                    <div className="text-[10px] text-slate-400 mt-1">
+                    <div className="text-[10px] text-slate-400 mt-1 pl-10">
                       {recipe.result.attack && `+${recipe.result.attack} ATK `}
                       {recipe.result.defense && `+${recipe.result.defense} DEF `}
                       {recipe.result.maxHp && `+${recipe.result.maxHp} Vida `}
@@ -135,7 +159,9 @@ export default function CraftingPanel({
                     <div key={item.slot} className="p-2 border rounded bg-slate-800/50 border-slate-600">
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-2">
-                          <span className="text-lg">{item.symbol}</span>
+                          <div className={`p-1 rounded bg-slate-950/50 ${rarityColors[item.rarity]}`}>
+                             <IconWrapper item={item} className="w-6 h-6" />
+                          </div>
                           <div>
                             <p className={`text-xs font-medium ${rarityColors[item.rarity]}`}>
                               {item.name}
@@ -162,13 +188,20 @@ export default function CraftingPanel({
                         )}
                       </div>
                       {nextCost && level < 5 && (
-                        <div className="flex gap-2 text-[10px] text-slate-500 mt-1">
+                        <div className="flex flex-wrap gap-2 text-[10px] text-slate-500 mt-2 pl-9">
                           Materiales: 
-                          {Object.entries(nextCost.materials).map(([mat, count]) => (
-                            <span key={mat} className={(materials[mat] || 0) >= count ? 'text-green-400' : 'text-red-400'}>
-                              {MATERIAL_TYPES[mat]?.symbol} {count}
-                            </span>
-                          ))}
+                          {Object.entries(nextCost.materials).map(([matKey, count]) => {
+                            const invItem = inventory.find(i => i.templateKey === matKey);
+                            const have = invItem ? invItem.quantity : 0;
+                            const matItemDummy = { category: 'material', templateKey: matKey };
+                            
+                            return (
+                              <span key={matKey} className={`flex items-center gap-1 ${have >= count ? 'text-green-400' : 'text-red-400'}`}>
+                                <IconWrapper item={matItemDummy} className="w-3 h-3" />
+                                {have}/{count}
+                              </span>
+                            );
+                          })}
                         </div>
                       )}
                     </div>
@@ -180,15 +213,24 @@ export default function CraftingPanel({
           
           {tab === 'materials' && (
             <div className="grid grid-cols-2 gap-2">
-              {Object.entries(MATERIAL_TYPES).map(([key, mat]) => (
-                <div key={key} className="flex items-center gap-2 p-2 border rounded bg-slate-800/50 border-slate-700">
-                  <span className="text-lg" style={{ color: mat.color }}>{mat.symbol}</span>
-                  <div>
-                    <p className={`text-xs ${rarityColors[mat.rarity]}`}>{mat.name}</p>
-                    <p className="text-sm font-bold text-white">{materials[key] || 0}</p>
+              {Object.entries(MATERIAL_TYPES).map(([key, mat]) => {
+                // Buscamos cantidad real en inventario
+                const invItem = inventory.find(i => i.templateKey === key);
+                const count = invItem ? invItem.quantity : 0;
+                const matItemDummy = { category: 'material', templateKey: key };
+
+                return (
+                  <div key={key} className="flex items-center gap-2 p-2 border rounded bg-slate-800/50 border-slate-700">
+                    <div className="p-1 rounded bg-slate-950/50 text-slate-400">
+                        <IconWrapper item={matItemDummy} className="w-5 h-5" />
+                    </div>
+                    <div>
+                      <p className={`text-xs ${rarityColors[mat.rarity]}`}>{mat.name}</p>
+                      <p className="text-sm font-bold text-white">{count}</p>
+                    </div>
                   </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           )}
         </div>
