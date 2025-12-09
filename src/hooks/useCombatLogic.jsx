@@ -28,9 +28,15 @@ export function useCombatLogic({
     addMessage(`${info.name} derrotado! +${info.exp} XP`, 'death');
     
     const drops = enemy.isBoss ? generateBossDrop(enemy.type, dungeon.level) : generateMaterialDrop(enemy.type, dungeon.level);
-    drops.forEach(d => {
-      addMaterial(d.type, d.count);
-      addMessage(`Botín: ${d.count} ${MATERIAL_TYPES[d.type]?.name}`, 'pickup');
+    
+    drops.forEach(item => {
+      // AHORA ES UN ITEM REAL, USAMOS addItem (que viene de useInventory)
+      const success = addItem(item); // Asegúrate de pasar addItem a useCombatLogic
+      if (success) {
+          addMessage(`Botín: ${item.quantity}x ${item.name}`, 'pickup');
+      } else {
+          addMessage(`Inventario lleno, no pudiste recoger ${item.name}`, 'info');
+      }
     });
     
     if(enemy.isBoss) {

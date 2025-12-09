@@ -1,22 +1,15 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, ChevronRight, Star, Zap, ChevronDown } from 'lucide-react';
+import { X, Zap } from 'lucide-react';
+import { GiUpgrade, GiStarMedal, GiPowerLightning } from 'react-icons/gi';
 import { Button } from '../ui/button';
-import { getClassSkills, getSkillLevel, canEvolve, getEvolutionOptions, getSkillEffectiveStats } from '@/engine/systems/SkillSystem';
-import { SKILLS, SKILL_TREES, CLASS_EVOLUTIONS } from '@/data/skills';
+import { getClassSkills, canEvolve, getEvolutionOptions, getSkillEffectiveStats } from '@/engine/systems/SkillSystem';
+import { SKILLS, SKILL_TREES } from '@/data/skills';
 
 export default function SkillTree({ 
-  isOpen, 
-  onClose, 
-  playerClass, 
-  playerLevel,
-  learnedSkills = [],
-  skillLevels = {},
-  skillPoints = 0,
-  evolvedClass = null,
-  onEvolve,
-  onLearnSkill,  
-  onUpgradeSkill,
+  isOpen, onClose, playerClass, playerLevel,
+  learnedSkills = [], skillLevels = {}, skillPoints = 0,
+  evolvedClass = null, onEvolve, onLearnSkill, onUpgradeSkill,
 }) {
   const [selectedSkill, setSelectedSkill] = useState(null);
   const [showEvolution, setShowEvolution] = useState(false);
@@ -24,14 +17,12 @@ export default function SkillTree({
   if (!isOpen) return null;
   
   const treeInfo = SKILL_TREES[evolvedClass || playerClass] || SKILL_TREES.warrior;
-  // const baseTreeInfo = SKILL_TREES[playerClass] || SKILL_TREES.warrior; // (Variable no usada, se puede quitar o dejar)
+  const TreeIcon = treeInfo.icon; // Icono principal
   
-  // Get skills for current class (and evolved if applicable)
   const classSkills = getClassSkills(playerClass, evolvedClass);
   const canEvolveNow = canEvolve(playerLevel, { evolvedClass });
   const evolutionOptions = getEvolutionOptions(playerClass);
   
-  // Group skills by unlock level for cascade display
   const skillsByLevel = {};
   classSkills.forEach(skill => {
     const lvl = skill.unlockLevel;
@@ -57,22 +48,12 @@ export default function SkillTree({
         onClick={e => e.stopPropagation()}
       >
         {/* Header */}
-        <div 
-          className="flex items-center justify-between p-4 border-b"
-          style={{ 
-            borderColor: treeInfo.color + '30',
-            background: `linear-gradient(135deg, ${treeInfo.color}15 0%, transparent 50%)`
-          }}
-        >
+        <div className="flex items-center justify-between p-4 border-b"
+          style={{ borderColor: treeInfo.color + '30', background: `linear-gradient(135deg, ${treeInfo.color}15 0%, transparent 50%)` }}>
           <div className="flex items-center gap-3">
-            <div 
-              className="flex items-center justify-center text-3xl shadow-lg w-14 h-14 rounded-xl"
-              style={{ 
-                backgroundColor: treeInfo.color + '25',
-                boxShadow: `0 0 20px ${treeInfo.color}30`
-              }}
-            >
-              {treeInfo.icon}
+            <div className="flex items-center justify-center text-3xl shadow-lg w-14 h-14 rounded-xl"
+              style={{ backgroundColor: treeInfo.color + '25', boxShadow: `0 0 20px ${treeInfo.color}30` }}>
+              <TreeIcon className="text-white" />
             </div>
             <div>
               <h2 className="text-xl font-bold" style={{ color: treeInfo.color }}>
@@ -81,7 +62,7 @@ export default function SkillTree({
               <div className="flex items-center gap-3 text-sm">
                 <span className="text-slate-400">Nivel {playerLevel}</span>
                 <span className="flex items-center gap-1 font-medium text-amber-400">
-                  <Zap className="w-4 h-4" />
+                  <GiPowerLightning className="w-4 h-4" />
                   {skillPoints} puntos
                 </span>
               </div>
@@ -102,7 +83,7 @@ export default function SkillTree({
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-3">
                 <div className="flex items-center justify-center w-10 h-10 rounded-full bg-amber-500/20 animate-pulse">
-                  <Star className="w-6 h-6 text-amber-400" />
+                  <GiStarMedal className="w-6 h-6 text-amber-400" />
                 </div>
                 <div>
                   <span className="text-lg font-bold text-amber-200">¡Evolución disponible!</span>
@@ -113,7 +94,7 @@ export default function SkillTree({
                 className="shadow-lg bg-gradient-to-r from-amber-600 to-orange-600 hover:from-amber-500 hover:to-orange-500"
                 onClick={() => setShowEvolution(true)}
               >
-                <Star className="w-4 h-4 mr-2" />
+                <GiUpgrade className="w-4 h-4 mr-2" />
                 Evolucionar
               </Button>
             </div>
@@ -137,7 +118,7 @@ export default function SkillTree({
               >
                 <div className="mb-6 text-center">
                   <div className="flex items-center justify-center w-16 h-16 mx-auto mb-3 rounded-full bg-amber-500/20">
-                    <Star className="w-10 h-10 text-amber-400" />
+                    <GiStarMedal className="w-10 h-10 text-amber-400" />
                   </div>
                   <h3 className="text-2xl font-bold text-amber-400">¡Elige tu Destino!</h3>
                   <p className="mt-1 text-slate-400">Esta decisión es permanente</p>
@@ -145,6 +126,7 @@ export default function SkillTree({
                 <div className="grid grid-cols-2 gap-4">
                   {evolutionOptions.map(evoClass => {
                     const evoInfo = SKILL_TREES[evoClass];
+                    const EvoIcon = evoInfo.icon;
                     return (
                       <motion.button
                         key={evoClass}
@@ -160,7 +142,7 @@ export default function SkillTree({
                           background: `linear-gradient(135deg, ${evoInfo.color}20 0%, transparent 70%)`
                         }}
                       >
-                        <div className="mb-3 text-4xl">{evoInfo.icon}</div>
+                        <div className="mb-3 text-4xl text-white"><EvoIcon /></div>
                         <div className="text-lg font-bold" style={{ color: evoInfo.color }}>
                           {evoInfo.name}
                         </div>
@@ -171,11 +153,7 @@ export default function SkillTree({
                     );
                   })}
                 </div>
-                <Button
-                  variant="ghost"
-                  className="w-full mt-5 text-slate-400"
-                  onClick={() => setShowEvolution(false)}
-                >
+                <Button variant="ghost" className="w-full mt-5 text-slate-400" onClick={() => setShowEvolution(false)}>
                   Decidir más tarde
                 </Button>
               </motion.div>
@@ -183,7 +161,7 @@ export default function SkillTree({
           )}
         </AnimatePresence>
         
-        {/* Skills Cascade Display */}
+        {/* Skills Cascade */}
         <div className="p-4 overflow-y-auto max-h-[55vh]">
           <div className="space-y-4">
             {sortedLevels.map((level, tierIndex) => {
@@ -198,7 +176,6 @@ export default function SkillTree({
                   transition={{ delay: tierIndex * 0.1 }}
                   className="relative"
                 >
-                  {/* Level Header */}
                   <div className="flex items-center gap-3 mb-2">
                     <div className={`px-3 py-1 rounded-full text-xs font-bold ${
                       isUnlocked ? 'bg-emerald-500/20 text-emerald-400' : 'bg-slate-700/50 text-slate-500'
@@ -210,15 +187,17 @@ export default function SkillTree({
                     )}
                   </div>
                   
-                  {/* Skills Row */}
                   <div className="flex flex-wrap gap-3 pl-4">
                     {skills.map((skill, skillIndex) => {
                       const isLearned = learnedSkills.includes(skill.id);
                       const canLearn = !isLearned && skill.unlockLevel <= playerLevel;
                       const currentLevel = skillLevels[skill.id] || 1;
                       const canUpgrade = isLearned && currentLevel < (skill.maxLevel || 5) && skillPoints > 0;
+                      
                       const isEvolutionSkill = !['warrior', 'mage', 'rogue'].includes(skill.tree);
                       const skillTreeInfo = SKILL_TREES[skill.tree];
+                      const BadgeIcon = skillTreeInfo?.icon;
+                      const SkillIcon = skill.icon;
                       
                       return (
                         <motion.button
@@ -236,44 +215,29 @@ export default function SkillTree({
                           } ${selectedSkill?.id === skill.id ? 'ring-2 ring-white/30' : ''}`}
                         >
                           <div className="flex items-start gap-2">
-                            <span className="text-2xl">{skill.icon}</span>
+                            <span className="text-2xl text-white"><SkillIcon /></span>
                             <div className="flex-1 min-w-0">
-                              <div className="text-sm font-medium text-white truncate">
-                                {skill.name}
-                              </div>
+                              <div className="text-sm font-medium text-white truncate">{skill.name}</div>
                               {isLearned && (
                                 <div className="flex items-center gap-1 mt-1">
                                   {Array.from({ length: skill.maxLevel || 5 }).map((_, i) => (
-                                    <div 
-                                      key={i}
-                                      className={`w-2 h-2 rounded-full ${
-                                        i < currentLevel ? 'bg-emerald-400' : 'bg-slate-600'
-                                      }`}
-                                    />
+                                    <div key={i} className={`w-2 h-2 rounded-full ${i < currentLevel ? 'bg-emerald-400' : 'bg-slate-600'}`} />
                                   ))}
-                                </div>
-                              )}
-                              {!isLearned && (
-                                <div className="text-[10px] text-slate-500 mt-1">
-                                  {skill.type === 'melee' && 'Cuerpo a cuerpo'}
-                                  {skill.type === 'ranged' && 'A distancia'}
-                                  {skill.type === 'self' && 'Personal'}
-                                  {skill.type === 'aoe' && 'En área'}
-                                  {skill.type === 'ultimate' && 'Definitiva'}
                                 </div>
                               )}
                             </div>
                           </div>
                           
-                          {/* Badges */}
-                          {isEvolutionSkill && (
+                          {/* CORRECCIÓN: Renderizar BadgeIcon como componente */}
+                          {isEvolutionSkill && BadgeIcon && (
                             <div 
                               className="absolute flex items-center justify-center w-5 h-5 rounded-full -top-1 -left-1"
                               style={{ backgroundColor: skillTreeInfo?.color || '#666' }}
                             >
-                              <span className="text-[10px]">{skillTreeInfo?.icon}</span>
+                              <span className="text-[10px] text-white flex"><BadgeIcon /></span>
                             </div>
                           )}
+                          
                           {canUpgrade && (
                             <div className="absolute flex items-center justify-center w-5 h-5 rounded-full -top-1 -right-1 bg-amber-500 animate-pulse">
                               <Zap className="w-3 h-3 text-black" />
@@ -283,18 +247,13 @@ export default function SkillTree({
                       );
                     })}
                   </div>
-                  
-                  {/* Connector line */}
-                  {tierIndex < sortedLevels.length - 1 && (
-                    <div className="absolute left-6 top-full w-0.5 h-4 bg-gradient-to-b from-slate-600 to-transparent" />
-                  )}
                 </motion.div>
               );
             })}
           </div>
         </div>
         
-        {/* Selected Skill Details (ACTUALIZADO) */}
+        {/* Selected Skill Details */}
         <AnimatePresence>
           {selectedSkill && (
             <motion.div
@@ -306,27 +265,17 @@ export default function SkillTree({
               <div className="p-4 bg-slate-800/70">
                 <div className="flex items-start justify-between mb-3">
                   <div className="flex items-center gap-3">
-                    <div 
-                      className="flex items-center justify-center text-3xl w-14 h-14 rounded-xl"
-                      style={{ backgroundColor: SKILL_TREES[selectedSkill.tree]?.color + '25' }}
-                    >
-                      {selectedSkill.icon}
+                    <div className="flex items-center justify-center text-3xl text-white w-14 h-14 rounded-xl"
+                      style={{ backgroundColor: SKILL_TREES[selectedSkill.tree]?.color + '25' }}>
+                      {React.createElement(selectedSkill.icon)}
                     </div>
                     <div>
                       <h3 className="text-lg font-bold text-white">{selectedSkill.name}</h3>
-                      {/* --- AQUÍ CALCULAMOS LOS VALORES REALES --- */}
                       {(() => {
                         const currentLvl = skillLevels[selectedSkill.id] || 1;
                         const { cooldown, manaCost } = getSkillEffectiveStats(selectedSkill, currentLvl);
                         return (
                           <div className="flex items-center gap-2 text-xs text-slate-400">
-                            <span className="px-2 py-0.5 rounded bg-slate-700">
-                              {selectedSkill.type === 'melee' && '⚔️ Cuerpo a cuerpo'}
-                              {selectedSkill.type === 'ranged' && '🏹 A distancia'}
-                              {selectedSkill.type === 'self' && '✨ Personal'}
-                              {selectedSkill.type === 'aoe' && '💥 Área'}
-                              {selectedSkill.type === 'ultimate' && '⚡ Definitiva'}
-                            </span>
                             <span className="text-blue-300">⏱️ {cooldown} turnos</span>
                             {manaCost > 0 && <span className="text-cyan-400">💧 {manaCost} MP</span>}
                           </div>
@@ -334,12 +283,7 @@ export default function SkillTree({
                       })()}
                     </div>
                   </div>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => setSelectedSkill(null)}
-                    className="text-slate-400"
-                  >
+                  <Button variant="ghost" size="sm" onClick={() => setSelectedSkill(null)} className="text-slate-400">
                     <X className="w-4 h-4" />
                   </Button>
                 </div>
@@ -349,45 +293,23 @@ export default function SkillTree({
                 </p>
                 
                 <div className="flex gap-3 mt-4">
-                  {/* CASO 1: No tienes la habilidad -> Botón APRENDER */}
                   {!learnedSkills.includes(selectedSkill.id) && (
                     <Button
-                      className={`
-                        ${selectedSkill.unlockLevel <= playerLevel 
-                          ? 'bg-emerald-600 hover:bg-emerald-500' 
-                          : 'bg-slate-700 text-slate-500 cursor-not-allowed'}
-                      `}
+                      className={`${selectedSkill.unlockLevel <= playerLevel ? 'bg-emerald-600 hover:bg-emerald-500' : 'bg-slate-700 text-slate-500 cursor-not-allowed'}`}
                       disabled={selectedSkill.unlockLevel > playerLevel}
-                      onClick={() => {
-                        onLearnSkill(selectedSkill.id);
-                        setSelectedSkill(null);
-                      }}
+                      onClick={() => { onLearnSkill(selectedSkill.id); setSelectedSkill(null); }}
                     >
-                      {selectedSkill.unlockLevel > playerLevel 
-                        ? `Bloqueado (Nivel ${selectedSkill.unlockLevel})` 
-                        : '✅ Aprender'}
+                      {selectedSkill.unlockLevel > playerLevel ? `Bloqueado (Nivel ${selectedSkill.unlockLevel})` : '✅ Aprender'}
                     </Button>
                   )}
-
-                  {/* CASO 2: Ya tienes la habilidad -> Botón MEJORAR (Siempre visible) */}
                   {learnedSkills.includes(selectedSkill.id) && (
                     <Button
-                      className={`
-                        ${skillPoints > 0 && (skillLevels[selectedSkill.id] || 1) < (selectedSkill.maxLevel || 5)
-                          ? 'bg-amber-600 hover:bg-amber-500 text-white shadow-lg shadow-amber-900/20' 
-                          : 'bg-slate-800 text-slate-500 border border-slate-700 cursor-not-allowed'}
-                      `}
+                      className={`${skillPoints > 0 && (skillLevels[selectedSkill.id] || 1) < (selectedSkill.maxLevel || 5) ? 'bg-amber-600 hover:bg-amber-500 text-white' : 'bg-slate-800 text-slate-500 cursor-not-allowed'}`}
                       disabled={skillPoints <= 0 || (skillLevels[selectedSkill.id] || 1) >= (selectedSkill.maxLevel || 5)}
                       onClick={() => onUpgradeSkill(selectedSkill.id)}
                     >
-                      <Zap className={`w-4 h-4 mr-2 ${skillPoints > 0 ? 'text-yellow-300' : 'text-slate-600'}`} />
-                      
-                      {/* Texto que te explica la situación */}
-                      {(skillLevels[selectedSkill.id] || 1) >= (selectedSkill.maxLevel || 5) 
-                        ? 'Nivel Máximo Alcanzado' 
-                        : skillPoints <= 0 
-                          ? 'Necesitas Puntos de Habilidad' 
-                          : `Mejorar al Nivel ${(skillLevels[selectedSkill.id] || 1) + 1}`}
+                      <GiUpgrade className="w-4 h-4 mr-2" />
+                      Mejorar
                     </Button>
                   )}
                 </div>
@@ -395,11 +317,6 @@ export default function SkillTree({
             </motion.div>
           )}
         </AnimatePresence>
-        
-        {/* Footer */}
-        <div className="p-3 text-xs text-center border-t border-slate-800 text-slate-500 bg-slate-950/50">
-          Ganas 1 punto de habilidad al subir de nivel • Pulsa [T] para cerrar
-        </div>
       </motion.div>
     </motion.div>
   );

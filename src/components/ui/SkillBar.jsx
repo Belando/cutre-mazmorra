@@ -1,15 +1,14 @@
 import React from 'react';
-import { canUseSkill, getUnlockedSkills } from '../../engine/systems/SkillSystem'; // <-- CORREGIDO: ../systems/
+import { canUseSkill, getUnlockedSkills } from '@/engine/systems/SkillSystem';
 import { SKILLS } from '@/data/skills';
 import { cn } from '@/engine/core/utils';
 import { useGame } from '@/context/GameContext';
 
-export default function SkillBar({ disabled }) { // Ya no necesitamos pasarle skills, cooldowns, etc.
+export default function SkillBar({ disabled }) {
   const { gameState, uiState, actions } = useGame();
   const { player } = gameState;
   const { selectedSkill } = uiState;
   
-  // Si no hay jugador (pantalla de carga), no renderizamos
   if (!player || !player.skills) return null;
 
   const learnedSkillIds = player.skills.learned || [];
@@ -25,6 +24,7 @@ export default function SkillBar({ disabled }) { // Ya no necesitamos pasarle sk
           const isOnCooldown = !canUseSkill(skill.id, cooldowns);
           const cooldownLeft = cooldowns[skill.id] || 0;
           const isSelected = selectedSkill === skill.id;
+          const SkillIcon = skill.icon;
           
           return (
             <button
@@ -32,7 +32,7 @@ export default function SkillBar({ disabled }) { // Ya no necesitamos pasarle sk
               onClick={() => actions.setSelectedSkill(isSelected ? null : skill.id)}
               disabled={disabled || isOnCooldown}
               className={cn(
-                "relative w-10 h-10 rounded-lg border-2 flex items-center justify-center text-xl transition-all mx-auto",
+                "relative w-10 h-10 rounded-lg border-2 flex items-center justify-center transition-all mx-auto",
                 isSelected 
                   ? "border-yellow-400 bg-yellow-400/20 shadow-lg shadow-yellow-400/30" 
                   : "border-slate-600 bg-slate-800/50 hover:border-slate-500",
@@ -41,7 +41,8 @@ export default function SkillBar({ disabled }) { // Ya no necesitamos pasarle sk
               )}
               title={`${skill.name}: ${skill.description}`}
             >
-              <span>{skill.icon}</span>
+              {/* Renderizamos el icono como componente */}
+              <SkillIcon className="text-xl text-white" />
               
               {isOnCooldown && (
                 <div className="absolute inset-0 flex items-center justify-center rounded-lg bg-black/60">

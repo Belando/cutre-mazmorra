@@ -23,3 +23,38 @@
   pointer-events: none;
   z-index: 10;
 }
+
+/* --- BARRA DE DESPLAZAMIENTO PERSONALIZADA --- */
+/* Para navegadores basados en WebKit (Chrome, Edge, Safari) */
+.custom-scrollbar::-webkit-scrollbar {
+  width: 10px; /* Ancho de la barra vertical */
+  height: 10px; /* Alto de la barra horizontal */
+}
+
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: #020617; /* Fondo muy oscuro (slate-950) */
+  border-left: 1px solid #1e293b; /* Borde sutil */
+  border-radius: 4px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background: #334155; /* Color de la barra (slate-700) */
+  border: 2px solid #020617; /* Borde interno para efecto "padding" */
+  border-radius: 6px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: #475569; /* Color al pasar el mouse (slate-600) */
+}
+
+/* Opcional: Un toque dorado si es una zona "importante" */
+.custom-scrollbar-gold::-webkit-scrollbar-thumb {
+  background: #b45309; 
+  border-color: #451a03;
+}
+
+/* Para Firefox (Soporte limitado pero funcional) */
+.custom-scrollbar {
+  scrollbar-width: thin;
+  scrollbar-color: #334155 #020617;
+}

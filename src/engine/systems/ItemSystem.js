@@ -164,7 +164,7 @@ export function generateLevelItems(dungeonLevel, rooms, map, excludeRoomIndices 
   return items;
 }
 
-export function addToInventory(inventory, item, maxSlots = 20) {
+export function addToInventory(inventory, item, maxSlots = 64) {
   if (!item) return { success: false, reason: 'Item inválido' };
   if (item.stackable) {
     const existingIndex = inventory.findIndex(i => i.templateKey === item.templateKey && i.rarity === item.rarity);
@@ -250,7 +250,7 @@ export function equipItem(inventory, index, equipment, player) {
   };
 }
 
-export function unequipItem(equipment, slot, inventory, player, maxSlots = 20) {
+export function unequipItem(equipment, slot, inventory, player, maxSlots = 64) {
   const item = equipment[slot];
   if (!item) return { success: false, message: 'Nada que desequipar' };
   if (inventory.length >= maxSlots) return { success: false, message: 'Inventario lleno' };

@@ -1,5 +1,6 @@
 import React from 'react';
 import { cn } from "@/engine/core/utils";
+import { getItemIcon } from '@/data/icons'; // Importamos el helper de iconos
 
 const QUICK_SLOT_KEYS = ['Q', 'E', 'R'];
 
@@ -19,6 +20,9 @@ export default function QuickSlots({
           const item = slot ? inventory.find(i => i.id === slot.itemId) : null;
           const isEmpty = !item;
           
+          // Obtener el icono correcto usando el sistema unificado
+          const ItemIcon = item ? getItemIcon(item) : null;
+          
           return (
             <button
               key={key}
@@ -32,18 +36,18 @@ export default function QuickSlots({
               )}
               title={item ? `${item.name} (${key})` : `Slot vacío (${key}) - Asigna desde inventario`}
             >
-              {item && item.symbol ? (
+              {item && ItemIcon ? (
                 <>
-                  <span className="text-lg">{item.symbol}</span>
+                  <ItemIcon className="text-2xl text-white" />
                   {item.quantity > 1 && (
-                    <span className="absolute -bottom-1 -right-1 text-[9px] bg-slate-700 rounded px-1 text-white">
+                    <span className="absolute -bottom-1 -right-1 text-[9px] bg-slate-700 rounded px-1 text-white border border-slate-600">
                       {item.quantity}
                     </span>
                   )}
                 </>
               ) : null}
               
-              <span className="absolute -top-1 -left-1 w-4 h-4 bg-slate-600 rounded text-[10px] text-white flex items-center justify-center font-bold">
+              <span className="absolute -top-1 -left-1 w-4 h-4 bg-slate-600 rounded text-[10px] text-white flex items-center justify-center font-bold shadow">
                 {key}
               </span>
             </button>
@@ -59,14 +63,11 @@ export default function QuickSlots({
 // Assign item to quick slot
 export function assignToQuickSlot(quickSlots, slotIndex, itemId) {
   const newSlots = [...(quickSlots || [null, null, null])];
-  
-  // Remove item from other slots if already assigned
   newSlots.forEach((slot, i) => {
     if (slot?.itemId === itemId) {
       newSlots[i] = null;
     }
   });
-  
   newSlots[slotIndex] = { itemId };
   return newSlots;
 }
@@ -82,7 +83,6 @@ export function useQuickSlot(quickSlots, slotIndex, inventory, player) {
   }
   
   const item = inventory[itemIndex];
-  // Allow potions, scrolls, and food
   if (!['potion', 'scroll', 'food'].includes(item.category)) {
     return { success: false, message: 'Solo consumibles en slots rápidos' };
   }

@@ -1,6 +1,16 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { TILE } from '@/engine/systems/DungeonGenerator'; // <-- CORREGIDO: ../systems/
-import { Map, X, ChevronLeft, ChevronRight } from 'lucide-react';
+import { TILE } from '@/data/constants';
+// Iconos VERIFICADOS para el mapa
+import { 
+  GiTreasureMap, 
+  GiMeeple,       // Jugador
+  GiChest,        // Cofre
+  GiStairs,       // Escaleras
+  GiDoor,         // Puerta
+  GiConversation, // NPC
+  GiDeathSkull    // Peligro/Jefes (Corregido, GiSkull no existe)
+} from 'react-icons/gi';
+import { X, ChevronLeft, ChevronRight } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Button } from '../ui/button';
 
@@ -18,7 +28,7 @@ export default function MiniMap({ gameState, floorHistory = [] }) {
     
     const ctx = canvas.getContext('2d');
     const { map, player, explored, stairs, stairsUp } = gameState;
-    const scale = 3; // Tamaño de pixel del minimapa
+    const scale = 3; 
     
     canvas.width = map[0].length * scale;
     canvas.height = map.length * scale;
@@ -29,18 +39,17 @@ export default function MiniMap({ gameState, floorHistory = [] }) {
     
     for (let y = 0; y < map.length; y++) {
       for (let x = 0; x < map[0].length; x++) {
-        // Solo dibujamos lo explorado
         if (explored[y]?.[x]) {
           const tile = map[y][x];
           
           if (tile === TILE.WALL) {
               ctx.fillStyle = '#1a1a2e';
           } else if (tile === TILE.DOOR) {
-              ctx.fillStyle = '#d97706'; // Ámbar oscuro para puertas cerradas
+              ctx.fillStyle = '#d97706'; 
           } else if (tile === TILE.DOOR_OPEN) {
-              ctx.fillStyle = '#4b5563'; // Gris para puertas abiertas
+              ctx.fillStyle = '#4b5563'; 
           } else {
-              ctx.fillStyle = '#2a2a4e'; // Suelo normal
+              ctx.fillStyle = '#2a2a4e'; 
           }
           
           ctx.fillRect(x * scale, y * scale, scale, scale);
@@ -48,19 +57,16 @@ export default function MiniMap({ gameState, floorHistory = [] }) {
       }
     }
     
-    // Escaleras Abajo
     if (stairs && explored[stairs.y]?.[stairs.x]) {
-      ctx.fillStyle = '#ef4444'; // Rojo
+      ctx.fillStyle = '#ef4444';
       ctx.fillRect(stairs.x * scale, stairs.y * scale, scale, scale);
     }
 
-    // Escaleras Arriba
     if (stairsUp && explored[stairsUp.y]?.[stairsUp.x]) {
-      ctx.fillStyle = '#22c55e'; // Verde
+      ctx.fillStyle = '#22c55e';
       ctx.fillRect(stairsUp.x * scale, stairsUp.y * scale, scale, scale);
     }
     
-    // NPCs (Amarillo)
     if (gameState.npcs) {
       gameState.npcs.forEach(npc => {
         if (explored[npc.y]?.[npc.x]) {
@@ -70,20 +76,17 @@ export default function MiniMap({ gameState, floorHistory = [] }) {
       });
     }
     
-    // Jugador (Azul brillante, siempre visible)
     ctx.fillStyle = '#3b82f6';
     ctx.fillRect(player.x * scale - 1, player.y * scale - 1, scale + 2, scale + 2);
     
   }, [gameState]);
   
-  // Draw expanded map
   useEffect(() => {
     if (!expanded || !expandedCanvasRef.current) return;
     
     const canvas = expandedCanvasRef.current;
     const ctx = canvas.getContext('2d');
     
-    // Use current floor or viewed floor from history
     const floorData = viewingFloor !== null ? floorHistory[viewingFloor - 1] : gameState;
     if (!floorData) return;
     
@@ -103,30 +106,26 @@ export default function MiniMap({ gameState, floorHistory = [] }) {
           ctx.fillStyle = tile === TILE.WALL ? '#1e293b' : '#334155';
           ctx.fillRect(x * scale, y * scale, scale, scale);
           
-          // Add subtle grid
           ctx.strokeStyle = 'rgba(255,255,255,0.05)';
           ctx.strokeRect(x * scale, y * scale, scale, scale);
         }
       }
     }
     
-    // Stairs
     if (explored[stairs.y]?.[stairs.x]) {
       ctx.fillStyle = '#ef4444';
       ctx.fillRect(stairs.x * scale, stairs.y * scale, scale, scale);
     }
     
-    // NPCs (only on current floor view)
     if ((viewingFloor === null || viewingFloor === currentFloor) && floorData.npcs) {
       floorData.npcs.forEach(npc => {
         if (explored[npc.y]?.[npc.x]) {
-          ctx.fillStyle = '#fbbf24'; // Gold for NPCs
+          ctx.fillStyle = '#fbbf24'; 
           ctx.fillRect(npc.x * scale, npc.y * scale, scale, scale);
         }
       });
     }
     
-    // Player (only on current floor)
     if (viewingFloor === null || viewingFloor === currentFloor) {
       ctx.fillStyle = '#3b82f6';
       ctx.shadowColor = '#3b82f6';
@@ -147,44 +146,47 @@ export default function MiniMap({ gameState, floorHistory = [] }) {
       >
         <div className="flex items-center justify-between mb-1">
           <div className="flex items-center gap-1">
-            <Map className="w-3 h-3 text-slate-500" />
-            <span className="text-[10px] text-slate-500">Piso {currentFloor}</span>
+            <GiTreasureMap className="w-4 h-4 text-amber-500" />
+            <span className="text-[10px] text-slate-400 font-bold">Piso {currentFloor}</span>
           </div>
-          <span className="text-[8px] text-slate-600">Click: expandir</span>
+          <span className="text-[8px] text-slate-600">Click: Mapa</span>
         </div>
-        <canvas ref={canvasRef} className="w-full border rounded border-slate-700/50" style={{ imageRendering: 'pixelated' }} />
+        <canvas ref={canvasRef} className="w-full border rounded border-slate-700/50 bg-black" style={{ imageRendering: 'pixelated' }} />
       </div>
       
-      {/* Expanded Map Modal */}
       <AnimatePresence>
         {expanded && (
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm"
+            className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/90 backdrop-blur-sm"
             onClick={() => setExpanded(false)}
           >
             <motion.div
               initial={{ scale: 0.9, y: 20 }}
               animate={{ scale: 1, y: 0 }}
               exit={{ scale: 0.9, y: 20 }}
-              className="bg-slate-900 rounded-2xl border border-slate-700 p-4 max-w-2xl w-full max-h-[80vh] overflow-hidden"
+              className="bg-slate-900 rounded-2xl border border-slate-700 p-4 max-w-2xl w-full max-h-[85vh] flex flex-col"
               onClick={e => e.stopPropagation()}
             >
-              <div className="flex items-center justify-between mb-3">
+              {/* Cabecera Mapa Grande */}
+              <div className="flex items-center justify-between mb-3 border-b border-slate-800 pb-3">
                 <div className="flex items-center gap-3">
-                  <Map className="w-5 h-5 text-slate-400" />
-                  <h2 className="text-lg font-bold text-white">
-                    Mapa - Piso {viewingFloor || currentFloor}
-                  </h2>
+                  <div className="p-2 bg-amber-900/20 rounded-lg">
+                    <GiTreasureMap className="w-6 h-6 text-amber-500" />
+                  </div>
+                  <div>
+                    <h2 className="text-lg font-bold text-white leading-none">Mapa de la Mazmorra</h2>
+                    <p className="text-xs text-slate-500 mt-1">Piso {viewingFloor || currentFloor}</p>
+                  </div>
                 </div>
                 <Button variant="ghost" size="icon" onClick={() => setExpanded(false)} className="text-slate-400 hover:text-white">
                   <X className="w-5 h-5" />
                 </Button>
               </div>
               
-              {/* Floor navigation */}
+              {/* Controles de Piso */}
               {currentFloor > 1 && (
                 <div className="flex items-center justify-center gap-2 mb-3">
                   <Button
@@ -192,62 +194,51 @@ export default function MiniMap({ gameState, floorHistory = [] }) {
                     size="sm"
                     disabled={(viewingFloor || currentFloor) <= 1}
                     onClick={() => setViewingFloor(prev => Math.max(1, (prev || currentFloor) - 1))}
-                    className="text-xs h-7"
+                    className="h-8 w-8 p-0"
                   >
                     <ChevronLeft className="w-4 h-4" />
                   </Button>
-                  <div className="flex gap-1">
-                    {Array.from({ length: currentFloor }, (_, i) => i + 1).map(floor => (
-                      <button
-                        key={floor}
-                        onClick={() => setViewingFloor(floor === currentFloor ? null : floor)}
-                        className={`w-6 h-6 rounded text-xs font-medium transition-colors ${
-                          (viewingFloor || currentFloor) === floor
-                            ? 'bg-blue-600 text-white'
-                            : 'bg-slate-800 text-slate-400 hover:bg-slate-700'
-                        }`}
-                      >
-                        {floor}
-                      </button>
-                    ))}
-                  </div>
+                  <span className="text-sm font-mono text-slate-400 px-2">Piso {viewingFloor || currentFloor}</span>
                   <Button
                     variant="outline"
                     size="sm"
                     disabled={(viewingFloor || currentFloor) >= currentFloor}
                     onClick={() => setViewingFloor(prev => Math.min(currentFloor, (prev || currentFloor) + 1))}
-                    className="text-xs h-7"
+                    className="h-8 w-8 p-0"
                   >
                     <ChevronRight className="w-4 h-4" />
                   </Button>
                 </div>
               )}
               
-              <div className="flex justify-center overflow-auto max-h-[60vh]">
+              {/* Canvas Grande */}
+              <div className="flex-1 flex justify-center overflow-auto bg-black/50 rounded-lg border border-slate-800 p-4 min-h-0">
                 <canvas 
                   ref={expandedCanvasRef} 
-                  className="border rounded border-slate-700" 
-                  style={{ imageRendering: 'pixelated', maxWidth: '100%', height: 'auto' }} 
+                  className="shadow-2xl"
+                  style={{ imageRendering: 'pixelated', maxWidth: '100%', objectFit: 'contain' }} 
                 />
               </div>
               
-              {/* Legend */}
-              <div className="flex items-center justify-center gap-4 mt-3 text-[10px] text-slate-400">
-                <div className="flex items-center gap-1">
-                  <div className="w-3 h-3 bg-blue-500 rounded-full" />
-                  <span>Jugador</span>
+              {/* Leyenda con Iconos RPG */}
+              <div className="grid grid-cols-4 gap-2 mt-4 pt-3 border-t border-slate-800">
+                <div className="flex items-center gap-2 text-xs text-slate-400 bg-slate-800/50 p-2 rounded">
+                  <GiMeeple className="w-4 h-4 text-blue-500" /> <span>Tú</span>
                 </div>
-                <div className="flex items-center gap-1">
-                  <div className="w-3 h-3 bg-red-500" />
-                  <span>Escaleras</span>
+                <div className="flex items-center gap-2 text-xs text-slate-400 bg-slate-800/50 p-2 rounded">
+                  <GiStairs className="w-4 h-4 text-red-500" /> <span>Salida</span>
                 </div>
-                <div className="flex items-center gap-1">
-                  <div className="w-3 h-3 bg-yellow-500" />
-                  <span>NPCs</span>
+                <div className="flex items-center gap-2 text-xs text-slate-400 bg-slate-800/50 p-2 rounded">
+                  <GiConversation className="w-4 h-4 text-yellow-500" /> <span>NPC</span>
                 </div>
-                <div className="flex items-center gap-1">
-                  <div className="w-3 h-3 bg-slate-600" />
-                  <span>Explorado</span>
+                <div className="flex items-center gap-2 text-xs text-slate-400 bg-slate-800/50 p-2 rounded">
+                  <GiChest className="w-4 h-4 text-purple-400" /> <span>Cofre</span>
+                </div>
+                <div className="flex items-center gap-2 text-xs text-slate-400 bg-slate-800/50 p-2 rounded">
+                  <GiDoor className="w-4 h-4 text-amber-700" /> <span>Puerta</span>
+                </div>
+                <div className="flex items-center gap-2 text-xs text-slate-400 bg-slate-800/50 p-2 rounded">
+                  <GiDeathSkull className="w-4 h-4 text-gray-500" /> <span>Peligro</span>
                 </div>
               </div>
             </motion.div>

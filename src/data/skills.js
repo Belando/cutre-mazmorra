@@ -1,3 +1,27 @@
+import { 
+  // Base Warrior
+  GiHammerDrop, GiShieldBash, GiWhirlwind, GiShouting,
+  // Knight
+  GiStoneTower, GiHolySymbol,
+  // Berserker
+  GiEnrage, GiGuillotine,
+  // Base Mage
+  GiHealing, GiFireball, GiIceSpear, GiMagicShield,
+  // Arcane
+  GiFallingStar, GiSpellBook,
+  // Druid
+  GiRegeneration, GiVineWhip,
+  // Base Rogue
+  GiBackstab, GiSmokeBomb, GiThrownKnife, GiSprint,
+  // Assassin
+  GiDeathSkull, GiShadowFollower,
+  // Archer
+  GiSplitArrows, GiArrowCluster,
+  // Class Icons
+  GiBroadsword, GiMagicTrident, GiDaggers,
+  GiVisoredHelm, GiWarAxe, GiCrystalWand, GiOakLeaf, GiHood, GiBowman
+} from 'react-icons/gi';
+
 export const BASE_CLASSES = ['warrior', 'mage', 'rogue'];
 
 export const CLASS_EVOLUTIONS = {
@@ -8,16 +32,16 @@ export const CLASS_EVOLUTIONS = {
 
 export const SKILL_TREES = {
   // Base classes
-  warrior: { name: 'Guerrero', color: '#ef4444', icon: '⚔️', description: 'Maestro del combate cuerpo a cuerpo' },
-  mage: { name: 'Mago', color: '#3b82f6', icon: '✨', description: 'Dominador de las artes arcanas' },
-  rogue: { name: 'Pícaro', color: '#22c55e', icon: '🗡️', description: 'Asesino sigiloso y letal' },
+  warrior: { name: 'Guerrero', color: '#ef4444', icon: GiBroadsword, description: 'Maestro del combate cuerpo a cuerpo' },
+  mage: { name: 'Mago', color: '#3b82f6', icon: GiMagicTrident, description: 'Dominador de las artes arcanas' },
+  rogue: { name: 'Pícaro', color: '#22c55e', icon: GiDaggers, description: 'Asesino sigiloso y letal' },
   // Evolved classes
-  knight: { name: 'Caballero', color: '#64748b', icon: '🛡️', description: 'Defensor imparable con armadura pesada', evolvesFrom: 'warrior' },
-  berserker: { name: 'Berserker', color: '#dc2626', icon: '🪓', description: 'Furia desatada, daño brutal', evolvesFrom: 'warrior' },
-  arcane: { name: 'Arcano', color: '#8b5cf6', icon: '🔮', description: 'Maestro de la magia destructiva', evolvesFrom: 'mage' },
-  druid: { name: 'Druida', color: '#22c55e', icon: '🌿', description: 'Curador y protector de la naturaleza', evolvesFrom: 'mage' },
-  assassin: { name: 'Asesino', color: '#1e1e1e', icon: '☠️', description: 'Muerte silenciosa desde las sombras', evolvesFrom: 'rogue' },
-  archer: { name: 'Arquero', color: '#f59e0b', icon: '🏹', description: 'Maestro del combate a distancia', evolvesFrom: 'rogue' },
+  knight: { name: 'Caballero', color: '#64748b', icon: GiVisoredHelm, description: 'Defensor imparable con armadura pesada', evolvesFrom: 'warrior' },
+  berserker: { name: 'Berserker', color: '#dc2626', icon: GiWarAxe, description: 'Furia desatada, daño brutal', evolvesFrom: 'warrior' },
+  arcane: { name: 'Arcano', color: '#8b5cf6', icon: GiCrystalWand, description: 'Maestro de la magia destructiva', evolvesFrom: 'mage' },
+  druid: { name: 'Druida', color: '#22c55e', icon: GiOakLeaf, description: 'Curador y protector de la naturaleza', evolvesFrom: 'mage' },
+  assassin: { name: 'Asesino', color: '#1e1e1e', icon: GiHood, description: 'Muerte silenciosa desde las sombras', evolvesFrom: 'rogue' },
+  archer: { name: 'Arquero', color: '#f59e0b', icon: GiBowman, description: 'Maestro del combate a distancia', evolvesFrom: 'rogue' },
 };
 
 // --- CONFIGURACIÓN DE COLORES DE DAÑO ---
@@ -31,14 +55,14 @@ export const SKILL_COLORS = {
 };
 
 export const SKILLS = {
-  // ============ WARRIOR BASE SKILLS (Coste bajo: 3-8 MP) ============
+  // ============ WARRIOR BASE SKILLS ============
   power_strike: {
     id: 'power_strike',
     name: 'Golpe Poderoso',
     description: 'Inflige 150% + (25% x nivel) de daño',
-    icon: '⚔️',
+    icon: GiHammerDrop, // Corregido
     cooldown: 3,
-    manaCost: 3, // NUEVO: Coste bajo
+    manaCost: 3,
     type: 'melee',
     tree: 'warrior',
     unlockLevel: 1,
@@ -53,9 +77,9 @@ export const SKILLS = {
     id: 'shield_bash',
     name: 'Golpe de Escudo',
     description: 'Aturde 2 turnos e inflige 75% daño',
-    icon: '🛡️',
+    icon: GiShieldBash,
     cooldown: 5,
-    manaCost: 4, // NUEVO: Coste bajo
+    manaCost: 4,
     type: 'melee',
     tree: 'warrior',
     unlockLevel: 1,
@@ -69,9 +93,9 @@ export const SKILLS = {
     id: 'whirlwind',
     name: 'Torbellino',
     description: 'Ataca a todos los enemigos adyacentes',
-    icon: '🌀',
+    icon: GiWhirlwind,
     cooldown: 6,
-    manaCost: 8, // Mantenido (es AoE, un poco más caro)
+    manaCost: 8,
     type: 'aoe',
     tree: 'warrior',
     unlockLevel: 3,
@@ -85,9 +109,9 @@ export const SKILLS = {
     id: 'war_cry',
     name: 'Grito de Guerra',
     description: '+50% ataque y defensa por 5 turnos',
-    icon: '📯',
+    icon: GiShouting,
     cooldown: 10,
-    manaCost: 5, // NUEVO
+    manaCost: 5,
     type: 'self',
     tree: 'warrior',
     unlockLevel: 5,
@@ -101,14 +125,14 @@ export const SKILLS = {
     }
   },
 
-  // ============ KNIGHT SKILLS (Coste bajo-medio: 5-6 MP) ============
+  // ============ KNIGHT SKILLS ============
   iron_fortress: {
     id: 'iron_fortress',
     name: 'Fortaleza de Hierro',
     description: 'Reduce daño 70% por 4 turnos',
-    icon: '🏰',
+    icon: GiStoneTower, // Corregido
     cooldown: 15,
-    manaCost: 6, // NUEVO
+    manaCost: 6,
     type: 'self',
     tree: 'knight',
     unlockLevel: 10,
@@ -124,9 +148,9 @@ export const SKILLS = {
     id: 'holy_strike',
     name: 'Golpe Sagrado',
     description: '200% daño + cura 30% del daño',
-    icon: '✝️',
+    icon: GiHolySymbol,
     cooldown: 6,
-    manaCost: 5, // NUEVO
+    manaCost: 5,
     type: 'melee',
     tree: 'knight',
     unlockLevel: 12,
@@ -138,14 +162,14 @@ export const SKILLS = {
     }
   },
 
-  // ============ BERSERKER SKILLS (Coste bajo-medio: 5-6 MP) ============
+  // ============ BERSERKER SKILLS ============
   blood_rage: {
     id: 'blood_rage',
     name: 'Furia Sangrienta',
     description: '+100% daño, -30% defensa por 6 turnos',
-    icon: '🩸',
+    icon: GiEnrage,
     cooldown: 12,
-    manaCost: 6, // NUEVO
+    manaCost: 6,
     type: 'self',
     tree: 'berserker',
     unlockLevel: 10,
@@ -161,9 +185,9 @@ export const SKILLS = {
     id: 'execute',
     name: 'Ejecución',
     description: '500% daño a enemigos bajo 30% vida',
-    icon: '💀',
+    icon: GiGuillotine,
     cooldown: 8,
-    manaCost: 5, // NUEVO
+    manaCost: 5,
     type: 'melee',
     tree: 'berserker',
     unlockLevel: 12,
@@ -176,14 +200,14 @@ export const SKILLS = {
     }
   },
 
-  // ============ MAGE SKILLS (Coste alto: 6-25 MP) ============
+  // ============ MAGE SKILLS ============
   heal: {
     id: 'heal',
     name: 'Curación',
     description: 'Restaura 30% + (5% x nivel) de vida máxima',
-    icon: '💚',
+    icon: GiHealing,
     cooldown: 7,
-    manaCost: 8, // NUEVO: Coste medio-alto
+    manaCost: 8,
     type: 'self',
     tree: 'mage',
     unlockLevel: 1,
@@ -198,7 +222,7 @@ export const SKILLS = {
     id: 'fireball',
     name: 'Bola de Fuego',
     description: '175% daño mágico a distancia (rango 6)',
-    icon: '🔥',
+    icon: GiFireball,
     cooldown: 4,
     manaCost: 8,
     type: 'ranged',
@@ -215,7 +239,7 @@ export const SKILLS = {
     id: 'ice_shard',
     name: 'Fragmento de Hielo',
     description: '125% daño + ralentiza',
-    icon: '❄️',
+    icon: GiIceSpear,
     cooldown: 4,
     manaCost: 6,
     type: 'ranged',
@@ -232,9 +256,9 @@ export const SKILLS = {
     id: 'arcane_shield',
     name: 'Escudo Arcano',
     description: 'Absorbe 50% del daño',
-    icon: '🔮',
+    icon: GiMagicShield,
     cooldown: 12,
-    manaCost: 10, // NUEVO
+    manaCost: 10,
     type: 'self',
     tree: 'mage',
     unlockLevel: 5,
@@ -247,12 +271,12 @@ export const SKILLS = {
     }
   },
 
-  // ============ ARCANE/DRUID SKILLS (Coste muy alto) ============
+  // ============ ARCANE/DRUID SKILLS ============
   meteor: {
     id: 'meteor',
     name: 'Meteoro',
     description: 'Destrucción masiva en área',
-    icon: '☄️',
+    icon: GiFallingStar, // Corregido
     cooldown: 15,
     manaCost: 25,
     type: 'ultimate',
@@ -268,9 +292,9 @@ export const SKILLS = {
     id: 'arcane_mastery',
     name: 'Maestría Arcana',
     description: 'Reduce enfriamiento de habilidades',
-    icon: '📖',
+    icon: GiSpellBook,
     cooldown: 20,
-    manaCost: 15, // NUEVO
+    manaCost: 15,
     type: 'self',
     tree: 'arcane',
     unlockLevel: 12,
@@ -286,9 +310,9 @@ export const SKILLS = {
     id: 'rejuvenation',
     name: 'Rejuvenecimiento',
     description: 'Cura 10% HP por turno durante 5 turnos',
-    icon: '🌸',
+    icon: GiRegeneration,
     cooldown: 12,
-    manaCost: 12, // NUEVO
+    manaCost: 12,
     type: 'self',
     tree: 'druid',
     unlockLevel: 10,
@@ -305,7 +329,7 @@ export const SKILLS = {
     id: 'natures_wrath',
     name: 'Ira de la Naturaleza',
     description: 'Raíces atrapan y dañan enemigos',
-    icon: '🌿',
+    icon: GiVineWhip,
     cooldown: 8,
     manaCost: 15,
     type: 'aoe',
@@ -318,13 +342,12 @@ export const SKILLS = {
     }
   },
 
-  // ============ ROGUE SKILLS (Coste medio: 4-8 MP) ============
   // ============ ROGUE SKILLS ============
   backstab: {
     id: 'backstab',
     name: 'Puñalada Trasera',
     description: '¡CRÍTICO GARANTIZADO! (200% daño)',
-    icon: '🗡️',
+    icon: GiBackstab,
     cooldown: 4,
     manaCost: 5,
     type: 'melee',
@@ -332,10 +355,8 @@ export const SKILLS = {
     unlockLevel: 1,
     maxLevel: 5,
     effect: (player, target, playerStats, skillLevel = 1) => {
-      // Lógica cambiada: Siempre es crítico
       const multiplier = 2.0 + (skillLevel * 0.25);
       const damage = Math.floor(playerStats.attack * multiplier);
-      // Devolvemos la bandera isCrit: true
       return { 
         damage, 
         isCrit: true, 
@@ -347,7 +368,7 @@ export const SKILLS = {
     id: 'smoke_bomb',
     name: 'Bomba de Humo',
     description: 'Invisibilidad hasta atacar',
-    icon: '💨',
+    icon: GiSmokeBomb,
     cooldown: 10,
     manaCost: 8,
     type: 'self',
@@ -358,8 +379,8 @@ export const SKILLS = {
       return { 
         buff: { 
             invisible: true, 
-            duration: 99, // Duración virtualmente infinita
-            breaksOnAction: true // Nueva propiedad: se rompe al actuar
+            duration: 99, 
+            breaksOnAction: true 
         }, 
         message: '¡Te ocultas en las sombras!' 
       };
@@ -369,7 +390,7 @@ export const SKILLS = {
     id: 'throwing_knife',
     name: 'Cuchillo Arrojadizo',
     description: 'Daño a distancia + sangrado',
-    icon: '🔪',
+    icon: GiThrownKnife,
     cooldown: 3,
     manaCost: 4,
     type: 'ranged',
@@ -386,9 +407,9 @@ export const SKILLS = {
     id: 'quick_step',
     name: 'Paso Rápido',
     description: '+100% evasión por 3 turnos',
-    icon: '💫',
+    icon: GiSprint,
     cooldown: 8,
-    manaCost: 6, // NUEVO
+    manaCost: 6,
     type: 'self',
     tree: 'rogue',
     unlockLevel: 5,
@@ -401,14 +422,14 @@ export const SKILLS = {
     }
   },
 
-  // ============ ASSASSIN/ARCHER SKILLS (Coste medio-alto) ============
+  // ============ ASSASSIN/ARCHER SKILLS ============
   death_mark: {
     id: 'death_mark',
     name: 'Marca de Muerte',
     description: 'Todo daño al objetivo x2',
-    icon: '💀',
+    icon: GiDeathSkull, // Corregido
     cooldown: 15,
-    manaCost: 8, // NUEVO
+    manaCost: 8,
     type: 'melee',
     tree: 'assassin',
     unlockLevel: 10,
@@ -426,9 +447,9 @@ export const SKILLS = {
     id: 'shadow_step',
     name: 'Paso Sombrío',
     description: 'Teletransporte + 200% daño',
-    icon: '👤',
+    icon: GiShadowFollower,
     cooldown: 10,
-    manaCost: 8, // NUEVO
+    manaCost: 8,
     type: 'melee',
     tree: 'assassin',
     unlockLevel: 12,
@@ -442,7 +463,7 @@ export const SKILLS = {
     id: 'multishot',
     name: 'Disparo Múltiple',
     description: 'Dispara a 3 enemigos a la vez',
-    icon: '🏹',
+    icon: GiSplitArrows,
     cooldown: 6,
     manaCost: 10,
     type: 'ranged',
@@ -459,7 +480,7 @@ export const SKILLS = {
     id: 'rain_of_arrows',
     name: 'Lluvia de Flechas',
     description: 'Daño masivo en área',
-    icon: '🎯',
+    icon: GiArrowCluster, // Corregido
     cooldown: 12,
     manaCost: 20,
     type: 'ultimate',

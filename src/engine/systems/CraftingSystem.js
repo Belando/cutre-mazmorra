@@ -1,7 +1,8 @@
-// Crafting and Upgrade System
+import { canAssignToQuickSlot } from "./ItemSystem";
 
+// Crafting and Upgrade System
 export const MATERIAL_TYPES = {
-  iron_ore: { name: 'Mineral de Hierro', symbol: '�ite', color: '#71717a', rarity: 'common' },
+  iron_ore: { name: 'Mineral de Hierro', symbol: '⛏️', color: '#71717a', rarity: 'common' },
   gold_ore: { name: 'Mineral de Oro', symbol: '◎', color: '#fbbf24', rarity: 'uncommon' },
   crystal: { name: 'Cristal Mágico', symbol: '◇', color: '#a855f7', rarity: 'rare' },
   dragon_scale: { name: 'Escama de Dragón', symbol: '◆', color: '#f59e0b', rarity: 'epic' },
@@ -130,29 +131,65 @@ export const UPGRADE_COSTS = {
   5: { gold: 800, materials: { crystal: 3, essence: 2, dragon_scale: 1 } },
 };
 
-// Check if player can craft a recipe
-export function canCraft(recipe, materials) {
-  for (const [mat, count] of Object.entries(recipe.materials)) {
-    if ((materials[mat] || 0) < count) return false;
+// --- Helper para crear items de material ---
+export function getMaterialItem(type, count = 1) {
+  const mat = MATERIAL_TYPES[type];
+  if (!mat) return null;
+  
+  return {
+    id: `${type}_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`,
+    templateKey: type,
+    name: mat.name,
+    category: 'material',
+    quantity: count,
+    rarity: mat.rarity,
+    symbol: mat.symbol,
+    description: `Material de artesanía.`,
+    stackable: true,
+  };
+}
+
+// MODIFICADO: Agregada protección contra inventory null/undefined/object
+export function canCraft(recipe, inventory) {
+  // 1. Protección de seguridad
+  if (!inventory || !Array.isArray(inventory)) {
+    return false; // Si no hay inventario válido, no se puede craftear
+  }
+
+  for (const [matKey, count] of Object.entries(recipe.materials)) {
+    // Buscamos items con templateKey igual al material
+    const item = inventory.find(i => i.templateKey === matKey);
+    const available = item ? item.quantity : 0;
+    if (available < count) return false;
   }
   return true;
 }
 
-// Craft an item
-export function craftItem(recipeKey, materials, inventory) {
+export function craftItem(recipeKey, inventory) {
+  // 1. Protección de seguridad
+  if (!inventory || !Array.isArray(inventory)) {
+    return { success: false, message: 'Error: Inventario no cargado' };
+  }
+
   const recipe = RECIPES[recipeKey];
   if (!recipe) return { success: false, message: 'Receta no encontrada' };
   
-  if (!canCraft(recipe, materials)) {
+  if (!canCraft(recipe, inventory)) {
     return { success: false, message: 'Materiales insuficientes' };
   }
   
-  // Consume materials
-  for (const [mat, count] of Object.entries(recipe.materials)) {
-    materials[mat] -= count;
+  // Consumir materiales
+  for (const [matKey, count] of Object.entries(recipe.materials)) {
+    const itemIndex = inventory.findIndex(i => i.templateKey === matKey);
+    if (itemIndex !== -1) {
+      inventory[itemIndex].quantity -= count;
+      if (inventory[itemIndex].quantity <= 0) {
+        inventory.splice(itemIndex, 1);
+      }
+    }
   }
   
-  // Create item
+  // Crear item resultante
   const item = {
     id: `${recipeKey}_${Date.now()}`,
     templateKey: recipeKey,
@@ -162,35 +199,22 @@ export function craftItem(recipeKey, materials, inventory) {
     rarity: recipe.rarity,
     stackable: recipe.stackable || false,
     quantity: recipe.result.quantity || 1,
-    stats: { ...recipe.result },
+    stats: { ...recipe.result }, // Copia segura de stats
     upgradeLevel: 0,
   };
   
   if (recipe.slot) item.slot = recipe.slot;
   
-  // Add to inventory
-  if (inventory.length >= 20) {
-    return { success: false, message: 'Inventario lleno' };
-  }
-  
-  if (item.stackable) {
-    const existing = inventory.find(i => i.templateKey === recipeKey);
-    if (existing) {
-      existing.quantity += item.quantity;
-    } else {
-      inventory.push(item);
-    }
-  } else {
-    inventory.push(item);
-  }
+  // Añadir al inventario
+  inventory.push(item);
   
   return { success: true, message: `¡Creaste ${recipe.name}!`, item };
 }
 
-// Upgrade an equipped item
-export function upgradeItem(item, materials, gold) {
+// MODIFICADO: Upgrade consume del inventario
+export function upgradeItem(item, inventory, gold) {
   if (!item) return { success: false, message: 'No hay item' };
-  if (item.category === 'potion' || item.category === 'ammo') {
+  if (item.category === 'potion' || item.category === 'ammo' || item.category === 'material') {
     return { success: false, message: 'No se puede mejorar este item' };
   }
   
@@ -207,22 +231,36 @@ export function upgradeItem(item, materials, gold) {
     return { success: false, message: `Necesitas ${cost.gold} oro` };
   }
   
-  // Check materials
-  for (const [mat, count] of Object.entries(cost.materials)) {
-    if ((materials[mat] || 0) < count) {
-      const matName = MATERIAL_TYPES[mat]?.name || mat;
+  // Check materials (en inventario)
+  for (const [matKey, count] of Object.entries(cost.materials)) {
+    const matItem = inventory.find(i => i.templateKey === matKey);
+    const available = matItem ? matItem.quantity : 0;
+    
+    if (available < count) {
+      const matName = MATERIAL_TYPES[matKey]?.name || matKey;
       return { success: false, message: `Necesitas ${count} ${matName}` };
     }
   }
   
   // Consume resources
-  for (const [mat, count] of Object.entries(cost.materials)) {
-    materials[mat] -= count;
+  for (const [matKey, count] of Object.entries(cost.materials)) {
+    const itemIndex = inventory.findIndex(i => i.templateKey === matKey);
+    if (itemIndex !== -1) {
+      inventory[itemIndex].quantity -= count;
+      if (inventory[itemIndex].quantity <= 0) {
+        inventory.splice(itemIndex, 1);
+      }
+    }
   }
   
   // Upgrade item
   item.upgradeLevel = currentLevel + 1;
-  item.name = item.name.replace(/ \+\d+$/, '') + ` +${item.upgradeLevel}`;
+  // Añadir sufijo solo si no lo tiene
+  if (!item.name.includes('+')) {
+      item.name = `${item.name} +${item.upgradeLevel}`;
+  } else {
+      item.name = item.name.replace(/\+\d+$/, `+${item.upgradeLevel}`);
+  }
   
   // Increase stats by 15% per level
   if (item.stats) {
@@ -240,60 +278,36 @@ export function upgradeItem(item, materials, gold) {
   };
 }
 
-// Generate materials from defeated enemies
+// MODIFICADO: Genera items reales
 export function generateMaterialDrop(enemyType, dungeonLevel) {
   const drops = [];
   const dropChance = 0.3 + (dungeonLevel * 0.05);
   
   if (Math.random() > dropChance) return drops;
   
-  // Common materials
-  if (Math.random() < 0.5) {
-    drops.push({ type: 'iron_ore', count: 1 + Math.floor(Math.random() * 2) });
-  }
-  if (Math.random() < 0.3) {
-    drops.push({ type: 'leather', count: 1 });
-  }
+  if (Math.random() < 0.5) drops.push(getMaterialItem('iron_ore', 1 + Math.floor(Math.random() * 2)));
+  if (Math.random() < 0.3) drops.push(getMaterialItem('leather', 1));
   
-  // Uncommon materials (higher floors)
-  if (dungeonLevel >= 2 && Math.random() < 0.25) {
-    drops.push({ type: 'gold_ore', count: 1 });
-  }
-  if (dungeonLevel >= 3 && Math.random() < 0.2) {
-    drops.push({ type: 'cloth', count: 1 });
-  }
+  if (dungeonLevel >= 2 && Math.random() < 0.25) drops.push(getMaterialItem('gold_ore', 1));
+  if (dungeonLevel >= 3 && Math.random() < 0.2) drops.push(getMaterialItem('cloth', 1));
   
-  // Rare materials (higher floors)
-  if (dungeonLevel >= 4 && Math.random() < 0.15) {
-    drops.push({ type: 'crystal', count: 1 });
-  }
-  if (dungeonLevel >= 5 && Math.random() < 0.1) {
-    drops.push({ type: 'essence', count: 1 });
-  }
+  if (dungeonLevel >= 4 && Math.random() < 0.15) drops.push(getMaterialItem('crystal', 1));
+  if (dungeonLevel >= 5 && Math.random() < 0.1) drops.push(getMaterialItem('essence', 1));
   
-  // Epic materials (bosses and high floors)
-  if (dungeonLevel >= 6 && Math.random() < 0.08) {
-    drops.push({ type: 'dragon_scale', count: 1 });
-  }
+  if (dungeonLevel >= 6 && Math.random() < 0.08) drops.push(getMaterialItem('dragon_scale', 1));
   
   return drops;
 }
 
-// Generate boss-specific drops
+// MODIFICADO: Genera items reales
 export function generateBossDrop(bossType, dungeonLevel) {
   const drops = [
-    { type: 'gold_ore', count: 2 + Math.floor(dungeonLevel / 2) },
+    getMaterialItem('gold_ore', 2 + Math.floor(dungeonLevel / 2))
   ];
   
-  if (dungeonLevel >= 3) {
-    drops.push({ type: 'crystal', count: 1 + Math.floor(dungeonLevel / 3) });
-  }
-  if (dungeonLevel >= 5) {
-    drops.push({ type: 'essence', count: 1 });
-  }
-  if (dungeonLevel >= 6) {
-    drops.push({ type: 'dragon_scale', count: 1 + Math.floor((dungeonLevel - 5) / 2) });
-  }
+  if (dungeonLevel >= 3) drops.push(getMaterialItem('crystal', 1 + Math.floor(dungeonLevel / 3)));
+  if (dungeonLevel >= 5) drops.push(getMaterialItem('essence', 1));
+  if (dungeonLevel >= 6) drops.push(getMaterialItem('dragon_scale', 1 + Math.floor((dungeonLevel - 5) / 2)));
   
-  return drops;
+  return drops.filter(d => d !== null);
 }

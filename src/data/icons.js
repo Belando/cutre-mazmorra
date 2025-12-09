@@ -1,31 +1,70 @@
 import { 
-  Sword, 
-  Shield, 
-  Ghost, 
-  Shirt, 
-  Footprints, 
-  Hand, 
-  CircleDot, 
-  Search, 
-  Book 
-} from 'lucide-react';
+  GiBroadsword, GiCheckedShield, GiHood, GiChestArmor, 
+  GiArmoredPants, GiBoots, GiGauntlet, GiRing, 
+  GiEarrings, GiNecklace, GiHealthPotion, GiScrollUnfurled,
+  GiMeat, GiTwoCoins, GiSwapBag, GiCrossbow, GiMagicTrident,
+  GiDaggers, GiGoldNuggets, GiCrystalBars, 
+  GiDrop, GiSewingString,
+  GiMeeple, GiChest, GiStairs, GiDoor, GiConversation, GiDeathSkull
+} from 'react-icons/gi';
 
 export const EQUIPMENT_SLOTS = {
-  weapon: { icon: Sword, name: 'Arma Principal' },
-  offhand: { icon: Shield, name: 'Mano Izq.' },
-  helmet: { icon: Ghost, name: 'Yelmo' }, // Ghost funciona bien como silueta de casco, o podemos usar otro
-  chest: { icon: Shirt, name: 'Armadura' },
-  legs: { icon: '🦵', name: 'Pantalones', isText: true }, // Lucide no tiene pantalones claros, usamos emoji medieval
-  boots: { icon: Footprints, name: 'Botas' },
-  gloves: { icon: Hand, name: 'Guantes' },
-  ring: { icon: CircleDot, name: 'Anillo' },
-  earring: { icon: Search, name: 'Pendiente' }, // Search parece una lupa/monoculo/joya
-  necklace: { icon: CircleDot, name: 'Amuleto' },
-}
+  weapon: { name: 'Arma', icon: GiBroadsword },
+  offhand: { name: 'Mano Izq.', icon: GiCheckedShield },
+  helmet: { name: 'Cabeza', icon: GiHood },
+  chest: { name: 'Pecho', icon: GiChestArmor },
+  legs: { name: 'Piernas', icon: GiArmoredPants },
+  boots: { name: 'Pies', icon: GiBoots },
+  gloves: { name: 'Manos', icon: GiGauntlet },
+  ring: { name: 'Anillo', icon: GiRing },
+  earring: { name: 'Accesorio', icon: GiEarrings },
+  necklace: { name: 'Cuello', icon: GiNecklace },
+};
 
-// Iconos de respaldo (Fallback) más temáticos
-export const SLOT_ICONS = {
-  weapon: '⚔️', offhand: '🛡️', helmet: '🪖', chest: '🥋',
-  legs: '🦵', boots: '🥾', gloves: '🧤', ring: '💍',
-  earring: '✨', necklace: '🧿',
+export const CATEGORY_ICONS = {
+  weapon: GiBroadsword,
+  armor: GiChestArmor,
+  potion: GiHealthPotion,
+  scroll: GiScrollUnfurled,
+  food: GiMeat,
+  currency: GiTwoCoins,
+  ammo: GiCrossbow,
+  accessory: GiRing,
+  material: GiSwapBag, // Icono por defecto para materiales
+  default: GiSwapBag
+};
+
+// Mapa de iconos específicos para materiales
+const MATERIAL_ICONS = {
+  iron_ore: GiSwapBag,
+  gold_ore: GiGoldNuggets,
+  crystal: GiCrystalBars,
+  dragon_scale: GiSwapBag,
+  essence: GiDrop,
+  leather: GiSwapBag,
+  cloth: GiSewingString
+};
+
+export const getItemIcon = (item) => {
+  if (!item) return GiSwapBag;
+  
+  if (item.category === 'material' && MATERIAL_ICONS[item.templateKey]) {
+      return MATERIAL_ICONS[item.templateKey];
+  }
+  
+  if (item.weaponType === 'dagger') return GiDaggers;
+  if (item.weaponType === 'staff') return GiMagicTrident;
+  
+  if (item.slot && EQUIPMENT_SLOTS[item.slot]) return EQUIPMENT_SLOTS[item.slot].icon;
+  return CATEGORY_ICONS[item.category] || CATEGORY_ICONS.default;
+};
+
+// Exportamos iconos para el Minimapa
+export const MAP_ICONS = {
+    player: GiMeeple,
+    chest: GiChest,
+    stairs: GiStairs,
+    door: GiDoor,
+    npc: GiConversation,
+    danger: GiDeathSkull
 };
