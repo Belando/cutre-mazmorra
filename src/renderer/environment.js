@@ -117,14 +117,46 @@ export const ENV_SPRITES = {
   stairs: {
     draw: (ctx, x, y, size) => {
         const s = size;
-        ctx.fillStyle = '#171717'; // Hueco oscuro
-        ctx.fillRect(x + s*0.2, y + s*0.2, s*0.6, s*0.6);
         
-        // Peldaños
-        ctx.fillStyle = '#404040';
-        for(let i=0; i<3; i++) {
-            ctx.fillRect(x + s*0.2, y + s*0.2 + (i*s*0.15), s*0.6, s*0.1);
+        // 1. Marco de piedra (Mucho más grande, borde fino de 5%)
+        ctx.fillStyle = '#292524'; 
+        ctx.fillRect(x + s*0.05, y + s*0.05, s*0.9, s*0.9);
+        
+        // 2. Hueco oscuro (Más amplio)
+        ctx.fillStyle = '#0a0a0a'; 
+        ctx.fillRect(x + s*0.1, y + s*0.1, s*0.8, s*0.8);
+        
+        // 3. Peldaños con profundidad 3D
+        // Aumentamos a 5 peldaños para cubrir el nuevo espacio vertical
+        const steps = 5; 
+        const stepH = (s * 0.8) / steps;
+        
+        for(let i = 0; i < steps; i++) {
+            const sy = y + s*0.1 + (i * stepH);
+            
+            // Parte superior del escalón (iluminada)
+            ctx.fillStyle = '#57534e'; 
+            ctx.fillRect(x + s*0.1, sy, s*0.8, stepH * 0.6);
+            
+            // Frente del escalón (sombra)
+            ctx.fillStyle = '#44403c';
+            ctx.fillRect(x + s*0.1, sy + stepH * 0.6, s*0.8, stepH * 0.4);
+            
+            // Detalle: grieta o textura aleatoria pero consistente
+            if (i % 2 === 0) {
+               ctx.fillStyle = '#403c39';
+               // Ajustamos la posición de la grieta al nuevo ancho
+               ctx.fillRect(x + s*0.2 + (i*s*0.1), sy + stepH*0.2, s*0.05, stepH*0.2);
+            }
         }
+        
+        // 4. Sombra de profundidad (Fade to black)
+        // Ajustada a las nuevas dimensiones internas (0.1 a 0.9)
+        const g = ctx.createLinearGradient(x, y + s*0.1, x, y + s*0.9);
+        g.addColorStop(0, 'rgba(0,0,0,0)');
+        g.addColorStop(1, 'rgba(0,0,0,0.85)');
+        ctx.fillStyle = g;
+        ctx.fillRect(x + s*0.1, y + s*0.1, s*0.8, s*0.8);
     }
   },
   wallTorch: {

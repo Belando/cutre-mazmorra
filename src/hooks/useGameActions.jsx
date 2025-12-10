@@ -156,12 +156,16 @@ export function useGameActions(context) {
                         const success = actions.executeSkillAction(selectedSkill, enemy);
                         if (success) return; 
                     } else {
-                        addMessage("¡Habilidad en enfriamiento!", 'info');
-                        return; 
+                        // MODIFICADO: En lugar de retornar, mostramos un pequeño indicador visual
+                        // y dejamos que el código continúe hacia performAttack
+                        if (effectsManager.current) {
+                            effectsManager.current.addText(player.x, player.y, "CD", '#94a3b8', false, true);
+                        }
                     }
                 }
             }
 
+            // Si llegamos aquí (porque no había skill seleccionada O estaba en cooldown), atacamos normal
             const nextEnemiesState = performAttack(enemy, enemyIdx);
             executeTurn(player, nextEnemiesState);
             return;

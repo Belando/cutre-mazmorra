@@ -40,24 +40,28 @@ export function usePlayer() {
     });
   }, []);
 
-  // ... (updatePlayer, gainExp, regenerate se mantienen igual) ...
   const updatePlayer = useCallback((updates) => {
     setPlayer(prev => ({ ...prev, ...updates }));
   }, []);
 
+  // --- CORRECCIÓN AQUÍ ---
   const gainExp = useCallback((amount) => {
     setPlayer(prev => {
       let { exp, level, maxHp, hp, skills, baseAttack, baseMagicAttack, baseDefense, baseMagicDefense } = prev;
       exp += amount;
       let leveledUp = false;
-      if (exp >= level * 25) {
+      
+      // Usamos while en lugar de if para permitir múltiples subidas de nivel si la EXP es mucha
+      while (exp >= level * 25) {
+        exp -= level * 25; // RESTAMOS la experiencia necesaria en lugar de ponerla a 0
         level++;
-        exp = 0;
+        
+        // Mejoras por subir de nivel
         maxHp += 10;
-        hp = maxHp;
+        hp = maxHp; // Recuperar vida al subir nivel
         skills.skillPoints = (skills.skillPoints || 0) + 1;
         
-        // Subida de stats base al subir de nivel
+        // Subida de stats base
         baseAttack += 1;
         baseMagicAttack += 1;
         baseDefense += 1;
@@ -68,6 +72,7 @@ export function usePlayer() {
       return { ...prev, exp, level, maxHp, hp, skills, baseAttack, baseMagicAttack, baseDefense, baseMagicDefense, leveledUp };
     });
   }, []);
+  // -----------------------
 
   const regenerate = useCallback(() => {
     setPlayer(prev => {

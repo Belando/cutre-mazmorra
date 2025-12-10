@@ -205,43 +205,80 @@ export function drawMap(
 
           // --- DIBUJO DE PUERTAS ---
           if (tile === TILE.DOOR) {
-              // Puerta Cerrada (Madera reforzada)
-              ctx.fillStyle = '#5d4037'; // Marrón madera
-              ctx.fillRect(screenX + 4, screenY + 4, TILE_SIZE - 8, TILE_SIZE - 8);
+              // 1. Marco de Piedra (Fondo oscuro)
+              ctx.fillStyle = '#1c1917'; // Piedra oscura
+              ctx.fillRect(screenX, screenY, TILE_SIZE, TILE_SIZE);
               
-              // Detalles (Tablones)
-              ctx.fillStyle = '#3e2723';
-              ctx.fillRect(screenX + 14, screenY + 4, 4, TILE_SIZE - 8);
+              // 2. Cuerpo de la Puerta (Madera vieja)
+              const pad = 4; // Grosor del marco
+              ctx.fillStyle = '#2c1203ff'; // Madera oscura
+              ctx.fillRect(screenX + pad, screenY + 2, TILE_SIZE - pad*2, TILE_SIZE - 4);
               
-              // Pomo
-              ctx.fillStyle = '#fbbf24'; // Dorado
+              // 3. Textura: Tablones verticales
+              ctx.fillStyle = 'rgba(0,0,0,0.3)';
+              ctx.fillRect(screenX + 12, screenY + 2, 1, TILE_SIZE - 4); // Línea separación 1
+              ctx.fillRect(screenX + 20, screenY + 2, 1, TILE_SIZE - 4); // Línea separación 2
+
+              // 4. Refuerzos de Hierro (Bandas horizontales)
+              ctx.fillStyle = '#3c3c41ff'; // Metal gris
+              ctx.fillRect(screenX + pad, screenY + 6, TILE_SIZE - pad*2, 3);  // Banda superior
+              ctx.fillRect(screenX + pad, screenY + 22, TILE_SIZE - pad*2, 3); // Banda inferior
+              
+              // Remaches (Brillos)
+              ctx.fillStyle = '#a1a1aa';
+              ctx.fillRect(screenX + 6, screenY + 7, 2, 2);
+              ctx.fillRect(screenX + 24, screenY + 7, 2, 2);
+              ctx.fillRect(screenX + 6, screenY + 23, 2, 2);
+              ctx.fillRect(screenX + 24, screenY + 23, 2, 2);
+
+              // 5. Aldaba / Pomo (Anilla)
+              ctx.strokeStyle = '#79797aff'; // Plata vieja
+              ctx.lineWidth = 1;
               ctx.beginPath();
-              ctx.arc(screenX + 24, screenY + TILE_SIZE/2, 3, 0, Math.PI * 2);
-              ctx.fill();
+              ctx.arc(screenX + 24, screenY + 16, 1, 0, Math.PI * 2); // Anilla
+              ctx.stroke();
+              
+              // Sombra de contacto en el suelo
+              ctx.fillStyle = 'rgba(0,0,0,0.5)';
+              ctx.fillRect(screenX + pad, screenY + TILE_SIZE - 2, TILE_SIZE - pad*2, 2);
           } 
           else if (tile === TILE.DOOR_OPEN) {
-              // Puerta Abierta (Marco)
-              ctx.fillStyle = '#3e2723'; // Marco oscuro
-              // Dibujar marco simple
-              ctx.fillRect(screenX + 2, screenY + 2, 4, TILE_SIZE - 4); // Lado
-              ctx.fillRect(screenX + TILE_SIZE - 6, screenY + 2, 4, TILE_SIZE - 4); // Lado
-              ctx.fillRect(screenX + 2, screenY + 2, TILE_SIZE - 4, 4); // Top
+              // 1. Sombra del umbral (Paso oscuro)
+              ctx.fillStyle = 'rgba(0,0,0,0.2)';
+              ctx.fillRect(screenX + 4, screenY, TILE_SIZE - 8, TILE_SIZE);
+
+              // 2. Marco de Piedra (Jambas laterales con bloques)
+              ctx.fillStyle = '#44403c'; // Piedra gris
+              
+              // Jamba Izquierda
+              ctx.fillRect(screenX, screenY, 5, TILE_SIZE);
+              // Cortes de bloques
+              ctx.fillStyle = '#292524';
+              ctx.fillRect(screenX, screenY + 10, 5, 1);
+              ctx.fillRect(screenX, screenY + 22, 5, 1);
+
+              // Jamba Derecha
+              ctx.fillStyle = '#44403c';
+              ctx.fillRect(screenX + TILE_SIZE - 5, screenY, 5, TILE_SIZE);
+              // Cortes de bloques
+              ctx.fillStyle = '#292524';
+              ctx.fillRect(screenX + TILE_SIZE - 5, screenY + 10, 5, 1);
+              ctx.fillRect(screenX + TILE_SIZE - 5, screenY + 22, 5, 1);
+
+              // 3. Dintel superior (Arco simple)
+              ctx.fillStyle = '#292524';
+              ctx.fillRect(screenX, screenY, TILE_SIZE, 3); // Borde superior oscuro
+
+              // 4. Hoja de la puerta abierta (Vista de canto)
+              // Simulamos que la puerta está abierta hacia adentro a la izquierda
+              ctx.fillStyle = '#1b0e01ff'; // Madera muy oscura en sombra
+              ctx.fillRect(screenX + 5, screenY + 2, 3, TILE_SIZE - 4); 
           }
 
           // Escaleras
           if (tile === TILE.STAIRS) {
-            ctx.fillStyle = "#8b2a3a";
-            ctx.textAlign = "center";
-            ctx.textBaseline = "middle";
-            ctx.font = "bold 18px monospace";
-            ctx.fillText("▼", screenX + TILE_SIZE / 2, screenY + TILE_SIZE / 2);
-          } else if (tile === TILE.STAIRS_UP) {
-            ctx.fillStyle = "#4ade80";
-            ctx.textAlign = "center";
-            ctx.textBaseline = "middle";
-            ctx.font = "bold 18px monospace";
-            ctx.fillText("▲", screenX + TILE_SIZE / 2, screenY + TILE_SIZE / 2);
-          }
+            drawEnvironmentSprite(ctx, 'stairs', screenX, screenY, TILE_SIZE);
+          } 
         }
       }
     }
