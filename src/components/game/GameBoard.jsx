@@ -194,7 +194,8 @@ export default function GameBoard({ gameState, viewportWidth = 21, viewportHeigh
                     const sx = (npc.x * SIZE) - (offsetX * SIZE);
                     const sy = (npc.y * SIZE) - (offsetY * SIZE);
                     if (isOnScreen(sx, sy, dynamicCanvas.width, dynamicCanvas.height)) {
-                        drawNPC(ctx, npc.type, sx, sy, SIZE);
+                        // --- CAMBIO AQUÍ: Añadimos frameRef.current al final ---
+                        drawNPC(ctx, npc.type, sx, sy, SIZE, frameRef.current);
                     }
                 }
             });

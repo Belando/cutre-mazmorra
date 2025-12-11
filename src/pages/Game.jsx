@@ -30,7 +30,7 @@ export default function Game() {
 
   // Estado para reiniciar la animación de la barra (cambia cada turno)
   const [turnTrigger, setTurnTrigger] = useState(0);
-  const TURN_DURATION = 1000; 
+  const TURN_DURATION = 1500; 
 
   const modals = { inventoryOpen, setInventoryOpen, craftingOpen, setCraftingOpen, skillTreeOpen, setSkillTreeOpen, activeNPC, setActiveNPC };
 
