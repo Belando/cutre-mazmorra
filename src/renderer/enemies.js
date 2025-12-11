@@ -1,143 +1,135 @@
 import { ENEMY_STATS } from "@/data/enemies";
 
+const ATTACK_DURATION = 300; 
+
 // Normal enemies and bosses drawing logic
 const SPRITES = {
   rat: {
-    draw: (ctx, x, y, size, frame) => {
+    draw: (ctx, x, y, size, frame, isAttacking, attackProgress, attackDir) => {
       const s = size;
-      const bounce = Math.abs(Math.sin(frame * 0.2)) * (s * 0.05);
-      const yAnim = y + s * 0.2 - bounce; // Más pegada al suelo
+      const angle = Math.atan2(attackDir.y, attackDir.x);
+      
+      // Salto dirigido
+      const lungeDist = isAttacking ? Math.sin(attackProgress * Math.PI) * (s * 0.4) : 0;
+      const xAnim = x + (isAttacking ? Math.cos(angle) * lungeDist : 0);
+      const yAnim = y + (isAttacking ? Math.sin(angle) * lungeDist : 0) + (!isAttacking ? Math.abs(Math.sin(frame*0.2))*s*0.05 : 0);
 
-      // Cuerpo
-      ctx.fillStyle = "#78716c";
+      const grad = ctx.createRadialGradient(xAnim + s*0.5, yAnim + s*0.5, 0, xAnim + s*0.5, yAnim + s*0.5, s*0.3);
+      grad.addColorStop(0, "#a8a29e");
+      grad.addColorStop(1, "#57534e");
+      ctx.fillStyle = grad;
+      
       ctx.beginPath();
-      ctx.ellipse(
-        x + s * 0.5,
-        yAnim + s * 0.5,
-        s * 0.25,
-        s * 0.15,
-        0,
-        0,
-        Math.PI * 2
-      );
+      ctx.ellipse(xAnim + s * 0.5, yAnim + s * 0.5, s * 0.25, s * 0.15, 0, 0, Math.PI * 2);
       ctx.fill();
 
-      // Cola (se mueve)
-      ctx.strokeStyle = "#a8a29e";
+      // Cola
+      ctx.strokeStyle = "#d6d3d1";
       ctx.lineWidth = 2;
       ctx.beginPath();
-      ctx.moveTo(x + s * 0.25, yAnim + s * 0.5);
-      const tailWag = Math.sin(frame * 0.3) * s * 0.1;
-      ctx.quadraticCurveTo(
-        x + s * 0.1,
-        yAnim + s * 0.4,
-        x + s * 0.05,
-        yAnim + s * 0.3 + tailWag
-      );
+      ctx.moveTo(xAnim + s * 0.25, yAnim + s * 0.5);
+      const tailWag = Math.sin(frame * 0.3) * 0.1;
+      ctx.quadraticCurveTo(xAnim, yAnim + s * 0.4, xAnim - s * 0.1, yAnim + s * 0.3 + tailWag * s);
       ctx.stroke();
 
-      // Cabeza
+      // Cabeza (Orientada si es posible, o simple círculo)
       ctx.fillStyle = "#a8a29e";
       ctx.beginPath();
-      ctx.arc(x + s * 0.75, yAnim + s * 0.5, s * 0.1, 0, Math.PI * 2);
+      ctx.arc(xAnim + s * 0.75, yAnim + s * 0.5, s * 0.1, 0, Math.PI * 2);
       ctx.fill();
-
-      // Ojo rojo brillante
-      ctx.fillStyle = "#ef4444";
-      ctx.beginPath();
-      ctx.arc(x + s * 0.78, yAnim + s * 0.48, s * 0.03, 0, Math.PI * 2);
-      ctx.fill();
+      
+      ctx.fillStyle = isAttacking ? "#ef4444" : "#000";
+      ctx.beginPath(); ctx.arc(xAnim + s * 0.78, yAnim + s * 0.48, s * 0.03, 0, Math.PI * 2); ctx.fill();
     },
   },
 
   bat: {
-    draw: (ctx, x, y, size, frame) => {
+    draw: (ctx, x, y, size, frame, isAttacking, attackProgress, attackDir) => {
       const s = size;
-      const hover = Math.sin(frame * 0.1) * (s * 0.1); // Flota verticalmente
-      const yAnim = y + hover;
-      const wingFlap = Math.sin(frame * 0.5); // Aleteo rápido
+      const angle = Math.atan2(attackDir.y, attackDir.x);
+      
+      const hover = Math.sin(frame * 0.15) * (s * 0.1);
+      const diveDist = isAttacking ? Math.sin(attackProgress * Math.PI) * (s * 0.5) : 0;
+      
+      const xAnim = x + (isAttacking ? Math.cos(angle) * diveDist : 0);
+      const yAnim = y + hover + (isAttacking ? Math.sin(angle) * diveDist : 0);
+      
+      ctx.fillStyle = "#101011ff";
+      const wingY = Math.sin(frame * (isAttacking ? 1.5 : 0.2)) * (s * 0.15);
 
-      ctx.fillStyle = "#27272a";
-
-      // Alas (se encogen y estiran para simular aleteo)
-      const wingY = wingFlap > 0 ? s * 0.1 : -s * 0.1;
-
-      // Ala Izq
       ctx.beginPath();
-      ctx.moveTo(x + s * 0.5, yAnim + s * 0.5);
-      ctx.quadraticCurveTo(
-        x + s * 0.2,
-        yAnim + s * 0.2 + wingY,
-        x + s * 0.1,
-        yAnim + s * 0.4 + wingY
-      );
-      ctx.lineTo(x + s * 0.4, yAnim + s * 0.6);
+      ctx.moveTo(xAnim + s * 0.5, yAnim + s * 0.5);
+      ctx.quadraticCurveTo(xAnim + s * 0.1, yAnim + s * 0.2 + wingY, xAnim, yAnim + s * 0.4);
+      ctx.lineTo(xAnim + s * 0.4, yAnim + s * 0.6);
+      ctx.moveTo(xAnim + s * 0.5, yAnim + s * 0.5);
+      ctx.quadraticCurveTo(xAnim + s * 0.9, yAnim + s * 0.2 + wingY, xAnim + s, yAnim + s * 0.4);
+      ctx.lineTo(xAnim + s * 0.6, yAnim + s * 0.6);
       ctx.fill();
 
-      // Ala Der
       ctx.beginPath();
-      ctx.moveTo(x + s * 0.5, yAnim + s * 0.5);
-      ctx.quadraticCurveTo(
-        x + s * 0.8,
-        yAnim + s * 0.2 + wingY,
-        x + s * 0.9,
-        yAnim + s * 0.4 + wingY
-      );
-      ctx.lineTo(x + s * 0.6, yAnim + s * 0.6);
+      ctx.arc(xAnim + s * 0.5, yAnim + s * 0.5, s * 0.12, 0, Math.PI * 2);
       ctx.fill();
 
-      // Cuerpo
-      ctx.beginPath();
-      ctx.arc(x + s * 0.5, yAnim + s * 0.5, s * 0.12, 0, Math.PI * 2);
-      ctx.fill();
-
-      // Ojos
       ctx.fillStyle = "#ef4444";
-      ctx.fillRect(x + s * 0.45, yAnim + s * 0.48, s * 0.04, s * 0.04);
-      ctx.fillRect(x + s * 0.51, yAnim + s * 0.48, s * 0.04, s * 0.04);
+      ctx.fillRect(xAnim + s * 0.45, yAnim + s * 0.48, s * 0.04, s * 0.04);
+      ctx.fillRect(xAnim + s * 0.51, yAnim + s * 0.48, s * 0.04, s * 0.04);
     },
   },
 
   slime: {
-    draw: (ctx, x, y, size, frame) => {
+    draw: (ctx, x, y, size, frame, isAttacking, attackProgress, attackDir) => {
       const s = size;
-      // Pulso: se aplasta y ensancha
-      const pulse = Math.sin(frame * 0.15);
-      const stretchX = 1 + pulse * 0.1;
-      const stretchY = 1 - pulse * 0.1;
+      const angle = Math.atan2(attackDir.y, attackDir.x);
+      
+      let centerX = x + s * 0.5;
+      let centerY = y + s * 0.7;
 
-      const centerX = x + s * 0.5;
-      const centerY = y + s * 0.6; // Base más baja
+      // Estiramiento direccional
+      let stretchX = 1; 
+      let stretchY = 1;
+      
+      if (isAttacking) {
+          const lunge = Math.sin(attackProgress * Math.PI);
+          // Mover el centro en la dirección del ataque
+          centerX += Math.cos(angle) * lunge * s * 0.3;
+          centerY += Math.sin(angle) * lunge * s * 0.3;
+          
+          // Deformación simple (más grande al atacar)
+          stretchX = 1 + lunge * 0.2;
+          stretchY = 1 + lunge * 0.2;
+      } else {
+          const pulse = Math.sin(frame * 0.15);
+          stretchX = 1 + pulse * 0.1;
+          stretchY = 1 - pulse * 0.1;
+      }
 
-      const gradient = ctx.createRadialGradient(
-        centerX,
-        centerY - s * 0.1,
-        0,
-        centerX,
-        centerY,
-        s * 0.4
-      );
-      gradient.addColorStop(0, "#67e8f9");
-      gradient.addColorStop(1, "#0891b2");
-
-      ctx.fillStyle = gradient;
+      const gradient = ctx.createRadialGradient(centerX, centerY - s * 0.2, 0, centerX, centerY, s * 0.4);
+      gradient.addColorStop(0, "rgba(103, 232, 249, 0.9)");
+      gradient.addColorStop(1, "rgba(8, 145, 178, 0.6)");
 
       ctx.save();
       ctx.translate(centerX, centerY);
       ctx.scale(stretchX, stretchY);
 
-      // Cuerpo (semicírculo deformado)
+      ctx.fillStyle = gradient;
       ctx.beginPath();
-      ctx.arc(0, 0, s * 0.35, Math.PI, 0); // Top
-      // Base irregular
-      ctx.bezierCurveTo(s * 0.35, s * 0.1, -s * 0.35, s * 0.1, -s * 0.35, 0);
+      ctx.arc(0, 0, s * 0.35, Math.PI, 0); 
+      ctx.bezierCurveTo(s * 0.35, s * 0.2, -s * 0.35, s * 0.2, -s * 0.35, 0);
       ctx.fill();
+      
+      ctx.strokeStyle = "rgba(165, 243, 252, 0.5)";
+      ctx.lineWidth = 2;
+      ctx.stroke();
 
-      // Ojos flotando dentro
-      ctx.fillStyle = "#164e63";
+      // Ojos miran hacia el ataque
+      ctx.fillStyle = "#0e7490";
       ctx.beginPath();
-      ctx.arc(-s * 0.1, -s * 0.1, s * 0.05, 0, Math.PI * 2);
-      ctx.arc(s * 0.1, -s * 0.1, s * 0.05, 0, Math.PI * 2);
+      // Pequeño offset de ojos hacia la dirección
+      const eyeDX = Math.cos(angle) * s * 0.1;
+      const eyeDY = Math.sin(angle) * s * 0.1;
+      
+      ctx.arc(-s * 0.1 + eyeDX, -s * 0.1 + eyeDY, s * 0.05, 0, Math.PI * 2);
+      ctx.arc(s * 0.1 + eyeDX, -s * 0.1 + eyeDY, s * 0.05, 0, Math.PI * 2);
       ctx.fill();
 
       ctx.restore();
@@ -145,155 +137,251 @@ const SPRITES = {
   },
 
   goblin: {
-    draw: (ctx, x, y, size, frame) => {
-      const s = size;
-      const jump = Math.abs(Math.sin(frame * 0.15)) * (s * 0.05); // Saltito nervioso
-      const yAnim = y + jump;
+    draw: (ctx, x, y, size, frame, isAttacking, attackProgress, attackDir, lastMoveTime) => {
+      const s = size * 0.85; 
+      const offsetX = (size - s) / 2;
+      const offsetY = (size - s);
+      const gx = x + offsetX;
+      const gy = y + offsetY;
 
-      // Piel verde
-      ctx.fillStyle = "#22c55e";
-      // Cabeza grande y orejas
+      // --- LÓGICA DE MOVIMIENTO ---
+      const now = Date.now();
+      const isMoving = (now - lastMoveTime) < 150; 
+      
+      const walkCycle = isMoving ? Math.sin(now * 0.02) : 0;
+      const bodyBob = isMoving ? Math.abs(walkCycle) * s * 0.05 : Math.sin(frame * 0.1) * s * 0.02; 
+      
+      // CAMBIO: Aumentado el balanceo de brazos para que se note más
+      const armSwing = isMoving ? Math.sin(now * 0.02) * 0.8 : 0; 
+      
+      // CAMBIO: Aumentado el levantamiento de piernas
+      const leftLegLift = isMoving && walkCycle > 0 ? walkCycle * s * 0.15 : 0;
+      const rightLegLift = isMoving && walkCycle < 0 ? -walkCycle * s * 0.15 : 0;
+
+      const yAnim = gy - bodyBob;
+
+      // 1. PIERNAS
+      ctx.fillStyle = "#14532d";
+      ctx.fillRect(gx + s * 0.35, yAnim + s * 0.75 - leftLegLift, s * 0.12, s * 0.25);
+      ctx.fillRect(gx + s * 0.53, yAnim + s * 0.75 - rightLegLift, s * 0.12, s * 0.25);
+
+      // 2. TORSO
+      ctx.fillStyle = "#78350f"; 
       ctx.beginPath();
-      ctx.ellipse(
-        x + s * 0.5,
-        yAnim + s * 0.4,
-        s * 0.25,
-        s * 0.2,
-        0,
-        0,
-        Math.PI * 2
-      );
+      ctx.moveTo(gx + s * 0.3, yAnim + s * 0.45);
+      ctx.lineTo(gx + s * 0.7, yAnim + s * 0.45);
+      ctx.lineTo(gx + s * 0.75, yAnim + s * 0.75); 
+      ctx.lineTo(gx + s * 0.25, yAnim + s * 0.75);
       ctx.fill();
 
-      // Orejas puntiagudas
+      // Cinturón
+      ctx.fillStyle = "#a16207";
+      ctx.fillRect(gx + s * 0.3, yAnim + s * 0.65, s * 0.4, s * 0.05);
+
+      // 3. BRAZOS (Verdes y animados)
+      // Brazo Izquierdo (Fondo)
+      ctx.save();
+      ctx.translate(gx + s * 0.3, yAnim + s * 0.5); // Hombro
+      ctx.rotate(-armSwing);
+      ctx.fillStyle = "#4ade80";
       ctx.beginPath();
-      ctx.moveTo(x + s * 0.25, yAnim + s * 0.4);
-      ctx.lineTo(x + s * 0.05, yAnim + s * 0.25);
-      ctx.lineTo(x + s * 0.3, yAnim + s * 0.3);
+      ctx.moveTo(0, 0);
+      ctx.lineTo(-s * 0.05, s * 0.25); // Mano más larga
+      ctx.lineTo(s * 0.1, s * 0.2); 
       ctx.fill();
+      ctx.restore();
+
+      // Brazo Derecho (Frente)
+      ctx.save();
+      ctx.translate(gx + s * 0.7, yAnim + s * 0.5); // Hombro
+      
+      let armRot = armSwing;
+      if (isAttacking) {
+           const angle = Math.atan2(attackDir.y, attackDir.x);
+           armRot = angle + Math.sin(attackProgress * Math.PI);
+      }
+      
+      ctx.rotate(armRot);
+      ctx.fillStyle = "#4ade80";
       ctx.beginPath();
-      ctx.moveTo(x + s * 0.75, yAnim + s * 0.4);
-      ctx.lineTo(x + s * 0.95, yAnim + s * 0.25);
-      ctx.lineTo(x + s * 0.7, yAnim + s * 0.3);
+      ctx.moveTo(0, 0);
+      ctx.lineTo(s * 0.05, s * 0.25); // Mano
+      ctx.lineTo(-s * 0.1, s * 0.2); 
       ctx.fill();
 
-      // Ojos amarillos malignos
+      // ARMA
+      ctx.translate(s * 0.05, s * 0.25);
+      ctx.rotate(Math.PI / 2);
+      ctx.fillStyle = '#9ca3af'; 
+      ctx.fillRect(0, -s*0.05, s*0.25, s*0.1); 
+      ctx.fillStyle = '#4b5563';
+      ctx.fillRect(-s*0.1, -s*0.05, s*0.1, s*0.1);
+      
+      ctx.restore();
+
+      // 4. CABEZA
+      ctx.fillStyle = "#4ade80"; 
+      ctx.beginPath();
+      ctx.arc(gx + s * 0.5, yAnim + s * 0.35, s * 0.18, 0, Math.PI * 2);
+      ctx.fill();
+
+      ctx.fillStyle = "#22c55e"; 
+      ctx.beginPath();
+      ctx.moveTo(gx + s * 0.5, yAnim + s * 0.35);
+      ctx.lineTo(gx + s * 0.45, yAnim + s * 0.42);
+      ctx.lineTo(gx + s * 0.55, yAnim + s * 0.4);
+      ctx.fill();
+
+      // Orejas
+      ctx.beginPath();
+      ctx.moveTo(gx + s * 0.35, yAnim + s * 0.35); 
+      ctx.lineTo(gx + s * 0.1, yAnim + s * 0.25); 
+      ctx.lineTo(gx + s * 0.35, yAnim + s * 0.3); 
+      ctx.moveTo(gx + s * 0.65, yAnim + s * 0.35); 
+      ctx.lineTo(gx + s * 0.9, yAnim + s * 0.25); 
+      ctx.lineTo(gx + s * 0.65, yAnim + s * 0.3); 
+      ctx.fill();
+
+      // CAMBIO: Ojos más pequeños
       ctx.fillStyle = "#facc15";
       ctx.beginPath();
-      ctx.arc(x + s * 0.4, yAnim + s * 0.35, s * 0.06, 0, Math.PI * 2);
-      ctx.arc(x + s * 0.6, yAnim + s * 0.35, s * 0.06, 0, Math.PI * 2);
+      // Reducido de 0.05 a 0.035
+      ctx.arc(gx + s * 0.42, yAnim + s * 0.32, s * 0.035, 0, Math.PI * 2);
+      ctx.arc(gx + s * 0.58, yAnim + s * 0.32, s * 0.035, 0, Math.PI * 2);
       ctx.fill();
-
-      // Daga en mano
-      ctx.fillStyle = "#a1a1aa";
-      ctx.save();
-      ctx.translate(x + s * 0.8, yAnim + s * 0.5);
-      ctx.rotate(Math.sin(frame * 0.2) * 0.5); // Mueve la daga
-      ctx.fillRect(-s * 0.05, -s * 0.2, s * 0.1, s * 0.4);
-      ctx.restore();
+      
+      ctx.fillStyle = "#000";
+      // Pupilas más pequeñas
+      ctx.fillRect(gx + s * 0.41, yAnim + s * 0.31, s * 0.02, s * 0.02);
+      ctx.fillRect(gx + s * 0.57, yAnim + s * 0.31, s * 0.02, s * 0.02);
     },
   },
 
   skeleton: {
-    draw: (ctx, x, y, size, frame) => {
+    draw: (ctx, x, y, size, frame, isAttacking, attackProgress, attackDir) => {
       const s = size;
-      const rattle = Math.sin(frame * 0.8) * (s * 0.01); // Temblor de huesos
+      const rattle = Math.sin(frame * 0.2) * (s * 0.02);
 
       ctx.fillStyle = "#e5e5e5";
-      // Cráneo
       ctx.beginPath();
       ctx.arc(x + s * 0.5 + rattle, y + s * 0.3, s * 0.18, 0, Math.PI * 2);
       ctx.fill();
-      // Ojos huecos
+      
+      const jawOpen = isAttacking ? Math.sin(attackProgress * Math.PI * 4) * s * 0.05 : 0;
+      ctx.fillRect(x + s * 0.4 + rattle, y + s * 0.42 + jawOpen, s * 0.2, s * 0.08);
+
       ctx.fillStyle = "#171717";
       ctx.beginPath();
       ctx.arc(x + s * 0.45 + rattle, y + s * 0.3, s * 0.05, 0, Math.PI * 2);
       ctx.arc(x + s * 0.55 + rattle, y + s * 0.3, s * 0.05, 0, Math.PI * 2);
       ctx.fill();
 
-      // Costillas
       ctx.strokeStyle = "#e5e5e5";
       ctx.lineWidth = 3;
       ctx.beginPath();
-      ctx.moveTo(x + s * 0.5 + rattle, y + s * 0.5);
-      ctx.lineTo(x + s * 0.5 + rattle, y + s * 0.8);
-      // Costillas horiz
-      ctx.moveTo(x + s * 0.35 + rattle, y + s * 0.55);
-      ctx.lineTo(x + s * 0.65 + rattle, y + s * 0.55);
-      ctx.moveTo(x + s * 0.38 + rattle, y + s * 0.65);
-      ctx.lineTo(x + s * 0.62 + rattle, y + s * 0.65);
+      ctx.moveTo(x + s * 0.5 + rattle, y + s * 0.5); ctx.lineTo(x + s * 0.5 + rattle, y + s * 0.8);
+      ctx.moveTo(x + s * 0.35 + rattle, y + s * 0.55); ctx.lineTo(x + s * 0.65 + rattle, y + s * 0.55);
       ctx.stroke();
+      
+      const angle = Math.atan2(attackDir.y, attackDir.x);
+      drawWeapon(ctx, x + s*0.5 + rattle, y + s*0.5, s, 'sword', isAttacking ? attackProgress : 0, angle);
     },
   },
 
   ghost: {
-    draw: (ctx, x, y, size, frame) => {
+    draw: (ctx, x, y, size, frame, isAttacking, attackProgress, attackDir) => {
       const s = size;
-      // Animación de flotar (sube y baja suavemente usando seno)
+      const angle = Math.atan2(attackDir.y, attackDir.x);
       const float = Math.sin(frame * 0.1) * (s * 0.1);
-      const yAnim = y + float;
+      const lunge = isAttacking ? Math.sin(attackProgress * Math.PI) * (s * 0.4) : 0;
+      
+      const xAnim = x + (isAttacking ? Math.cos(angle) * lunge : 0);
+      const yAnim = y + float + (isAttacking ? Math.sin(angle) * lunge : 0);
 
-      // Cuerpo (Semicírculo arriba, ondulado abajo)
-      ctx.fillStyle = "rgba(255, 255, 255, 0.8)"; // Blanco semi-transparente
+      const grad = ctx.createLinearGradient(xAnim, yAnim, xAnim, yAnim + s);
+      grad.addColorStop(0, "rgba(255, 255, 255, 0.9)");
+      grad.addColorStop(1, "rgba(255, 255, 255, 0.0)");
+      ctx.fillStyle = grad;
+
       ctx.beginPath();
-      ctx.arc(x + s * 0.5, yAnim + s * 0.4, s * 0.3, Math.PI, 0);
-      // Laterales
-      ctx.lineTo(x + s * 0.8, yAnim + s * 0.8);
-
-      // Base ondulada (dibujando la sábana del fantasma)
-      ctx.quadraticCurveTo(
-        x + s * 0.65,
-        yAnim + s * 0.7,
-        x + s * 0.5,
-        yAnim + s * 0.8
-      );
-      ctx.quadraticCurveTo(
-        x + s * 0.35,
-        yAnim + s * 0.7,
-        x + s * 0.2,
-        yAnim + s * 0.8
-      );
-
-      ctx.lineTo(x + s * 0.2, yAnim + s * 0.4);
+      ctx.arc(xAnim + s * 0.5, yAnim + s * 0.4, s * 0.3, Math.PI, 0);
+      ctx.lineTo(xAnim + s * 0.8, yAnim + s * 0.8);
+      for(let i=0; i<=s*0.6; i+=5) {
+          ctx.lineTo(xAnim + s*0.8 - i, yAnim + s*0.8 + Math.sin(i*0.1 + frame*0.2)*5);
+      }
+      ctx.lineTo(xAnim + s * 0.2, yAnim + s * 0.4);
       ctx.fill();
 
-      // Ojos (Negros)
       ctx.fillStyle = "#000";
       ctx.beginPath();
-      ctx.arc(x + s * 0.4, yAnim + s * 0.35, s * 0.04, 0, Math.PI * 2);
-      ctx.arc(x + s * 0.6, yAnim + s * 0.35, s * 0.04, 0, Math.PI * 2);
+      ctx.arc(xAnim + s * 0.4, yAnim + s * 0.35, s * 0.04, 0, Math.PI * 2);
+      ctx.arc(xAnim + s * 0.6, yAnim + s * 0.35, s * 0.04, 0, Math.PI * 2);
       ctx.fill();
+      
+      if (isAttacking) {
+          ctx.beginPath();
+          ctx.ellipse(xAnim + s*0.5, yAnim + s*0.5, s*0.05, s*0.08, 0, 0, Math.PI*2);
+          ctx.fill();
+      }
 
-      // Aura brillante (Glow)
       ctx.shadowColor = "#a5f3fc";
       ctx.shadowBlur = 10;
-      ctx.strokeStyle = "#a5f3fc";
-      ctx.lineWidth = 1;
+      ctx.strokeStyle = "rgba(165, 243, 252, 0.5)";
+      ctx.lineWidth = 2;
       ctx.stroke();
-      ctx.shadowBlur = 0; // Importante resetear el blur
+      ctx.shadowBlur = 0;
+    },
+  },
+
+  orc: {
+    draw: (ctx, x, y, size, frame, isAttacking, attackProgress, attackDir) => {
+      const s = size;
+      const yAnim = y + Math.abs(Math.sin(frame * 0.1)) * 2;
+
+      ctx.fillStyle = "#365314";
+      ctx.fillRect(x + s * 0.25, yAnim + s * 0.35, s * 0.5, s * 0.4);
+
+      ctx.fillStyle = "#4d7c0f";
+      ctx.beginPath();
+      ctx.arc(x + s * 0.5, yAnim + s * 0.25, s * 0.22, 0, Math.PI * 2);
+      ctx.fill();
+
+      ctx.fillStyle = "#fef9c3";
+      ctx.beginPath();
+      ctx.moveTo(x + s * 0.35, yAnim + s * 0.35); ctx.lineTo(x + s * 0.35, yAnim + s * 0.15); ctx.lineTo(x + s * 0.42, yAnim + s * 0.35); ctx.fill();
+      ctx.beginPath();
+      ctx.moveTo(x + s * 0.65, yAnim + s * 0.35); ctx.lineTo(x + s * 0.65, yAnim + s * 0.15); ctx.lineTo(x + s * 0.58, yAnim + s * 0.35); ctx.fill();
+      
+      ctx.fillStyle = "#ef4444";
+      ctx.fillRect(x + s * 0.35, yAnim + s * 0.22, s * 0.08, s * 0.04);
+      ctx.fillRect(x + s * 0.57, yAnim + s * 0.22, s * 0.08, s * 0.04);
+
+      const angle = Math.atan2(attackDir.y, attackDir.x);
+      drawWeapon(ctx, x + s*0.5, yAnim + s*0.4, s, 'axe', isAttacking ? attackProgress : 0, angle);
     },
   },
 
   generic: {
-    draw: (ctx, x, y, size, frame, color = "#ef4444") => {
+    draw: (ctx, x, y, size, frame, color = "#ef4444", isAttacking, attackProgress, attackDir) => {
       const s = size;
-      const breath = Math.sin(frame * 0.05) * s * 0.05;
+      const pulse = Math.sin(frame * 0.1) * s * 0.05;
+      const angle = Math.atan2(attackDir.y, attackDir.x);
+      
+      const lunge = isAttacking ? Math.sin(attackProgress * Math.PI) * s * 0.3 : 0;
+      const xAnim = x + Math.cos(angle) * lunge;
+      const yAnim = y + Math.sin(angle) * lunge;
 
       ctx.fillStyle = color;
-      // Cuerpo grande
       ctx.beginPath();
-      ctx.arc(x + s * 0.5, y + s * 0.5 + breath, s * 0.35, 0, Math.PI * 2);
+      ctx.arc(xAnim + s*0.5, yAnim + s*0.5, s * 0.35 + pulse, 0, Math.PI * 2);
       ctx.fill();
 
-      // Ojos brillantes
-      ctx.shadowColor = color;
-      ctx.shadowBlur = 10;
       ctx.fillStyle = "#fff";
-      ctx.fillRect(x + s * 0.35, y + s * 0.4 + breath, s * 0.1, s * 0.1);
-      ctx.fillRect(x + s * 0.55, y + s * 0.4 + breath, s * 0.1, s * 0.1);
-      ctx.shadowBlur = 0;
+      ctx.fillRect(xAnim + s*0.35, yAnim + s*0.4, s * 0.1, s * 0.1);
+      ctx.fillRect(xAnim + s*0.55, yAnim + s*0.4, s * 0.1, s * 0.1);
     },
   },
+
 
   spider: {
     draw: (ctx, x, y, size) => {
@@ -1366,37 +1454,6 @@ const SPRITES = {
   },
 };
 
-function drawStunStars(ctx, x, y, size, frame) {
-  const s = size;
-  const cx = x + s * 0.5;
-  const cy = y + s * 0.15; // Flotando sobre la cabeza
-  
-  const count = 3; // Número de estrellas
-  const radius = s * 0.3; // Radio de giro
-  
-  ctx.fillStyle = '#fbbf24'; // Amarillo dorado
-  
-  for (let i = 0; i < count; i++) {
-    // Ángulo de rotación constante
-    const angle = (frame * 0.1 + (i * (Math.PI * 2 / count))) % (Math.PI * 2);
-    
-    // Órbita elíptica (perspectiva 2.5D)
-    const px = cx + Math.cos(angle) * radius;
-    const py = cy + Math.sin(angle) * radius * 0.3;
-    
-    // Tamaño pulsante suave
-    const starSize = s * 0.05 * (0.8 + Math.sin(frame * 0.2 + i) * 0.2);
-    
-    ctx.beginPath();
-    // Dibujar estrella simple (rombo)
-    ctx.moveTo(px, py - starSize);
-    ctx.lineTo(px + starSize, py);
-    ctx.lineTo(px, py + starSize);
-    ctx.lineTo(px - starSize, py);
-    ctx.fill();
-  }
-}
-
 // Map enemy types to sprite names
 const ENEMY_SPRITES_MAP = {
   2: "rat",
@@ -1428,60 +1485,60 @@ const ENEMY_SPRITES_MAP = {
   108: "golem_king",
 };
 
+function drawStunStars(ctx, x, y, size, frame) {
+  const s = size;
+  const cx = x + s * 0.5;
+  const cy = y + s * 0.15;
+  ctx.fillStyle = '#fbbf24';
+  for (let i = 0; i < 3; i++) {
+    const angle = (frame * 0.1 + (i * (Math.PI * 2 / 3))) % (Math.PI * 2);
+    const px = cx + Math.cos(angle) * (s * 0.3);
+    const py = cy + Math.sin(angle) * (s * 0.1);
+    ctx.beginPath(); ctx.arc(px, py, s * 0.05, 0, Math.PI * 2); ctx.fill();
+  }
+}
+
 function drawShadow(ctx, x, y, size) {
   const s = size;
-  ctx.fillStyle = "rgba(0, 0, 0, 0.35)";
+  ctx.fillStyle = "rgba(0, 0, 0, 0.3)";
   ctx.beginPath();
-  // Elipse aplastada en la base del tile
   ctx.ellipse(x + s * 0.5, y + s * 0.85, s * 0.3, s * 0.1, 0, 0, Math.PI * 2);
   ctx.fill();
 }
 
-export function drawEnemy(ctx, enemyType, x, y, size, frame = 0, isStunned = false) {
+export function drawEnemy(ctx, enemyType, x, y, size, frame = 0, isStunned = false, lastAttackTime = 0, lastAttackDir = {x:0, y:0}) {
   const spriteKey = ENEMY_SPRITES_MAP[enemyType];
   drawShadow(ctx, x, y, size);
 
+  const now = Date.now();
+  const timeSinceAttack = now - lastAttackTime;
+  const isAttacking = timeSinceAttack < ATTACK_DURATION;
+  const attackProgress = isAttacking ? timeSinceAttack / ATTACK_DURATION : 0;
+
   if (spriteKey && SPRITES[spriteKey]) {
-    SPRITES[spriteKey].draw(ctx, x, y, size, frame);
+    SPRITES[spriteKey].draw(ctx, x, y, size, frame, isAttacking, attackProgress, lastAttackDir);
   } else {
-    // Usar el renderizador genérico con el color del enemigo
     const stats = ENEMY_STATS[enemyType];
     const color = stats ? stats.color : "#ef4444";
-    SPRITES.generic.draw(ctx, x, y, size, frame, color);
+    SPRITES.generic.draw(ctx, x, y, size, frame, color, isAttacking, attackProgress, lastAttackDir);
+  }
 
-    // Si es un boss, añadir corona
-    if (stats && stats.isBoss) {
-      const s = size;
-      ctx.fillStyle = "#fbbf24"; // Oro
-      ctx.beginPath();
-      ctx.moveTo(x + s * 0.3, y + s * 0.2);
-      ctx.lineTo(x + s * 0.4, y + s * 0.05);
-      ctx.lineTo(x + s * 0.5, y + s * 0.2);
-      ctx.lineTo(x + s * 0.6, y + s * 0.05);
-      ctx.lineTo(x + s * 0.7, y + s * 0.2);
-      ctx.fill();
-    }
-    if (isStunned) {
-    drawStunStars(ctx, x, y, size, frame);
-  }
-  }
+  if (isStunned) drawStunStars(ctx, x, y, size, frame);
 }
 
-export function drawLargeEnemy(ctx, spriteName, x, y, size, frame = 0) {
-  // Implementación simplificada para jefes grandes:
-  // Solo un rectángulo grande palpitante por ahora, o reutilizar sprites
+export function drawLargeEnemy(ctx, spriteName, x, y, size, frame = 0, isStunned, lastAttackTime = 0) {
   const s = size;
   const pulse = Math.sin(frame * 0.05) * 0.02 + 1;
+  const isAttacking = (Date.now() - lastAttackTime) < ATTACK_DURATION;
+  const attackColor = isAttacking ? "#ef4444" : "#7f1d1d";
 
   ctx.save();
   ctx.translate(x + s / 2, y + s / 2);
   ctx.scale(pulse, pulse);
-  ctx.fillStyle = "#7f1d1d"; // Rojo oscuro boss
+  ctx.fillStyle = attackColor;
   ctx.beginPath();
   ctx.arc(0, 0, s * 0.4, 0, Math.PI * 2);
   ctx.fill();
-
-  // Ojos malignos
   ctx.fillStyle = "#fbbf24";
   ctx.beginPath();
   ctx.arc(-s * 0.15, -s * 0.1, s * 0.05, 0, Math.PI * 2);
@@ -1489,3 +1546,39 @@ export function drawLargeEnemy(ctx, spriteName, x, y, size, frame = 0) {
   ctx.fill();
   ctx.restore();
 }
+
+// Arma orientable
+function drawWeapon(ctx, x, y, size, type = 'sword', progress = 0, angle = 0) {
+    ctx.save();
+    ctx.translate(x, y);
+    
+    // 1. Orientar hacia el jugador
+    ctx.rotate(angle); 
+    
+    // 2. Animación de golpe (Swing)
+    const swing = Math.sin(progress * Math.PI);
+    ctx.rotate(swing * 2.0 - 1.0); 
+
+    // Dibujo del arma
+    ctx.fillStyle = '#9ca3af'; 
+    if (type === 'dagger') {
+        ctx.fillRect(size*0.2, -size*0.05, size*0.3, size*0.1); 
+        ctx.fillStyle = '#4b5563';
+        ctx.fillRect(0, -size*0.05, size*0.2, size*0.1); // Mango
+    } else if (type === 'axe') {
+        ctx.fillStyle = '#78350f'; 
+        ctx.fillRect(0, -size*0.05, size*0.6, size*0.1); 
+        ctx.fillStyle = '#9ca3af'; 
+        ctx.beginPath();
+        ctx.arc(size*0.5, 0, size*0.2, 0, Math.PI*2); 
+        ctx.fill();
+    } else { // Sword
+        ctx.fillRect(size*0.2, -size*0.05, size*0.5, size*0.1); 
+        ctx.fillStyle = '#fbbf24'; 
+        ctx.fillRect(size*0.2, -size*0.15, size*0.05, size*0.3); 
+        ctx.fillStyle = '#78350f';
+        ctx.fillRect(0, -size*0.04, size*0.2, size*0.08); 
+    }
+    ctx.restore();
+}
+

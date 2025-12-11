@@ -1,3 +1,4 @@
+// src/hooks/useTurnSystem.jsx
 import { useCallback } from 'react';
 import { processEnemyTurn, calculateEnemyDamage } from "@/engine/systems/EnemyAI";
 import { calculatePlayerStats } from "@/engine/systems/ItemSystem";
@@ -14,7 +15,8 @@ export function useTurnSystem() {
     showFloatingText
   }) => {
     // 2. IA Enemiga
-    const newEnemies = [...dungeon.enemies];
+    // Creamos una copia nueva para asegurar reactividad
+    const newEnemies = dungeon.enemies.map(e => ({ ...e }));
     let playerHit = false;
     let totalDamage = 0;
     
@@ -24,7 +26,7 @@ export function useTurnSystem() {
       const action = processEnemyTurn(
         enemy, 
         player, 
-        dungeon.enemies, 
+        newEnemies, // Pasamos la lista nueva para que se detecten entre ellos
         dungeon.map, 
         dungeon.visible, 
         addMessage, 
@@ -33,6 +35,15 @@ export function useTurnSystem() {
       );
       
       if (action.action.includes('attack')) {
+        // --- REGISTRAR TIEMPO Y DIRECCIÓN DE ATAQUE ---
+        enemy.lastAttackTime = Date.now();
+        // Calculamos la dirección hacia el jugador
+        enemy.lastAttackDir = { 
+            x: player.x - enemy.x, 
+            y: player.y - enemy.y 
+        };
+        // ----------------------------------------------
+
         const isRanged = action.action === 'ranged_attack';
         const enemyStats = isRanged ? { ...enemy, attack: Math.floor(enemy.attack * 0.7) } : enemy;
         
@@ -51,7 +62,6 @@ export function useTurnSystem() {
           playerHit = true;
           addMessage(`${ENEMY_STATS[enemy.type].name} te golpea: -${combatResult.damage} HP`, 'enemy_damage');
           
-          // CAMBIO: Sin el signo menos y activando isSmall (el último true)
           if (showFloatingText) showFloatingText(player.x, player.y, `${combatResult.damage}`, '#dc2626', false, true);
         }
       }

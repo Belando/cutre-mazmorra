@@ -139,7 +139,7 @@ export default function GameBoard({ gameState, viewportWidth = 21, viewportHeigh
                 const isStunnedVisual = enemy.stunned > 0 || enemy.lastAction === 'stunned';
 
                 if (isLargeEnemy(enemy.type)) {
-                    drawLargeEnemy(ctx, enemy.type, sx, sy, SIZE * 2, frameRef.current, isStunnedVisual);
+                    drawLargeEnemy(ctx, enemy.type, sx, sy, SIZE * 2, frameRef.current, isStunnedVisual, enemy.lastAttackTime || 0);
                     drawHealthBar(ctx, sx, sy, SIZE * 2, enemy.hp, enemy.maxHp);
                 } else {
                     const sizeInfo = getEnemySize(enemy.type);
@@ -147,7 +147,21 @@ export default function GameBoard({ gameState, viewportWidth = 21, viewportHeigh
                     const drawSize = SIZE * scale;
                     const offsetDraw = (drawSize - SIZE) / 2;
                     
-                    drawEnemy(ctx, enemy.type, sx - offsetDraw, sy - offsetDraw, drawSize, frameRef.current, isStunnedVisual);
+                    // --- CAMBIO: PASAMOS lastAttackDir ---
+                    drawEnemy(
+                        ctx, 
+                        enemy.type, 
+                        sx - offsetDraw, 
+                        sy - offsetDraw, 
+                        drawSize, 
+                        frameRef.current, 
+                        isStunnedVisual, 
+                        enemy.lastAttackTime || 0,
+                        enemy.lastAttackDir || { x: 0, y: 0 },
+                        enemy.lastMoveTime || 0
+                    );
+                    // -------------------------------------
+                    
                     drawHealthBar(ctx, sx - offsetDraw, sy - offsetDraw, drawSize, enemy.hp, enemy.maxHp);
                 }
             }
