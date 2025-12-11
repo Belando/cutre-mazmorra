@@ -17,10 +17,8 @@ export default function GameOverlays({
 }) {
   const { inventoryOpen, setInventoryOpen, craftingOpen, setCraftingOpen, skillTreeOpen, setSkillTreeOpen, activeNPC, setActiveNPC } = modals;
 
-  // Lógica: Mostrar CraftingPanel si craftingOpen es true O si estamos hablando con el Herrero
   const showCrafting = craftingOpen || (activeNPC && activeNPC.type === 'blacksmith');
 
-  // Función para cerrar el panel de crafting, limpiando también el NPC si procede
   const closeCrafting = () => {
     setCraftingOpen(false);
     if (activeNPC && activeNPC.type === 'blacksmith') {
@@ -48,7 +46,7 @@ export default function GameOverlays({
           />
         )}
         
-        {/* Solo mostrar diálogo estándar si NO es el herrero */}
+        {/* Diálogo estándar para NPCs normales */}
         {activeNPC && activeNPC.type !== 'blacksmith' && (
           <NPCDialog
             npc={activeNPC}
@@ -66,6 +64,7 @@ export default function GameOverlays({
           />
         )}
 
+        {/* Panel de Artesanía rediseñado */}
         {showCrafting && (
           <CraftingPanel
             isOpen={showCrafting}
@@ -76,6 +75,7 @@ export default function GameOverlays({
             gold={gameState.player.gold}
             onCraft={actions.craftItem}
             onUpgrade={actions.upgradeItem}
+            npc={activeNPC} // <--- NUEVO: Pasamos el NPC herrero
           />
         )}
         

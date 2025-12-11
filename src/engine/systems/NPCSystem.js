@@ -11,15 +11,15 @@ export const NPC_TYPES = {
 
 export const NPCS = {
   merchant: {
-    name: 'Buhonero Errante',
+    name: 'Garrick el Proveedor', // Nombre más inmersivo
     type: NPC_TYPES.MERCHANT,
     symbol: '$',
     color: '#fbbf24',
     dialogue: {
-      greeting: '¡Bienvenido, aventurero! Tengo mercancía especial...',
-      noGold: 'No tienes suficiente oro para eso.',
-      thanks: '¡Gracias por tu compra! Vuelve pronto.',
-      farewell: '¡Buena suerte en tu aventura!',
+      greeting: '¡Saludos, viajero! Tengo mercancías de tierras lejanas.',
+      noGold: 'Me temo que tus bolsillos están demasiado ligeros para eso.',
+      thanks: '¡Un placer hacer negocios contigo!',
+      farewell: 'Que el oro guíe tu camino.',
     },
     inventory: [
       { id: 'health_potion', name: 'Poción de Vida', price: 25, stats: { health: 30 }, category: 'potion', rarity: 'uncommon' },
@@ -30,36 +30,36 @@ export const NPCS = {
     ],
   },
   quest_elder: {
-    name: 'Anciano Sabio',
+    name: 'Eldric el Sabio', // Nombre más solemne
     type: NPC_TYPES.QUEST_GIVER,
     symbol: '?',
     color: '#60a5fa',
     dialogue: {
-      greeting: 'Ah, un alma valiente... Tengo una tarea para ti.',
-      questActive: 'Aún no has completado mi encargo.',
-      questComplete: '¡Excelente! Has demostrado tu valía.',
-      farewell: 'Que la luz guíe tu camino.',
+      greeting: 'Ah, un alma valiente... La oscuridad avanza y necesito ayuda.',
+      questActive: 'Aún no has completado lo que te pedí. Ten cuidado.',
+      questComplete: '¡Magnífico! Sabía que podía confiar en ti.',
+      farewell: 'Que la luz ilumine tus pasos en la mazmorra.',
     },
   },
   sage: {
-    name: 'Ermitaño Místico',
+    name: 'Valerius el Arcano', // Nombre más místico
     type: NPC_TYPES.SAGE,
     symbol: '✦',
     color: '#a855f7',
     dialogue: {
-      greeting: 'Las sombras hablan de un mal antiguo en las profundidades...',
-      lore: 'El Dragón Ancestral fue sellado hace eones. Pero el sello se debilita...',
-      farewell: 'Recuerda: la oscuridad teme a quienes no la temen.',
+      greeting: 'Las líneas ley convergen en este lugar maldito...',
+      lore: 'El Dragón Ancestral duerme bajo nosotros, pero su sueño es inquieto.',
+      farewell: 'El conocimiento es la única arma que no se desafila.',
     },
   },
   blacksmith: {
-    name: 'Herrero Enano',
+    name: 'Brokk Martillo-Negro', // Nombre enano clásico
     type: NPC_TYPES.BLACKSMITH,
     symbol: '⚒',
     color: '#f97316',
     dialogue: {
-      greeting: '¡El acero y el fuego nunca mienten! ¿Qué necesitas forjar?',
-      farewell: 'Mantén tu hoja afilada.',
+      greeting: '¡El acero nunca miente! ¿Vienes a mejorar tu equipo?',
+      farewell: 'Mantén tu hoja afilada y tu escudo en alto.',
     }
   },
 };

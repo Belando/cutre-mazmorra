@@ -78,10 +78,8 @@ export function useGameActions(context) {
   };
 
   const actions = {
-    // --- IMPORTANTE: AHORA EXPORTAMOS ESTA FUNCIÓN ---
-    // Esto permite que el sistema de auto-turnos la llame
+    // Exportamos executeTurn para el sistema de Auto-Turno
     executeTurn, 
-    // -----------------------------------------------
 
     executeSkillAction: (skillId, targetEnemy = null) => {
         const skill = SKILLS[skillId];
@@ -419,25 +417,33 @@ export function useGameActions(context) {
         addMessage(`Soltaste ${item.name}`, 'info');
     },
 
+    // --- CORRECCIÓN EN CRAFTITEM ---
+    // Usamos 'inventory' en lugar de 'materials' (que es un objeto vacío o legacy)
     craftItem: (key) => {
-        const newMats = { ...materials };
         const newInv = [...inventory];
-        const res = craftItem(key, newMats, newInv);
+        // Pasamos el ARRAY de inventario (2 argumentos)
+        const res = craftItem(key, newInv); 
         if(res.success) {
-            setMaterials(newMats); setInventory(newInv);
+            setInventory(newInv);
             addMessage(res.message, 'pickup');
             soundManager.play('equip');
         } else addMessage(res.message, 'info');
     },
 
+    // --- CORRECCIÓN EN UPGRADEITEM ---
+    // Usamos 'inventory' (array) para buscar materiales
     upgradeItem: (slot) => {
         const newEq = { ...equipment };
         const item = newEq[slot];
         if(!item) return;
-        const newMats = { ...materials };
-        const res = upgradeItem(item, newMats, player.gold);
+        
+        const newInv = [...inventory];
+        // Pasamos el ARRAY de inventario
+        const res = upgradeItem(item, newInv, player.gold); 
+        
         if(res.success) {
-            setMaterials(newMats); setEquipment(newEq); 
+            setInventory(newInv); 
+            setEquipment(newEq); 
             updatePlayer({ gold: player.gold - res.goldCost });
             addMessage(res.message, 'levelup');
             soundManager.play('levelUp');
