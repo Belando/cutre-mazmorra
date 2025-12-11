@@ -144,28 +144,25 @@ const SPRITES = {
       const gx = x + offsetX;
       const gy = y + offsetY;
 
-      // --- LÓGICA DE MOVIMIENTO ---
+      // 1. MOVIMIENTO (Aumentada duración para que se note)
       const now = Date.now();
-      const isMoving = (now - lastMoveTime) < 150; 
+      const isMoving = (now - lastMoveTime) < 300; 
       
-      const walkCycle = isMoving ? Math.sin(now * 0.02) : 0;
-      const bodyBob = isMoving ? Math.abs(walkCycle) * s * 0.05 : Math.sin(frame * 0.1) * s * 0.02; 
+      const walkCycle = isMoving ? Math.sin(now * 0.015) : 0;
+      const bodyBob = isMoving ? Math.abs(walkCycle) * s * 0.05 : Math.sin(frame * 0.05) * s * 0.02; 
+      const armSwing = isMoving ? Math.sin(now * 0.015) * 0.8 : 0; 
       
-      // CAMBIO: Aumentado el balanceo de brazos para que se note más
-      const armSwing = isMoving ? Math.sin(now * 0.02) * 0.8 : 0; 
-      
-      // CAMBIO: Aumentado el levantamiento de piernas
       const leftLegLift = isMoving && walkCycle > 0 ? walkCycle * s * 0.15 : 0;
       const rightLegLift = isMoving && walkCycle < 0 ? -walkCycle * s * 0.15 : 0;
 
       const yAnim = gy - bodyBob;
 
-      // 1. PIERNAS
-      ctx.fillStyle = "#14532d";
+      // PIERNAS
+      ctx.fillStyle = "#14532d"; 
       ctx.fillRect(gx + s * 0.35, yAnim + s * 0.75 - leftLegLift, s * 0.12, s * 0.25);
       ctx.fillRect(gx + s * 0.53, yAnim + s * 0.75 - rightLegLift, s * 0.12, s * 0.25);
 
-      // 2. TORSO
+      // TORSO
       ctx.fillStyle = "#78350f"; 
       ctx.beginPath();
       ctx.moveTo(gx + s * 0.3, yAnim + s * 0.45);
@@ -174,57 +171,72 @@ const SPRITES = {
       ctx.lineTo(gx + s * 0.25, yAnim + s * 0.75);
       ctx.fill();
 
-      // Cinturón
-      ctx.fillStyle = "#a16207";
+      ctx.fillStyle = "#a16207"; // Cinturón
       ctx.fillRect(gx + s * 0.3, yAnim + s * 0.65, s * 0.4, s * 0.05);
 
-      // 3. BRAZOS (Verdes y animados)
-      // Brazo Izquierdo (Fondo)
+      // BRAZO IZQUIERDO (Fondo - Balanceo)
       ctx.save();
-      ctx.translate(gx + s * 0.3, yAnim + s * 0.5); // Hombro
-      ctx.rotate(-armSwing);
+      ctx.translate(gx + s * 0.3, yAnim + s * 0.5); 
+      // Rotación base PI/2 (abajo) + balanceo
+      ctx.rotate((Math.PI / 2) - armSwing); 
+      
       ctx.fillStyle = "#4ade80";
+      // Dibujamos brazo a lo largo del eje X local (que ahora apunta abajo)
       ctx.beginPath();
-      ctx.moveTo(0, 0);
-      ctx.lineTo(-s * 0.05, s * 0.25); // Mano más larga
-      ctx.lineTo(s * 0.1, s * 0.2); 
+      ctx.moveTo(0, -s*0.05);
+      ctx.lineTo(s * 0.25, 0); // Mano
+      ctx.lineTo(0, s*0.05); 
       ctx.fill();
       ctx.restore();
 
-      // Brazo Derecho (Frente)
+      // BRAZO DERECHO (Ataque/Arma)
       ctx.save();
       ctx.translate(gx + s * 0.7, yAnim + s * 0.5); // Hombro
-      
-      let armRot = armSwing;
+
+      let armRot = (Math.PI / 2) + armSwing; // Reposo: Abajo (PI/2)
+
       if (isAttacking) {
            const angle = Math.atan2(attackDir.y, attackDir.x);
-           armRot = angle + Math.sin(attackProgress * Math.PI);
+           const stab = Math.sin(attackProgress * Math.PI);
+           // Apuntar directamente al jugador
+           armRot = angle; 
+           
+           // Estocada
+           const thrustDist = stab * s * 0.3;
+           ctx.translate(Math.cos(angle) * thrustDist, Math.sin(angle) * thrustDist);
       }
       
       ctx.rotate(armRot);
+      
+      // Dibujar Brazo (Apuntando en eje X positivo local)
       ctx.fillStyle = "#4ade80";
       ctx.beginPath();
-      ctx.moveTo(0, 0);
-      ctx.lineTo(s * 0.05, s * 0.25); // Mano
-      ctx.lineTo(-s * 0.1, s * 0.2); 
+      ctx.moveTo(0, -s*0.05); 
+      ctx.lineTo(s * 0.25, 0); // Mano
+      ctx.lineTo(0, s*0.05);   
       ctx.fill();
 
-      // ARMA
-      ctx.translate(s * 0.05, s * 0.25);
-      ctx.rotate(Math.PI / 2);
-      ctx.fillStyle = '#9ca3af'; 
-      ctx.fillRect(0, -s*0.05, s*0.25, s*0.1); 
-      ctx.fillStyle = '#4b5563';
-      ctx.fillRect(-s*0.1, -s*0.05, s*0.1, s*0.1);
+      // DAGA
+      ctx.translate(s * 0.25, 0); // Ir a la mano
+      ctx.rotate(Math.PI / 2); // Daga perpendicular al brazo para que pinche
+      // Si apuntas con el brazo, la daga debería seguir la línea del brazo (0 grados)
+      // Pero el sprite original rota PI/2. Vamos a ajustarlo:
+      ctx.rotate(-Math.PI / 2); // Corregir para que apunte adelante
+
+      ctx.fillStyle = '#9ca3af'; // Hoja
+      ctx.fillRect(0, -s*0.05, s*0.3, s*0.1); 
+      ctx.fillStyle = '#4b5563'; // Mango
+      ctx.fillRect(-s*0.1, -s*0.05, s*0.1, s*0.1); 
       
       ctx.restore();
 
-      // 4. CABEZA
+      // CABEZA
       ctx.fillStyle = "#4ade80"; 
       ctx.beginPath();
       ctx.arc(gx + s * 0.5, yAnim + s * 0.35, s * 0.18, 0, Math.PI * 2);
       ctx.fill();
 
+      // NARIZ
       ctx.fillStyle = "#22c55e"; 
       ctx.beginPath();
       ctx.moveTo(gx + s * 0.5, yAnim + s * 0.35);
@@ -232,26 +244,20 @@ const SPRITES = {
       ctx.lineTo(gx + s * 0.55, yAnim + s * 0.4);
       ctx.fill();
 
-      // Orejas
+      // OREJAS
       ctx.beginPath();
-      ctx.moveTo(gx + s * 0.35, yAnim + s * 0.35); 
-      ctx.lineTo(gx + s * 0.1, yAnim + s * 0.25); 
-      ctx.lineTo(gx + s * 0.35, yAnim + s * 0.3); 
-      ctx.moveTo(gx + s * 0.65, yAnim + s * 0.35); 
-      ctx.lineTo(gx + s * 0.9, yAnim + s * 0.25); 
-      ctx.lineTo(gx + s * 0.65, yAnim + s * 0.3); 
+      ctx.moveTo(gx + s * 0.35, yAnim + s * 0.35); ctx.lineTo(gx + s * 0.1, yAnim + s * 0.25); ctx.lineTo(gx + s * 0.35, yAnim + s * 0.3); 
+      ctx.moveTo(gx + s * 0.65, yAnim + s * 0.35); ctx.lineTo(gx + s * 0.9, yAnim + s * 0.25); ctx.lineTo(gx + s * 0.65, yAnim + s * 0.3); 
       ctx.fill();
 
-      // CAMBIO: Ojos más pequeños
+      // OJOS (Pequeños y malvados)
       ctx.fillStyle = "#facc15";
       ctx.beginPath();
-      // Reducido de 0.05 a 0.035
       ctx.arc(gx + s * 0.42, yAnim + s * 0.32, s * 0.035, 0, Math.PI * 2);
       ctx.arc(gx + s * 0.58, yAnim + s * 0.32, s * 0.035, 0, Math.PI * 2);
       ctx.fill();
       
       ctx.fillStyle = "#000";
-      // Pupilas más pequeñas
       ctx.fillRect(gx + s * 0.41, yAnim + s * 0.31, s * 0.02, s * 0.02);
       ctx.fillRect(gx + s * 0.57, yAnim + s * 0.31, s * 0.02, s * 0.02);
     },
@@ -801,124 +807,6 @@ const SPRITES = {
       ctx.lineTo(x + s * 1.1, y + s * 0.35);
       ctx.lineTo(x + s * 0.9, y + s * 0.55);
       ctx.fill();
-    },
-  },
-  player: {
-    draw: (ctx, x, y, size) => {
-      const s = size;
-      // Body (blue tunic)
-      ctx.fillStyle = "#3b82f6";
-      ctx.fillRect(x + s * 0.3, y + s * 0.35, s * 0.4, s * 0.4);
-
-      // Head (skin tone)
-      ctx.fillStyle = "#fcd5b8";
-      ctx.beginPath();
-      ctx.arc(x + s * 0.5, y + s * 0.25, s * 0.18, 0, Math.PI * 2);
-      ctx.fill();
-
-      // Hair (brown)
-      ctx.fillStyle = "#8b5a2b";
-      ctx.beginPath();
-      ctx.arc(x + s * 0.5, y + s * 0.2, s * 0.15, Math.PI, Math.PI * 2);
-      ctx.fill();
-      ctx.fillRect(x + s * 0.35, y + s * 0.12, s * 0.3, s * 0.1);
-
-      // Eyes
-      ctx.fillStyle = "#1e293b";
-      ctx.fillRect(x + s * 0.4, y + s * 0.22, s * 0.06, s * 0.06);
-      ctx.fillRect(x + s * 0.54, y + s * 0.22, s * 0.06, s * 0.06);
-
-      // Sword (right hand)
-      ctx.fillStyle = "#94a3b8";
-      ctx.fillRect(x + s * 0.7, y + s * 0.25, s * 0.08, s * 0.35);
-      ctx.fillStyle = "#fbbf24";
-      ctx.fillRect(x + s * 0.65, y + s * 0.55, s * 0.18, s * 0.06);
-
-      // Shield (left hand)
-      ctx.fillStyle = "#1e40af";
-      ctx.beginPath();
-      ctx.moveTo(x + s * 0.1, y + s * 0.35);
-      ctx.lineTo(x + s * 0.28, y + s * 0.35);
-      ctx.lineTo(x + s * 0.28, y + s * 0.55);
-      ctx.lineTo(x + s * 0.19, y + s * 0.65);
-      ctx.lineTo(x + s * 0.1, y + s * 0.55);
-      ctx.closePath();
-      ctx.fill();
-      ctx.fillStyle = "#3b82f6";
-      ctx.fillRect(x + s * 0.15, y + s * 0.42, s * 0.08, s * 0.12);
-
-      // Legs
-      ctx.fillStyle = "#1e293b";
-      ctx.fillRect(x + s * 0.32, y + s * 0.72, s * 0.14, s * 0.18);
-      ctx.fillRect(x + s * 0.54, y + s * 0.72, s * 0.14, s * 0.18);
-
-      // Boots
-      ctx.fillStyle = "#78350f";
-      ctx.fillRect(x + s * 0.3, y + s * 0.85, s * 0.18, s * 0.1);
-      ctx.fillRect(x + s * 0.52, y + s * 0.85, s * 0.18, s * 0.1);
-    },
-  },
-  orc: {
-    draw: (ctx, x, y, size) => {
-      const s = size;
-      // Body (muscular, dark green)
-      ctx.fillStyle = "#365314";
-      ctx.fillRect(x + s * 0.25, y + s * 0.35, s * 0.5, s * 0.4);
-
-      // Head
-      ctx.fillStyle = "#4d7c0f";
-      ctx.beginPath();
-      ctx.arc(x + s * 0.5, y + s * 0.25, s * 0.22, 0, Math.PI * 2);
-      ctx.fill();
-
-      // Tusks
-      ctx.fillStyle = "#fef9c3";
-      ctx.beginPath();
-      ctx.moveTo(x + s * 0.32, y + s * 0.38);
-      ctx.lineTo(x + s * 0.28, y + s * 0.52);
-      ctx.lineTo(x + s * 0.38, y + s * 0.42);
-      ctx.closePath();
-      ctx.fill();
-      ctx.beginPath();
-      ctx.moveTo(x + s * 0.68, y + s * 0.38);
-      ctx.lineTo(x + s * 0.72, y + s * 0.52);
-      ctx.lineTo(x + s * 0.62, y + s * 0.42);
-      ctx.closePath();
-      ctx.fill();
-
-      // Angry eyes
-      ctx.fillStyle = "#fbbf24";
-      ctx.fillRect(x + s * 0.36, y + s * 0.2, s * 0.1, s * 0.08);
-      ctx.fillRect(x + s * 0.54, y + s * 0.2, s * 0.1, s * 0.08);
-      ctx.fillStyle = "#000";
-      ctx.fillRect(x + s * 0.38, y + s * 0.22, s * 0.05, s * 0.05);
-      ctx.fillRect(x + s * 0.57, y + s * 0.22, s * 0.05, s * 0.05);
-
-      // Eyebrows (angry)
-      ctx.fillStyle = "#1a2e05";
-      ctx.fillRect(x + s * 0.34, y + s * 0.15, s * 0.14, s * 0.04);
-      ctx.fillRect(x + s * 0.52, y + s * 0.15, s * 0.14, s * 0.04);
-
-      // Arms (muscular)
-      ctx.fillStyle = "#4d7c0f";
-      ctx.fillRect(x + s * 0.08, y + s * 0.35, s * 0.18, s * 0.15);
-      ctx.fillRect(x + s * 0.74, y + s * 0.35, s * 0.18, s * 0.15);
-
-      // Axe
-      ctx.fillStyle = "#78350f";
-      ctx.fillRect(x + s * 0.82, y + s * 0.15, s * 0.06, s * 0.5);
-      ctx.fillStyle = "#71717a";
-      ctx.beginPath();
-      ctx.moveTo(x + s * 0.88, y + s * 0.15);
-      ctx.lineTo(x + s * 0.98, y + s * 0.25);
-      ctx.lineTo(x + s * 0.88, y + s * 0.35);
-      ctx.closePath();
-      ctx.fill();
-
-      // Legs
-      ctx.fillStyle = "#365314";
-      ctx.fillRect(x + s * 0.28, y + s * 0.72, s * 0.16, s * 0.2);
-      ctx.fillRect(x + s * 0.56, y + s * 0.72, s * 0.16, s * 0.2);
     },
   },
   troll: {
@@ -1547,7 +1435,6 @@ export function drawLargeEnemy(ctx, spriteName, x, y, size, frame = 0, isStunned
   ctx.restore();
 }
 
-// Arma orientable
 function drawWeapon(ctx, x, y, size, type = 'sword', progress = 0, angle = 0) {
     ctx.save();
     ctx.translate(x, y);
