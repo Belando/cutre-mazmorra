@@ -171,7 +171,7 @@ export function useGameActions(context) {
             return;
         }
         
-        updatePlayer({ x: nx, y: ny });
+        updatePlayer({ x: nx, y: ny, lastMoveTime: Date.now() });
         
         const itemIdx = dungeon.items.findIndex(i => i.x === nx && i.y === ny);
         if (itemIdx !== -1) {

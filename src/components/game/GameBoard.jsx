@@ -180,7 +180,7 @@ export default function GameBoard({ gameState, viewportWidth = 21, viewportHeigh
 
             drawPlayer(ctx, psx, psy, SIZE, player.appearance, player.class, frameRef.current, 
                 player.lastAttackTime || 0, player.lastAttackDir || { x: 0, y: 0 }, 
-                player.lastSkillTime || 0, player.lastSkillId || null, isInvisible);
+                player.lastSkillTime || 0, player.lastSkillId || null, isInvisible, player.lastMoveTime || 0);
         }
     });
 

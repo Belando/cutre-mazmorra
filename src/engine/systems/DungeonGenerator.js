@@ -232,41 +232,90 @@ function carveHorizontalCorridor(map, x1, x2, y) {
   }
 }
 
-// --- FUNCIÓN AUXILIAR PARA COLOCAR PUERTAS ---
+// --- FUNCIÓN AUXILIAR PARA COLOCAR PUERTAS (MEJORADA) ---
 function placeDoors(map, rooms) {
-  const tryPlaceDoor = (x, y) => {
-    if (y < 1 || y >= map.length - 1 || x < 1 || x >= map[0].length - 1) return;
-    
-    // Solo colocamos puerta si es suelo (un pasillo excavado)
-    if (map[y][x] === TILE.FLOOR) {
-        const left = map[y][x-1];
-        const right = map[y][x+1];
-        const top = map[y-1][x];
-        const bottom = map[y+1][x];
+  // Barajamos las habitaciones para que el orden no siempre sea el mismo
+  const shuffledRooms = [...rooms].sort(() => Math.random() - 0.5);
 
-        // Caso Horizontal: Muros arriba y abajo, suelo a los lados
-        if (top === TILE.WALL && bottom === TILE.WALL && left === TILE.FLOOR && right === TILE.FLOOR) {
-            map[y][x] = TILE.DOOR;
-        }
-        // Caso Vertical: Muros a los lados, suelo arriba y abajo
-        else if (left === TILE.WALL && right === TILE.WALL && top === TILE.FLOOR && bottom === TILE.FLOOR) {
-            map[y][x] = TILE.DOOR;
-        }
-    }
-  };
+  shuffledRooms.forEach(room => {
+    // Definimos los 4 muros de la habitación para escanearlos
+    const walls = [
+      // Arriba (Horizontal)
+      { axis: 'x', start: room.x, end: room.x + room.width, fixed: room.y - 1 }, 
+      // Abajo (Horizontal)
+      { axis: 'x', start: room.x, end: room.x + room.width, fixed: room.y + room.height }, 
+      // Izquierda (Vertical)
+      { axis: 'y', start: room.y, end: room.y + room.height, fixed: room.x - 1 }, 
+      // Derecha (Vertical)
+      { axis: 'y', start: room.y, end: room.y + room.height, fixed: room.x + room.width } 
+    ];
 
-  rooms.forEach(room => {
-    // Revisar perímetro de la habitación
-    // Bordes verticales
-    for (let y = room.y; y < room.y + room.height; y++) {
-       tryPlaceDoor(room.x - 1, y);
-       tryPlaceDoor(room.x + room.width, y);
-    }
-    // Bordes horizontales
-    for (let x = room.x; x < room.x + room.width; x++) {
-       tryPlaceDoor(x, room.y - 1);
-       tryPlaceDoor(x, room.y + room.height);
-    }
+    walls.forEach(wall => {
+      const candidates = [];
+
+      // 1. ESCANEAR: Buscar todos los huecos posibles en esta pared
+      for (let i = wall.start; i < wall.end; i++) {
+        const x = wall.axis === 'x' ? i : wall.fixed;
+        const y = wall.axis === 'x' ? wall.fixed : i;
+
+        // Límites del mapa
+        if (y < 1 || y >= map.length - 1 || x < 1 || x >= map[0].length - 1) continue;
+
+        // Solo analizamos si hay SUELO (un hueco en la pared)
+        if (map[y][x] === TILE.FLOOR) {
+          const left = map[y][x - 1];
+          const right = map[y][x + 1];
+          const top = map[y - 1][x];
+          const bottom = map[y + 1][x];
+
+          // VALIDACIÓN ESTRICTA DE "SANDWICH"
+          // La puerta debe estar atrapada entre dos muros en su eje contrario.
+          // Horizontal: Muros Arriba y Abajo.
+          // Vertical: Muros Izquierda y Derecha.
+          
+          const validHorizontal = (top === TILE.WALL && bottom === TILE.WALL); // Pasillo horizontal
+          const validVertical = (left === TILE.WALL && right === TILE.WALL);   // Pasillo vertical
+
+          if (validHorizontal || validVertical) {
+            candidates.push({ x, y });
+          }
+        }
+      }
+
+      // 2. DECIDIR: Procesar los candidatos encontrados en esta pared
+      if (candidates.length > 0) {
+        
+        // REGLA A: Si el hueco es muy grande (más de 3 casillas), es una "habitacion abierta".
+        // NO poner puerta para evitar puertas absurdas en mitad de la nada.
+        if (candidates.length > 3) return;
+
+        // REGLA B: Elegir el candidato central.
+        // Si el pasillo tiene 2 de ancho, esto elige uno y evita la puerta doble.
+        const best = candidates[Math.floor(candidates.length / 2)];
+
+        // REGLA C: ZONA DE RESPETO (Checkeo de vecindario 3x3)
+        // Asegurar que no hay NINGUNA otra puerta pegada a esta posición.
+        let nearbyDoor = false;
+        
+        for (let dy = -1; dy <= 1; dy++) {
+            for (let dx = -1; dx <= 1; dx++) {
+                if (dx === 0 && dy === 0) continue; // Saltamos la propia casilla
+                
+                const checkY = best.y + dy;
+                const checkX = best.x + dx;
+                
+                if (map[checkY]?.[checkX] === TILE.DOOR) {
+                    nearbyDoor = true;
+                }
+            }
+        }
+
+        // Si la zona está despejada, colocamos la puerta
+        if (!nearbyDoor) {
+            map[best.y][best.x] = TILE.DOOR;
+        }
+      }
+    });
   });
 }
 

@@ -109,7 +109,7 @@ export function useInputHandler({
     };
   }, [gameStarted, gameOver, uiState, gameState, modals, actions]);
 
-  // --- 2. BUCLE DE MOVIMIENTO (Sin cambios) ---
+  // --- 2. BUCLE DE MOVIMIENTO ---
   useEffect(() => {
     if (!gameStarted || gameOver) return;
 
@@ -138,10 +138,14 @@ export function useInputHandler({
       if (dx !== 0 || dy !== 0) {
         actions.move(Math.sign(dx), Math.sign(dy));
         lastActionTime.current = now;
+        
+        // --- AÑADIR ESTA LÍNEA ---
+        if (onAction) onAction(); 
+        // --------------------------
       }
 
     }, 50);
 
     return () => clearInterval(moveInterval);
-  }, [gameStarted, gameOver, modals, actions, inventoryOpen, craftingOpen, skillTreeOpen, activeNPC]);
+  }, [gameStarted, gameOver, modals, actions, inventoryOpen, craftingOpen, skillTreeOpen, activeNPC, onAction]); // Añade onAction a las dependencias si hace falta, aunque con useRef no es estricto
 }
