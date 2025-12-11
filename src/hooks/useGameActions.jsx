@@ -78,6 +78,11 @@ export function useGameActions(context) {
   };
 
   const actions = {
+    // --- IMPORTANTE: AHORA EXPORTAMOS ESTA FUNCIÓN ---
+    // Esto permite que el sistema de auto-turnos la llame
+    executeTurn, 
+    // -----------------------------------------------
+
     executeSkillAction: (skillId, targetEnemy = null) => {
         const skill = SKILLS[skillId];
         if (!skill) return false;
@@ -156,8 +161,6 @@ export function useGameActions(context) {
                         const success = actions.executeSkillAction(selectedSkill, enemy);
                         if (success) return; 
                     } else {
-                        // MODIFICADO: En lugar de retornar, mostramos un pequeño indicador visual
-                        // y dejamos que el código continúe hacia performAttack
                         if (effectsManager.current) {
                             effectsManager.current.addText(player.x, player.y, "CD", '#94a3b8', false, true);
                         }
@@ -165,7 +168,6 @@ export function useGameActions(context) {
                 }
             }
 
-            // Si llegamos aquí (porque no había skill seleccionada O estaba en cooldown), atacamos normal
             const nextEnemiesState = performAttack(enemy, enemyIdx);
             executeTurn(player, nextEnemiesState);
             return;

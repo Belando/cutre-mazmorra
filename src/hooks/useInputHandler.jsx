@@ -11,7 +11,8 @@ export function useInputHandler({
   uiState, 
   actions, 
   gameState, 
-  modals 
+  modals,
+  onAction
 }) {
   const { inventoryOpen, craftingOpen, skillTreeOpen, activeNPC, setInventoryOpen, setCraftingOpen, setSkillTreeOpen, setActiveNPC } = modals;
   
@@ -90,7 +91,10 @@ export function useInputHandler({
         }
       }
 
-      if (actionTaken) lastActionTime.current = now;
+      if (actionTaken) {
+          lastActionTime.current = now;
+          if (onAction) onAction(); // <--- ¡REINICIAMOS EL RELOJ!
+      }
     };
 
     const handleKeyUp = (e) => {
