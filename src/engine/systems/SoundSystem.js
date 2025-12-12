@@ -57,14 +57,13 @@ class SoundSystem {
   }
 
   // ==========================================
-  // 2. AMBIENTE (SOLO FUEGO, SIN GOTEOS)
+  // 2. AMBIENTE
   // ==========================================
 
   initAmbience() {
     if (!this.enabled) return;
     this.init();
     if (!this.ambience.fire.node) this.ambience.fire = this.createFireLoop(); 
-    // CAMBIO: Ya no iniciamos el timer de sonidos aleatorios para eliminar el "pitido"
   }
 
   stopAmbience() {
@@ -167,23 +166,23 @@ class SoundSystem {
           this.playFM(600, 1200, 500, 0.5, 'sine', 0.2); 
           this.playNoise(0.3, 0.2, 300);
           break;
-        
         case 'door':
           this.playFM(60, 30, 80, 0.4, 'sawtooth', 0.3);
           setTimeout(() => this.playNoise(0.15, 0.5, 200), 250); 
           break;
-
         case 'stairs':
           this.playNoise(0.25, 0.8, 200); 
           setTimeout(() => this.playNoise(0.3, 0.6, 150), 300);
           break;
-          
         case 'pickup':
           this.playFM(1500, 3000, 200, 0.1, 'sine', 0.15);
           setTimeout(() => this.playFM(2000, 4000, 200, 0.2, 'sine', 0.15), 50);
           break;
         case 'equip':
           this.playNoise(0.1, 0.2, 800);
+          break;
+        case 'error': // NUEVO SONIDO
+          this.playFM(150, 50, 100, 0.3, 'sawtooth', 0.2);
           break;
         case 'levelUp':
           const base = 440;
@@ -197,16 +196,13 @@ class SoundSystem {
           this.playNoise(0.15, 0.2, 1500);
           this.playFM(800, 1200, 200, 0.15, 'triangle', 0.1); 
           break;
-        
         case 'hit': 
           this.playNoise(0.12, 0.4, 300);
           break;
-        
         case 'enemy_hit':
           this.playFM(120, 40, 20, 0.25, 'triangle', 0.5);
           this.playNoise(0.2, 0.6, 300); 
           break;
-
         case 'critical':
           this.playFM(800, 150, 1000, 0.2, 'square', 0.2);
           this.playNoise(0.2, 0.5, 800);
@@ -214,18 +210,9 @@ class SoundSystem {
         case 'kill':
           this.playFM(100, 50, 100, 0.4, 'sine', 0.3);
           break;
-
-        // SONIDO DE YUNQUE (METAL PURO)
         case 'anvil':
-          // 1. "CLANG" Metálico: Ratio inarmónico (Carrier 700, Mod 1200) para sonido de campana/metal
           this.playFM(700, 1200, 1500, 0.4, 'sine', 0.3);
-          
-          // 2. Resonancia aguda (El "tiiing" final)
-          setTimeout(() => {
-             this.playFM(1800, 0, 0, 0.8, 'sine', 0.1); 
-          }, 10);
-          
-          // 3. Golpe físico (muy corto)
+          setTimeout(() => { this.playFM(1800, 0, 0, 0.8, 'sine', 0.1); }, 10);
           this.playNoise(0.05, 0.3, 1000);
           break;
 

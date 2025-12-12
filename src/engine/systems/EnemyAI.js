@@ -1,9 +1,12 @@
 // src/engine/systems/EnemyAI.js
 import { findPath } from '@/engine/core/pathfinding';
 import { ENEMY_RANGED_INFO } from '@/data/enemies';
-// IMPORTANTE: Ahora importamos desde utils, no de CombatSystem
 import { hasLineOfSight } from '@/engine/core/utils'; 
 import { TILE } from '@/data/constants';
+
+// --- CONSTANTES DE OPTIMIZACIÓN ---
+const ACTIVATION_DISTANCE = 25; // Distancia máxima: Si está más lejos, el enemigo "duerme"
+const PATHFINDING_LIMIT = 12;   // Distancia media: Si está más lejos, usa movimiento simple (sin A*)
 
 // Tipos de comportamiento
 export const AI_BEHAVIORS = {
@@ -75,7 +78,6 @@ function getFlankingPosition(player, allies, enemy, map, spatialHash) {
     ];
     
     // Posiciones ocupadas por aliados (para no intentar ir donde ya hay uno)
-    // Aunque spatialHash ya bloquea, esto ayuda a la lógica de "flanqueo"
     const occupiedPositions = new Set(allies.map(a => `${a.x},${a.y}`));
     
     for (const dir of directions) {
@@ -147,46 +149,57 @@ function moveRandomly(enemy, map, spatialHash, player) {
     return null;
 }
 
-// Mover hacia el objetivo usando A* y SpatialHash
+// Mover hacia el objetivo usando lógica Híbrida (A* o Directa)
 function moveToward(enemy, targetX, targetY, map, spatialHash, player) {
-  // 1. Intentar encontrar el camino ideal con A*
-  const nextStep = findPath(enemy.x, enemy.y, targetX, targetY, map);
+  const dist = Math.abs(enemy.x - targetX) + Math.abs(enemy.y - targetY);
 
-  // Si A* encuentra un camino (basado en muros)
-  if (nextStep) {
-    // 1a. CAMINO LIBRE: Verificamos entidades con el Hash
-    if (isTileFree(nextStep.x, nextStep.y, map, spatialHash)) {
-      return nextStep;
-    }
-    
-    // 1b. FLOCKING: Si el paso óptimo está bloqueado por otra entidad, buscar adyacente
-    const neighbors = [
-      { x: enemy.x + 1, y: enemy.y },
-      { x: enemy.x - 1, y: enemy.y },
-      { x: enemy.x, y: enemy.y + 1 },
-      { x: enemy.x, y: enemy.y - 1 }
-    ];
+  // OPTIMIZACIÓN 1: INTELIGENTE (Solo si está cerca)
+  if (dist <= PATHFINDING_LIMIT) {
+      // 1. Intentar encontrar el camino ideal con A*
+      const nextStep = findPath(enemy.x, enemy.y, targetX, targetY, map);
 
-    const validMoves = neighbors.filter(pos => isTileFree(pos.x, pos.y, map, spatialHash));
+      // Si A* encuentra un camino
+      if (nextStep) {
+        // 1a. CAMINO LIBRE: Verificamos entidades con el Hash
+        if (isTileFree(nextStep.x, nextStep.y, map, spatialHash)) {
+          return nextStep;
+        }
+        
+        // 1b. FLOCKING: Si el paso óptimo está bloqueado por otra entidad, buscar adyacente
+        const neighbors = [
+          { x: enemy.x + 1, y: enemy.y },
+          { x: enemy.x - 1, y: enemy.y },
+          { x: enemy.x, y: enemy.y + 1 },
+          { x: enemy.x, y: enemy.y - 1 }
+        ];
 
-    if (validMoves.length > 0) {
-      // Ordenamos las opciones por distancia al objetivo
-      validMoves.sort((a, b) => {
-        const distA = Math.abs(a.x - targetX) + Math.abs(a.y - targetY);
-        const distB = Math.abs(b.x - targetX) + Math.abs(b.y - targetY);
-        return distA - distB;
-      });
-      return validMoves[0];
-    }
+        const validMoves = neighbors.filter(pos => isTileFree(pos.x, pos.y, map, spatialHash));
+
+        if (validMoves.length > 0) {
+          // Ordenamos las opciones por distancia al objetivo
+          validMoves.sort((a, b) => {
+            const distA = Math.abs(a.x - targetX) + Math.abs(a.y - targetY);
+            const distB = Math.abs(b.x - targetX) + Math.abs(b.y - targetY);
+            return distA - distB;
+          });
+          return validMoves[0];
+        }
+      }
   }
 
-  // 2. FALLBACK: Movimiento directo si A* falla
+  // OPTIMIZACIÓN 2: TONTA (Movimiento directo si está lejos o A* falla)
   const dx = Math.sign(targetX - enemy.x);
   const dy = Math.sign(targetY - enemy.y);
   
   const simpleMoves = [];
-  if (dx !== 0) simpleMoves.push({ x: enemy.x + dx, y: enemy.y });
-  if (dy !== 0) simpleMoves.push({ x: enemy.x, y: enemy.y + dy });
+  // Priorizar el eje más largo para que el movimiento se vea más natural
+  if (Math.abs(targetX - enemy.x) > Math.abs(targetY - enemy.y)) {
+      if (dx !== 0) simpleMoves.push({ x: enemy.x + dx, y: enemy.y });
+      if (dy !== 0) simpleMoves.push({ x: enemy.x, y: enemy.y + dy });
+  } else {
+      if (dy !== 0) simpleMoves.push({ x: enemy.x, y: enemy.y + dy });
+      if (dx !== 0) simpleMoves.push({ x: enemy.x + dx, y: enemy.y });
+  }
   
   for (const move of simpleMoves) {
     if (isTileFree(move.x, move.y, map, spatialHash)) {
@@ -200,6 +213,17 @@ function moveToward(enemy, targetX, targetY, map, spatialHash, player) {
 // PROCESO PRINCIPAL: Turno del Enemigo
 // Ahora recibe spatialHash en lugar de las listas sueltas
 export function processEnemyTurn(enemy, player, enemies, map, visible, log, spatialHash) {
+  
+  // OPTIMIZACIÓN 3: CULLING (IA DORMIDA)
+  // Si el enemigo está muy lejos, retornamos inmediatamente.
+  // Excepción: Los Bosses siempre están activos si están a menos de 40 casillas.
+  const dist = Math.abs(enemy.x - player.x) + Math.abs(enemy.y - player.y);
+  const isActive = enemy.isBoss ? dist < 40 : dist < ACTIVATION_DISTANCE;
+  
+  if (!isActive) {
+      return { action: 'sleep' };
+  }
+
   // 1. Estados alterados
   if (enemy.stunned > 0) {
     enemy.stunned--;
@@ -225,10 +249,9 @@ export function processEnemyTurn(enemy, player, enemies, map, visible, log, spat
   
   // 2. Comportamiento
   const behavior = getEnemyBehavior(enemy.type);
-  const dist = Math.abs(enemy.x - player.x) + Math.abs(enemy.y - player.y);
   const canSee = visible[enemy.y]?.[enemy.x];
   
-  const isPlayerInvisible = player.skills?.buffs?.some(b => b.invisible);
+  const isPlayerInvisible = player.skills?.buffs?.some(b => b.invisible) || false;
   
   if (isPlayerInvisible) {
       const newPos = moveRandomly(enemy, map, spatialHash, player);
@@ -249,6 +272,7 @@ export function processEnemyTurn(enemy, player, enemies, map, visible, log, spat
   // Ataque a distancia
   const rangedInfo = getEnemyRangedInfo(enemy.type);
   if (rangedInfo && dist <= rangedInfo.range && dist > 1) {
+    // Para disparar, necesitamos comprobar línea de visión real
     if (hasLineOfSight(map, enemy.x, enemy.y, player.x, player.y)) {
       const shouldShoot = !rangedInfo.preferMelee || Math.random() < 0.3 || dist > 3;
       if (shouldShoot) return { action: 'ranged_attack', range: rangedInfo.range };
@@ -260,7 +284,7 @@ export function processEnemyTurn(enemy, player, enemies, map, visible, log, spat
   
   switch (behavior) {
     case AI_BEHAVIORS.AGGRESSIVE:
-      if (canSee || dist <= 10) {
+      if (canSee || dist <= 12) {
         newPos = moveToward(enemy, player.x, player.y, map, spatialHash, player);
       }
       break;
@@ -282,13 +306,11 @@ export function processEnemyTurn(enemy, player, enemies, map, visible, log, spat
         break;
       
     case AI_BEHAVIORS.PACK:
-        if (canSee || dist <= 8) {
-            // Aquí seguimos usando el array 'enemies' para encontrar aliados, 
-            // pero el movimiento usará el hash
+        if (canSee || dist <= 10) {
+            // Optimización: Solo buscar aliados cercanos para no iterar todo el array
             const allies = enemies.filter(e => 
               e !== enemy && 
-              getEnemyBehavior(e.type) === AI_BEHAVIORS.PACK &&
-              Math.abs(e.x - player.x) + Math.abs(e.y - player.y) <= 6
+              Math.abs(e.x - enemy.x) + Math.abs(e.y - enemy.y) < 8
             );
             
             if (allies.length > 0) {
@@ -305,13 +327,13 @@ export function processEnemyTurn(enemy, player, enemies, map, visible, log, spat
         break;
       
     case AI_BEHAVIORS.AMBUSH:
-        if (dist <= 3) {
+        if (dist <= 4) { // Rango reducido de emboscada
             newPos = moveToward(enemy, player.x, player.y, map, spatialHash, player);
         }
         break;
       
     case AI_BEHAVIORS.BOSS:
-        if (canSee || dist <= 12) {
+        if (canSee || dist <= 15) {
             if (dist <= 2 && Math.random() < 0.3) {
               newPos = moveAway(enemy, player, map, spatialHash);
             } else {
@@ -334,7 +356,6 @@ export function processEnemyTurn(enemy, player, enemies, map, visible, log, spat
   return { action: 'wait' };
 }
 
-// (La función calculateEnemyDamage se mantiene igual, no necesita cambios)
 export function calculateEnemyDamage(enemy, player, playerStats, playerBuffs) {
   let baseDamage = enemy.attack - playerStats.defense + Math.floor(Math.random() * 3);
   

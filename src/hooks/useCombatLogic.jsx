@@ -1,15 +1,15 @@
 import { ENEMY_STATS } from '@/data/enemies';
 import { SKILLS, SKILL_COLORS } from '@/data/skills';
 import { generateMaterialDrop, generateBossDrop } from "@/engine/systems/CraftingSystem";
-import { calculatePlayerStats, generateItem } from '@/engine/systems/ItemSystem'; // Importamos generateItem
-import { calculateBuffBonuses, getSkillEffectiveStats, useSkill } from "@/engine/systems/SkillSystem";
+import { calculatePlayerStats, generateItem } from '@/engine/systems/ItemSystem'; 
+import { calculateBuffBonuses, getSkillEffectiveStats, useSkill, canUseSkill } from "@/engine/systems/SkillSystem"; // Importamos canUseSkill
 import { soundManager } from '@/engine/systems/SoundSystem';
 
 export function useCombatLogic({ 
   dungeon, setDungeon, 
   player, updatePlayer, gainExp, 
   setStats, 
-  addMessage, addItem, // Recibimos addItem
+  addMessage, addItem, 
   effectsManager, 
   executeTurn, 
   setSelectedSkill
@@ -27,10 +27,10 @@ export function useCombatLogic({
     gainExp(info.exp);
     addMessage(`${info.name} derrotado! +${info.exp} XP`, 'death');
     
-    // 1. Drops de Materiales (Crafteo)
+    // 1. Drops
     const drops = enemy.isBoss ? generateBossDrop(enemy.type, dungeon.level) : generateMaterialDrop(enemy.type, dungeon.level);
     
-    // 2. Drop de Equipo/Consumibles (Probabilidad del 15% para enemigos normales, 100% bosses)
+    // 2. Drop de Equipo (Probabilidad)
     if (Math.random() < 0.15 || enemy.isBoss) {
         const lootItem = generateItem(dungeon.level);
         if (lootItem) drops.push(lootItem);
@@ -38,7 +38,6 @@ export function useCombatLogic({
 
     // 3. Procesar Drops
     drops.forEach(item => {
-      // Usamos addItem para meterlo al inventario
       const success = addItem(item); 
       if (success) {
           addMessage(`Botín: ${item.quantity || 1}x ${item.name}`, 'pickup');
@@ -61,12 +60,27 @@ export function useCombatLogic({
     if (!skill) return false;
 
     // --- 1. Validaciones ---
+    
+    // A) COOLDOWN (NUEVO: Feedback Visual y Sonoro)
+    if (!canUseSkill(skillId, player.skills.cooldowns)) {
+        addMessage(`¡${skill.name} no está lista!`, 'info');
+        soundManager.play('error');
+        if(effectsManager.current) {
+            effectsManager.current.addText(player.x, player.y, "CD", '#94a3b8', false, true); // isSmall = true
+        }
+        return false;
+    }
+
+    // B) MANÁ
     const level = player.skills?.skillLevels?.[skillId] || 1;
     const { manaCost } = getSkillEffectiveStats(skill, level);
 
     if (manaCost > 0 && player.mp < manaCost) {
         addMessage(`¡Falta Maná! (Req: ${manaCost})`, 'info');
-        if(effectsManager.current) effectsManager.current.addText(player.x, player.y, "No MP", '#94a3b8');
+        soundManager.play('error'); // Sonido de error
+        if(effectsManager.current) {
+            effectsManager.current.addText(player.x, player.y, "No MP", '#60a5fa', false, true);
+        }
         return false;
     }
 

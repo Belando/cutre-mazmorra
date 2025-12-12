@@ -108,6 +108,7 @@ export function useGameActions(context) {
                 targetEnemy = bestTarget;
             } else {
                 addMessage("¡No hay enemigos en rango!", 'info');
+                soundManager.play('error'); // Sonido
                 if (effectsManager.current) {
                     effectsManager.current.addText(player.x, player.y, "?", '#94a3b8');
                 }
@@ -143,16 +144,15 @@ export function useGameActions(context) {
         // Bloqueos
         if (entitiesAtTarget.some(e => e.type === 'chest')) {
             addMessage("Un cofre bloquea el camino (Usa 'E')", 'info');
+            soundManager.play('error'); // Sonido
             return;
         }
         if (entitiesAtTarget.some(e => e.type === 'npc')) {
             addMessage("Un NPC bloquea el camino (Usa 'E')", 'info');
+            soundManager.play('error'); // Sonido
             return;
         }
 
-        // --- CHEQUEO DE COLISIÓN CON EL HORNO DEL HERRERO ---
-        // El horno se dibuja visualmente en la casilla (x+1, y) relativa al herrero.
-        // Si intentamos movernos a (nx, ny), debemos verificar si en la casilla izquierda (nx-1, ny) hay un herrero.
         const entitiesLeft = spatialHash.get(nx - 1, ny);
         const blacksmithLeft = entitiesLeft.find(e => e.type === 'npc'); 
         if (blacksmithLeft && blacksmithLeft.ref && blacksmithLeft.ref.type === 'blacksmith') {
@@ -182,7 +182,6 @@ export function useGameActions(context) {
         spatialHash.move(player.x, player.y, nx, ny, { ...player, type: 'player' });
         updatePlayer({ x: nx, y: ny, lastMoveTime: Date.now() });
         
-        // Sonido de pasos
         soundManager.play('step');
         
         // Recoger Items
@@ -280,7 +279,6 @@ export function useGameActions(context) {
             const npcRef = entities.find(e => e.type === 'npc');
             if (npcRef) {
                 soundManager.play('speech'); 
-                // npcRef.ref contiene el objeto NPC real guardado en el hash
                 return { type: 'npc', data: npcRef.ref };
             }
         }

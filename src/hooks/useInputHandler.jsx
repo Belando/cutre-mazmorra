@@ -29,7 +29,6 @@ export function useInputHandler({
 
       // -- ACCIONES DE INTERFAZ --
       if (e.key === 'Escape') {
-        // Lógica de cierre prioritario (Stack simple)
         if (activeNPC) setActiveNPC(null);
         else if (skillTreeOpen) setSkillTreeOpen(false);
         else if (craftingOpen) setCraftingOpen(false);
@@ -38,7 +37,6 @@ export function useInputHandler({
         return;
       }
 
-      // Toggles independientes (solo si no hay otro modal abierto o es el mismo)
       const anyModalOpen = inventoryOpen || craftingOpen || skillTreeOpen || activeNPC;
 
       if (key === 'i') { 
@@ -50,7 +48,6 @@ export function useInputHandler({
           return; 
       }
 
-      // Si hay un modal abierto, bloqueamos el resto de inputs de juego
       if (anyModalOpen) return;
 
       const now = Date.now();
@@ -63,8 +60,9 @@ export function useInputHandler({
           if (uiState.selectedSkill) {
              const skill = SKILLS[uiState.selectedSkill];
              if (skill && skill.type !== 'melee') {
-                 actions.executeSkillAction(uiState.selectedSkill);
-                 actionTaken = true;
+                 // Nota: La validación de CD se hace dentro de actions.executeSkillAction
+                 const success = actions.executeSkillAction(uiState.selectedSkill);
+                 if (success) actionTaken = true;
              }
           }
           break;
@@ -120,41 +118,49 @@ export function useInputHandler({
     };
   }, [gameStarted, gameOver, uiState, gameState, modals, actions]);
 
-  // --- 2. BUCLE DE MOVIMIENTO CONTINUO ---
+  // --- 2. BUCLE DE MOVIMIENTO CONTINUO (OPTIMIZADO) ---
   useEffect(() => {
     if (!gameStarted || gameOver) return;
 
-    const moveInterval = setInterval(() => {
+    let animationFrameId;
+
+    const gameLoop = () => {
       // Bloqueo si hay modales
-      if (modals.inventoryOpen || modals.craftingOpen || modals.skillTreeOpen || modals.activeNPC) return;
-
-      const now = Date.now();
-      if (now - lastActionTime.current < INPUT_COOLDOWN) return;
-
-      const keys = pressedKeys.current;
-      if (keys.size === 0) return;
-
-      let dx = 0;
-      let dy = 0;
-
-      if (keys.has('w') || keys.has('arrowup')) dy -= 1;
-      if (keys.has('s') || keys.has('arrowdown')) dy += 1;
-      if (keys.has('a') || keys.has('arrowleft')) dx -= 1;
-      if (keys.has('d') || keys.has('arrowright')) dx += 1;
-
-      if (keys.has('home')) { dx = -1; dy = -1; }
-      if (keys.has('pageup')) { dx = 1; dy = -1; }
-      if (keys.has('end')) { dx = -1; dy = 1; }
-      if (keys.has('pagedown')) { dx = 1; dy = 1; }
-
-      if (dx !== 0 || dy !== 0) {
-        actions.move(Math.sign(dx), Math.sign(dy));
-        lastActionTime.current = now;
-        if (onAction) onAction(); 
+      if (modals.inventoryOpen || modals.craftingOpen || modals.skillTreeOpen || modals.activeNPC) {
+          animationFrameId = requestAnimationFrame(gameLoop);
+          return;
       }
 
-    }, 50);
+      const now = Date.now();
+      // Usamos el mismo cooldown para limitar la velocidad de movimiento
+      if (now - lastActionTime.current >= INPUT_COOLDOWN) {
+          const keys = pressedKeys.current;
+          if (keys.size > 0) {
+              let dx = 0;
+              let dy = 0;
 
-    return () => clearInterval(moveInterval);
+              if (keys.has('w') || keys.has('arrowup')) dy -= 1;
+              if (keys.has('s') || keys.has('arrowdown')) dy += 1;
+              if (keys.has('a') || keys.has('arrowleft')) dx -= 1;
+              if (keys.has('d') || keys.has('arrowright')) dx += 1;
+
+              if (keys.has('home')) { dx = -1; dy = -1; }
+              if (keys.has('pageup')) { dx = 1; dy = -1; }
+              if (keys.has('end')) { dx = -1; dy = 1; }
+              if (keys.has('pagedown')) { dx = 1; dy = 1; }
+
+              if (dx !== 0 || dy !== 0) {
+                actions.move(Math.sign(dx), Math.sign(dy));
+                lastActionTime.current = now;
+                if (onAction) onAction(); 
+              }
+          }
+      }
+      
+      animationFrameId = requestAnimationFrame(gameLoop);
+    };
+
+    animationFrameId = requestAnimationFrame(gameLoop);
+    return () => cancelAnimationFrame(animationFrameId);
   }, [gameStarted, gameOver, modals, actions, onAction]); 
 }
