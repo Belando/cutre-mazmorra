@@ -148,6 +148,17 @@ export function useGameActions(context) {
             return;
         }
         
+        // CORRECCIÓN: Detectar colisión con NPC (incluyendo la forja del herrero en x+1)
+        const blockingNPC = dungeon.npcs.find(n => 
+            (n.x === nx && n.y === ny) || 
+            (n.type === 'blacksmith' && n.x + 1 === nx && n.y === ny)
+        );
+
+        if (blockingNPC) {
+            addMessage("Un NPC bloquea el camino (Usa 'E')", 'info');
+            return;
+        }
+        
         const enemyIdx = dungeon.enemies.findIndex(e => e.x === nx && e.y === ny);
         if (enemyIdx !== -1) {
             const enemy = dungeon.enemies[enemyIdx];
@@ -200,6 +211,8 @@ export function useGameActions(context) {
                 }
             }
         }
+
+        
         
         executeTurn({ ...player, x: nx, y: ny });
     },
@@ -251,7 +264,12 @@ export function useGameActions(context) {
                 return { type: 'chest' };
             }
 
-            const npc = dungeon.npcs.find(n => n.x === tx && n.y === ty);
+            // CORRECCIÓN: Detectar interacción con NPC o su forja
+            const npc = dungeon.npcs.find(n => 
+                (n.x === tx && n.y === ty) || 
+                (n.type === 'blacksmith' && n.x + 1 === tx && n.y === ty)
+            );
+
             if (npc) {
                 soundManager.play('speech'); 
                 return { type: 'npc', data: npc };

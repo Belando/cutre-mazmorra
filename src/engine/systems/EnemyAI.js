@@ -249,6 +249,11 @@ export function processEnemyTurn(enemy, player, enemies, map, visible, log, ches
       if (newPos) {
           enemy.x = newPos.x;
           enemy.y = newPos.y;
+          
+          // --- CORRECCIÓN: Actualizar tiempo de movimiento aquí también ---
+          enemy.lastMoveTime = Date.now(); 
+          // ---------------------------------------------------------------
+          
           return { action: 'wander', x: newPos.x, y: newPos.y };
       }
       return { action: 'wait_confused' };

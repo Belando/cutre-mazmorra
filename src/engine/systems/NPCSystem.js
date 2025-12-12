@@ -394,20 +394,24 @@ export function generateNPCs(floor, rooms, map, excludeRoomIndices = [], enemies
       // REGLA 2: No puede haber enemigos en la habitación
       if (roomHasEnemies(room)) continue;
 
-      // REGLA 3: No puede haber otro NPC en la habitación (aparecer por separado)
+      // REGLA 3: No puede haber otro NPC en la habitación
       if (roomHasNPC(room)) continue;
 
       // Si pasa los filtros, colocamos el NPC en el centro
       const x = room.x + Math.floor(room.width / 2);
       const y = room.y + Math.floor(room.height / 2);
       
-      if (map[y]?.[x] === TILE.FLOOR) {
-        npcs.push({
-          ...npcTemplate,
-          x, y,
-          id: `${idPrefix}_${floor}`
-        });
-        return true; // Éxito
+      // VERIFICACIÓN EXTRA PARA HERRERO (Necesita 2 casillas: x y x+1)
+      if (npcTemplate.type === NPC_TYPES.BLACKSMITH) {
+          if (map[y]?.[x] === TILE.FLOOR && map[y]?.[x + 1] === TILE.FLOOR) {
+             npcs.push({ ...npcTemplate, x, y, id: `${idPrefix}_${floor}` });
+             return true;
+          }
+      } 
+      // NPC NORMAL (1 casilla)
+      else if (map[y]?.[x] === TILE.FLOOR) {
+        npcs.push({ ...npcTemplate, x, y, id: `${idPrefix}_${floor}` });
+        return true; 
       }
     }
     return false; // No se encontró sitio válido

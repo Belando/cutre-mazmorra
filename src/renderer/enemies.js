@@ -144,13 +144,15 @@ const SPRITES = {
       const gx = x + offsetX;
       const gy = y + offsetY;
 
-      // 1. MOVIMIENTO (Aumentada duración para que se note)
+      // 1. MOVIMIENTO
       const now = Date.now();
       const isMoving = (now - lastMoveTime) < 300; 
       
       const walkCycle = isMoving ? Math.sin(now * 0.015) : 0;
       const bodyBob = isMoving ? Math.abs(walkCycle) * s * 0.05 : Math.sin(frame * 0.05) * s * 0.02; 
-      const armSwing = isMoving ? Math.sin(now * 0.015) * 0.8 : 0; 
+      
+      // CAMBIO 3: Movimiento de brazos suavizado (0.3 en lugar de 0.8)
+      const armSwing = isMoving ? Math.sin(now * 0.015) * 0.2 : 0; 
       
       const leftLegLift = isMoving && walkCycle > 0 ? walkCycle * s * 0.15 : 0;
       const rightLegLift = isMoving && walkCycle < 0 ? -walkCycle * s * 0.15 : 0;
@@ -174,59 +176,77 @@ const SPRITES = {
       ctx.fillStyle = "#a16207"; // Cinturón
       ctx.fillRect(gx + s * 0.3, yAnim + s * 0.65, s * 0.4, s * 0.05);
 
-      // BRAZO IZQUIERDO (Fondo - Balanceo)
+      // BRAZO IZQUIERDO (Fondo)
       ctx.save();
       ctx.translate(gx + s * 0.3, yAnim + s * 0.5); 
-      // Rotación base PI/2 (abajo) + balanceo
       ctx.rotate((Math.PI / 2) - armSwing); 
       
       ctx.fillStyle = "#4ade80";
-      // Dibujamos brazo a lo largo del eje X local (que ahora apunta abajo)
       ctx.beginPath();
       ctx.moveTo(0, -s*0.05);
-      ctx.lineTo(s * 0.25, 0); // Mano
+      ctx.lineTo(s * 0.25, 0); 
       ctx.lineTo(0, s*0.05); 
       ctx.fill();
+      // Mano izquierda
+      ctx.beginPath(); ctx.arc(s*0.25, 0, s*0.06, 0, Math.PI*2); ctx.fill();
       ctx.restore();
 
       // BRAZO DERECHO (Ataque/Arma)
       ctx.save();
       ctx.translate(gx + s * 0.7, yAnim + s * 0.5); // Hombro
 
-      let armRot = (Math.PI / 2) + armSwing; // Reposo: Abajo (PI/2)
+      let armRot = (Math.PI / 2) + armSwing;
 
       if (isAttacking) {
            const angle = Math.atan2(attackDir.y, attackDir.x);
            const stab = Math.sin(attackProgress * Math.PI);
-           // Apuntar directamente al jugador
            armRot = angle; 
-           
-           // Estocada
            const thrustDist = stab * s * 0.3;
            ctx.translate(Math.cos(angle) * thrustDist, Math.sin(angle) * thrustDist);
       }
       
       ctx.rotate(armRot);
       
-      // Dibujar Brazo (Apuntando en eje X positivo local)
+      // Dibujar Brazo
       ctx.fillStyle = "#4ade80";
       ctx.beginPath();
       ctx.moveTo(0, -s*0.05); 
-      ctx.lineTo(s * 0.25, 0); // Mano
+      ctx.lineTo(s * 0.25, 0); // Muñeca
       ctx.lineTo(0, s*0.05);   
       ctx.fill();
 
-      // DAGA
-      ctx.translate(s * 0.25, 0); // Ir a la mano
-      ctx.rotate(Math.PI / 2); // Daga perpendicular al brazo para que pinche
-      // Si apuntas con el brazo, la daga debería seguir la línea del brazo (0 grados)
-      // Pero el sprite original rota PI/2. Vamos a ajustarlo:
-      ctx.rotate(-Math.PI / 2); // Corregir para que apunte adelante
+      // CAMBIO 2: DIBUJAR MANO (Puño visible)
+      ctx.fillStyle = "#4ade80"; 
+      ctx.beginPath();
+      ctx.arc(s * 0.25, 0, s * 0.07, 0, Math.PI * 2); 
+      ctx.fill();
 
-      ctx.fillStyle = '#9ca3af'; // Hoja
-      ctx.fillRect(0, -s*0.05, s*0.3, s*0.1); 
-      ctx.fillStyle = '#4b5563'; // Mango
-      ctx.fillRect(-s*0.1, -s*0.05, s*0.1, s*0.1); 
+      // --- DAGA ---
+      ctx.translate(s * 0.25, 0); // Mover origen a la mano
+      
+      // Hoja
+      ctx.fillStyle = '#9ca3af'; 
+      ctx.beginPath();
+      ctx.moveTo(0, -s*0.04); 
+      ctx.lineTo(s*0.3, 0);    
+      ctx.lineTo(0, s*0.04);   
+      ctx.fill();
+      
+      // Brillo Hoja
+      ctx.fillStyle = '#d1d5db';
+      ctx.beginPath();
+      ctx.moveTo(0, -s*0.01);
+      ctx.lineTo(s*0.25, 0);
+      ctx.lineTo(0, s*0.01);
+      ctx.fill();
+
+      // Mango
+      ctx.fillStyle = '#4b5563'; 
+      ctx.fillRect(-s*0.08, -s*0.03, s*0.08, s*0.06); 
+      
+      // Guardamanos
+      ctx.fillStyle = '#374151';
+      ctx.fillRect(0, -s*0.06, s*0.03, s*0.12); 
       
       ctx.restore();
 
@@ -250,7 +270,7 @@ const SPRITES = {
       ctx.moveTo(gx + s * 0.65, yAnim + s * 0.35); ctx.lineTo(gx + s * 0.9, yAnim + s * 0.25); ctx.lineTo(gx + s * 0.65, yAnim + s * 0.3); 
       ctx.fill();
 
-      // OJOS (Pequeños y malvados)
+      // OJOS
       ctx.fillStyle = "#facc15";
       ctx.beginPath();
       ctx.arc(gx + s * 0.42, yAnim + s * 0.32, s * 0.035, 0, Math.PI * 2);
@@ -1394,7 +1414,7 @@ function drawShadow(ctx, x, y, size) {
   ctx.fill();
 }
 
-export function drawEnemy(ctx, enemyType, x, y, size, frame = 0, isStunned = false, lastAttackTime = 0, lastAttackDir = {x:0, y:0}) {
+export function drawEnemy(ctx, enemyType, x, y, size, frame = 0, isStunned = false, lastAttackTime = 0, lastAttackDir = {x:0, y:0}, lastMoveTime = 0) {
   const spriteKey = ENEMY_SPRITES_MAP[enemyType];
   drawShadow(ctx, x, y, size);
 
@@ -1404,10 +1424,12 @@ export function drawEnemy(ctx, enemyType, x, y, size, frame = 0, isStunned = fal
   const attackProgress = isAttacking ? timeSinceAttack / ATTACK_DURATION : 0;
 
   if (spriteKey && SPRITES[spriteKey]) {
-    SPRITES[spriteKey].draw(ctx, x, y, size, frame, isAttacking, attackProgress, lastAttackDir);
+    // AQUÍ ESTABA EL ERROR: Faltaba pasar lastMoveTime al sprite específico
+    SPRITES[spriteKey].draw(ctx, x, y, size, frame, isAttacking, attackProgress, lastAttackDir, lastMoveTime);
   } else {
     const stats = ENEMY_STATS[enemyType];
     const color = stats ? stats.color : "#ef4444";
+    // El genérico también podría recibirlo si decides animarlo en el futuro
     SPRITES.generic.draw(ctx, x, y, size, frame, color, isAttacking, attackProgress, lastAttackDir);
   }
 
