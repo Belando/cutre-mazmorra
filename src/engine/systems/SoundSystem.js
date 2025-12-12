@@ -57,14 +57,14 @@ class SoundSystem {
   }
 
   // ==========================================
-  // 2. AMBIENTE (Fuego Silencioso + Mazmorra)
+  // 2. AMBIENTE (SOLO FUEGO, SIN GOTEOS)
   // ==========================================
 
   initAmbience() {
     if (!this.enabled) return;
     this.init();
     if (!this.ambience.fire.node) this.ambience.fire = this.createFireLoop(); 
-    if (!this.ambience.timer) this.scheduleNextAmbientSound();
+    // CAMBIO: Ya no iniciamos el timer de sonidos aleatorios para eliminar el "pitido"
   }
 
   stopAmbience() {
@@ -84,7 +84,6 @@ class SoundSystem {
     let vol = 0;
     if (distance < maxDist) {
         const factor = 1 - (distance / maxDist);
-        // Volumen global bajo para que sea ambiental (0.08)
         vol = factor * factor * 0.08; 
     }
     this.ambience.fire.gain.gain.setTargetAtTime(vol, this.ctx.currentTime, 0.5);
@@ -97,36 +96,23 @@ class SoundSystem {
     let lastOut = 0;
     
     for (let i = 0; i < bufferSize; i++) {
-        // --- CAPA 1: EL RUGIDO (Fondo grave) ---
         const white = Math.random() * 2 - 1;
         lastOut = (lastOut + (0.02 * white)) / 1.002;
         const flicker = 0.8 + 0.2 * Math.sin(i * 0.0005) * Math.sin(i * 0.003);
-        
-        // AJUSTE CLAVE: Reducimos el volumen base del rugido de 2.0 a 0.5
-        // Esto hace que el "aire" del fuego sea casi imperceptible, destacando los clicks
         data[i] = lastOut * flicker * 0.5; 
 
-        // --- CAPA 2: EL CREPITAR (Madera) ---
         if (Math.random() < 0.0008) { 
-            // Mantenemos la fuerza original del chasquido (0.5 a 1.0)
             const snapStrength = 0.5 + Math.random() * 0.5;
             const snapLength = Math.floor(10 + Math.random() * 30); 
             for (let j = 0; j < snapLength; j++) {
                 if (i + j < bufferSize) {
                     const snapNoise = (Math.random() * 2 - 1) * snapStrength;
                     const envelope = 1 - (j / snapLength); 
-                    // Se suma sobre el rugido (ahora más bajo), así que resalta más
                     data[i + j] += snapNoise * envelope;
                 }
             }
         }
     }
-    // Suavizado de bordes del buffer
-    for (let i = 0; i < 500; i++) {
-        data[i] *= i / 500;
-        data[bufferSize - 1 - i] *= i / 500;
-    }
-
     const noise = this.ctx.createBufferSource();
     noise.buffer = buffer;
     noise.loop = true;
@@ -142,55 +128,6 @@ class SoundSystem {
     gain.connect(this.ctx.destination);
     noise.start();
     return { node: noise, gain: gain };
-  }
-
-  scheduleNextAmbientSound() {
-      const delay = 3000 + Math.random() * 7000;
-      this.ambience.timer = setTimeout(() => {
-          if (this.enabled) {
-              this.playRandomDungeonSound();
-              this.scheduleNextAmbientSound();
-          }
-      }, delay);
-  }
-
-  playRandomDungeonSound() {
-      const rand = Math.random();
-      if (rand < 0.3) this.playDrip();
-      else if (rand < 0.6) this.playWindGust();
-      else if (rand < 0.8) this.playNoise(0.15, 0.05, 100);
-  }
-
-  playDrip() {
-      this.playFM(800 + Math.random()*200, 200, 100, 0.1, 'sine', 0.05);
-      setTimeout(() => this.playFM(1200, 100, 50, 0.1, 'sine', 0.02), 150);
-  }
-
-  playWindGust() {
-      if (!this.ctx) return;
-      const duration = 3.5; 
-      const bufferSize = this.ctx.sampleRate * duration;
-      const buffer = this.ctx.createBuffer(1, bufferSize, this.ctx.sampleRate);
-      const data = buffer.getChannelData(0);
-      for (let i = 0; i < bufferSize; i++) data[i] = Math.random() * 2 - 1;
-
-      const noise = this.ctx.createBufferSource();
-      noise.buffer = buffer;
-      const filter = this.ctx.createBiquadFilter();
-      filter.type = 'bandpass';
-      filter.frequency.value = 300; 
-      filter.Q.value = 1; 
-      const gain = this.ctx.createGain();
-      const t = this.ctx.currentTime;
-      
-      gain.gain.setValueAtTime(0, t);
-      gain.gain.linearRampToValueAtTime(0.04, t + duration / 2); 
-      gain.gain.linearRampToValueAtTime(0, t + duration);
-
-      noise.connect(filter);
-      filter.connect(gain);
-      gain.connect(this.ctx.destination);
-      noise.start();
   }
 
   // --- 3. GENERADOR DE RUIDO ---
@@ -224,22 +161,23 @@ class SoundSystem {
         
         // INTERACCIÓN
         case 'step':
-          // Pasos sutiles: 
-          
           this.playNoise(0.06, 0.2, 150 + Math.random() * 200); 
           break;
         case 'chest': 
           this.playFM(600, 1200, 500, 0.5, 'sine', 0.2); 
           this.playNoise(0.3, 0.2, 300);
           break;
+        
         case 'door':
-          this.playFM(100, 50, 200, 0.4, 'sawtooth', 0.2);
-          setTimeout(() => this.playNoise(0.1, 0.3, 200), 200); 
+          this.playFM(60, 30, 80, 0.4, 'sawtooth', 0.3);
+          setTimeout(() => this.playNoise(0.15, 0.5, 200), 250); 
           break;
+
         case 'stairs':
-          this.playNoise(0.1, 0.2, 200);
-          setTimeout(() => this.playNoise(0.15, 0.15, 150), 150);
+          this.playNoise(0.25, 0.8, 200); 
+          setTimeout(() => this.playNoise(0.3, 0.6, 150), 300);
           break;
+          
         case 'pickup':
           this.playFM(1500, 3000, 200, 0.1, 'sine', 0.15);
           setTimeout(() => this.playFM(2000, 4000, 200, 0.2, 'sine', 0.15), 50);
@@ -256,21 +194,39 @@ class SoundSystem {
 
         // COMBATE
         case 'attack': 
-          this.playNoise(0.1, 0.3, 600);
+          this.playNoise(0.15, 0.2, 1500);
+          this.playFM(800, 1200, 200, 0.15, 'triangle', 0.1); 
           break;
+        
         case 'hit': 
           this.playNoise(0.12, 0.4, 300);
           break;
+        
         case 'enemy_hit':
-          this.playFM(80, 40, 500, 0.3, 'sawtooth', 0.3);
-          this.playNoise(0.2, 0.4, 200);
+          this.playFM(120, 40, 20, 0.25, 'triangle', 0.5);
+          this.playNoise(0.2, 0.6, 300); 
           break;
+
         case 'critical':
           this.playFM(800, 150, 1000, 0.2, 'square', 0.2);
           this.playNoise(0.2, 0.5, 800);
           break;
         case 'kill':
           this.playFM(100, 50, 100, 0.4, 'sine', 0.3);
+          break;
+
+        // SONIDO DE YUNQUE (METAL PURO)
+        case 'anvil':
+          // 1. "CLANG" Metálico: Ratio inarmónico (Carrier 700, Mod 1200) para sonido de campana/metal
+          this.playFM(700, 1200, 1500, 0.4, 'sine', 0.3);
+          
+          // 2. Resonancia aguda (El "tiiing" final)
+          setTimeout(() => {
+             this.playFM(1800, 0, 0, 0.8, 'sine', 0.1); 
+          }, 10);
+          
+          // 3. Golpe físico (muy corto)
+          this.playNoise(0.05, 0.3, 1000);
           break;
 
         // MAGIA

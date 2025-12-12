@@ -149,6 +149,16 @@ export function useGameActions(context) {
             addMessage("Un NPC bloquea el camino (Usa 'E')", 'info');
             return;
         }
+
+        // --- CHEQUEO DE COLISIÓN CON EL HORNO DEL HERRERO ---
+        // El horno se dibuja visualmente en la casilla (x+1, y) relativa al herrero.
+        // Si intentamos movernos a (nx, ny), debemos verificar si en la casilla izquierda (nx-1, ny) hay un herrero.
+        const entitiesLeft = spatialHash.get(nx - 1, ny);
+        const blacksmithLeft = entitiesLeft.find(e => e.type === 'npc'); 
+        if (blacksmithLeft && blacksmithLeft.ref && blacksmithLeft.ref.type === 'blacksmith') {
+             addMessage("El horno está muy caliente, mejor no tocarlo.", 'info');
+             return;
+        }
         
         // Combate
         const enemyRef = entitiesAtTarget.find(e => e.type === 'enemy');
@@ -172,9 +182,8 @@ export function useGameActions(context) {
         spatialHash.move(player.x, player.y, nx, ny, { ...player, type: 'player' });
         updatePlayer({ x: nx, y: ny, lastMoveTime: Date.now() });
         
-        // >>> AQUÍ ESTÁ LA CLAVE: SONIDO DE PASOS <<<
+        // Sonido de pasos
         soundManager.play('step');
-        // -------------------------------------------
         
         // Recoger Items
         const itemRef = entitiesAtTarget.find(e => e.type === 'item');
@@ -282,18 +291,14 @@ export function useGameActions(context) {
     descend: (goUp) => {
         if (goUp && dungeon.stairsUp && player.x === dungeon.stairsUp.x && player.y === dungeon.stairsUp.y) {
             if (dungeon.level > 1) {
-                // --- CAMBIO: Sonido escaleras ---
                 soundManager.play('stairs');
-                // --------------------------------
                 initGame(dungeon.level - 1, player);
             }
             else addMessage("No puedes salir aún", 'info');
         } else if (!goUp && player.x === dungeon.stairs.x && player.y === dungeon.stairs.y) {
             if (dungeon.enemies.some(e => e.isBoss)) addMessage("¡Mata al jefe primero!", 'info');
             else {
-                // --- CAMBIO: Sonido escaleras ---
                 soundManager.play('stairs');
-                // --------------------------------
                 initGame(dungeon.level + 1, player);
             }
         } else {

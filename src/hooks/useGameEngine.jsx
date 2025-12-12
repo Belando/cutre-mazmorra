@@ -57,14 +57,27 @@ export function useGameEngine() {
         // Iniciar bucles de ambiente (viento/mazmorra)
         soundManager.initAmbience();
 
-        // Calcular distancia a la antorcha más cercana para el volumen del fuego
-        if (player && dungeon.torches) {
+        // Calcular distancia a la fuente de fuego más cercana (Antorcha O Herrero)
+        if (player) {
             let minDist = Infinity;
-            dungeon.torches.forEach(torch => {
-                // Distancia euclidiana para sonido espacial suave
-                const dist = Math.sqrt(Math.pow(torch.x - player.x, 2) + Math.pow(torch.y - player.y, 2));
-                if (dist < minDist) minDist = dist;
-            });
+            
+            // 1. Antorchas
+            if (dungeon.torches) {
+                dungeon.torches.forEach(torch => {
+                    const dist = Math.sqrt(Math.pow(torch.x - player.x, 2) + Math.pow(torch.y - player.y, 2));
+                    if (dist < minDist) minDist = dist;
+                });
+            }
+
+            // 2. Herrero (El horno cuenta como fuego fuerte)
+            if (dungeon.npcs) {
+                const blacksmith = dungeon.npcs.find(n => n.type === 'blacksmith');
+                if (blacksmith) {
+                    const dist = Math.sqrt(Math.pow(blacksmith.x - player.x, 2) + Math.pow(blacksmith.y - player.y, 2));
+                    // El horno suena un poco más fuerte (reducimos artificialmente la distancia)
+                    if (dist * 0.8 < minDist) minDist = dist * 0.8;
+                }
+            }
             
             // Actualizar volumen del canal de fuego
             soundManager.updateFireAmbience(minDist);
@@ -77,7 +90,7 @@ export function useGameEngine() {
     return () => {
         if (!gameStarted) soundManager.stopAmbience();
     };
-  }, [gameStarted, gameOver, player?.x, player?.y, dungeon.torches]);
+  }, [gameStarted, gameOver, player?.x, player?.y, dungeon.torches, dungeon.npcs]);
 
   const executeTurn = useCallback((currentPlayerState = player, enemiesOverride = null) => {
     regenPlayer();
