@@ -1,21 +1,21 @@
-// Sistema de Inteligencia Artificial para Enemigos
+// src/engine/systems/EnemyAI.js
 import { findPath } from '@/engine/core/pathfinding';
 import { ENEMY_RANGED_INFO } from '@/data/enemies';
-import { hasLineOfSight } from './CombatSystem'; 
+// IMPORTANTE: Ahora importamos desde utils, no de CombatSystem
+import { hasLineOfSight } from '@/engine/core/utils'; 
 import { TILE } from '@/data/constants';
 
 // Tipos de comportamiento
 export const AI_BEHAVIORS = {
-  AGGRESSIVE: 'aggressive',  // Carga hacia el jugador
-  CAUTIOUS: 'cautious',      // Mantiene distancia
-  PACK: 'pack',              // Flanquea con aliados
-  AMBUSH: 'ambush',          // Espera emboscada
-  BOSS: 'boss',              // Patrón de jefe
+  AGGRESSIVE: 'aggressive',
+  CAUTIOUS: 'cautious',
+  PACK: 'pack',
+  AMBUSH: 'ambush',
+  BOSS: 'boss',
 };
 
 // Asignar comportamiento según tipo de enemigo
 export function getEnemyBehavior(enemyType) {
-  // Jefes tienen ID >= 100
   if (enemyType >= 100) return AI_BEHAVIORS.BOSS;
   
   const behaviors = {
@@ -45,28 +45,28 @@ export function getEnemyRange(enemyType) {
     return ENEMY_RANGED_INFO[enemyType]?.range || 1;
 }
 
-// --- FUNCIONES DE MOVIMIENTO ---
+// --- FUNCIONES DE MOVIMIENTO (OPTIMIZADAS CON SPATIAL HASH) ---
 
 // Comprueba si una casilla está libre de obstáculos
-function isTileFree(x, y, map, enemies, chests, npcs) {
-  const tile = map[y]?.[x];
-  
-  // CORRECCIÓN: Permitir caminar sobre PUERTAS ABIERTAS (TILE.DOOR_OPEN = 5)
-  // TILE.FLOOR = 1, TILE.STAIRS = 2, TILE.STAIRS_UP = 4, TILE.DOOR_OPEN = 5
+function isTileFree(x, y, map, spatialHash) {
+  // 1. Límites del mapa
+  if (y < 0 || y >= map.length || x < 0 || x >= map[0].length) return false;
+
+  // 2. Obstáculos estáticos (Muros/Puertas Cerradas)
+  const tile = map[y][x];
   const isWalkable = tile === TILE.FLOOR || tile === TILE.STAIRS || tile === TILE.STAIRS_UP || tile === TILE.DOOR_OPEN;
   
   if (!isWalkable) return false;
   
-  // Bloqueo por entidades dinámicas
-  if (enemies.some(e => e.x === x && e.y === y)) return false;
-  if (chests && chests.some(c => c.x === x && c.y === y)) return false;
-  if (npcs && npcs.some(n => n.x === x && n.y === y)) return false;
+  // 3. Entidades dinámicas (Consulta O(1) al Hash)
+  // isBlocked devuelve true si hay Player, Enemy, Chest o NPC
+  if (spatialHash.isBlocked(x, y)) return false;
   
   return true;
 }
 
 // Calcular posición de flanqueo
-function getFlankingPosition(player, allies, enemy, map, chests, npcs) {
+function getFlankingPosition(player, allies, enemy, map, spatialHash) {
     const directions = [
       { dx: 1, dy: 0 }, { dx: -1, dy: 0 },
       { dx: 0, dy: 1 }, { dx: 0, dy: -1 },
@@ -74,14 +74,15 @@ function getFlankingPosition(player, allies, enemy, map, chests, npcs) {
       { dx: 1, dy: -1 }, { dx: -1, dy: -1 },
     ];
     
-    // Posiciones ocupadas por aliados
+    // Posiciones ocupadas por aliados (para no intentar ir donde ya hay uno)
+    // Aunque spatialHash ya bloquea, esto ayuda a la lógica de "flanqueo"
     const occupiedPositions = new Set(allies.map(a => `${a.x},${a.y}`));
     
     for (const dir of directions) {
       const pos = { x: player.x + dir.dx, y: player.y + dir.dy };
       
-      // Usamos isTileFree (sin pasar enemies porque ya filtramos occupiedPositions)
-      if (isTileFree(pos.x, pos.y, map, [], chests, npcs) && !occupiedPositions.has(`${pos.x},${pos.y}`)) {
+      // Usamos isTileFree con el hash
+      if (isTileFree(pos.x, pos.y, map, spatialHash) && !occupiedPositions.has(`${pos.x},${pos.y}`)) {
         // Es posición de flanqueo si está opuesta a otro aliado
         const isFlank = allies.some(ally => {
           const dx = Math.sign(player.x - ally.x);
@@ -95,7 +96,7 @@ function getFlankingPosition(player, allies, enemy, map, chests, npcs) {
 }
 
 // Moverse lejos del objetivo (Huida/Cautela)
-function moveAway(enemy, player, map, enemies, chests, npcs) {
+function moveAway(enemy, player, map, spatialHash) {
     const dx = Math.sign(enemy.x - player.x);
     const dy = Math.sign(enemy.y - player.y);
     
@@ -107,14 +108,13 @@ function moveAway(enemy, player, map, enemies, chests, npcs) {
     ];
     
     for (const move of moves) {
-      const otherEnemies = enemies.filter(e => e !== enemy);
-      if (isTileFree(move.x, move.y, map, otherEnemies, chests, npcs)) return move;
+      if (isTileFree(move.x, move.y, map, spatialHash)) return move;
     }
     return null;
 }
   
 // Movimiento lateral (Strafe)
-function getLateralMove(enemy, player, map, enemies, chests, npcs) {
+function getLateralMove(enemy, player, map, spatialHash) {
     const dx = player.x - enemy.x;
     const dy = player.y - enemy.y;
     
@@ -127,47 +127,39 @@ function getLateralMove(enemy, player, map, enemies, chests, npcs) {
     if (Math.random() < 0.5) lateralMoves.reverse();
     
     for (const move of lateralMoves) {
-      const otherEnemies = enemies.filter(e => e !== enemy);
-      if (isTileFree(move.x, move.y, map, otherEnemies, chests, npcs)) return move;
+      if (isTileFree(move.x, move.y, map, spatialHash)) return move;
     }
     return null;
 }
 
-// Nueva función para movimiento aleatorio (cuando no te ven)
-function moveRandomly(enemy, map, enemies, chests, npcs, player) {
+// Movimiento aleatorio (cuando no te ven)
+function moveRandomly(enemy, map, spatialHash, player) {
     const dirs = [[0,1], [0,-1], [1,0], [-1,0]];
     const randomDir = dirs[Math.floor(Math.random() * dirs.length)];
     const target = { x: enemy.x + randomDir[0], y: enemy.y + randomDir[1] };
     
-    // Evitar pisar al jugador explícitamente si es invisible (para no revelar posición por choque)
+    // Evitar pisar al jugador explícitamente si es invisible
     if (target.x === player.x && target.y === player.y) return null;
 
-    const otherEnemies = enemies.filter(e => e !== enemy);
-    if (isTileFree(target.x, target.y, map, otherEnemies, chests, npcs)) {
+    if (isTileFree(target.x, target.y, map, spatialHash)) {
         return target;
     }
     return null;
 }
 
-// Mover hacia el objetivo usando A*
-function moveToward(enemy, targetX, targetY, map, enemies, player, chests, npcs) {
-  // Filtramos enemigos una vez para eficiencia
-  const otherEnemies = enemies.filter(e => e !== enemy);
-
+// Mover hacia el objetivo usando A* y SpatialHash
+function moveToward(enemy, targetX, targetY, map, spatialHash, player) {
   // 1. Intentar encontrar el camino ideal con A*
   const nextStep = findPath(enemy.x, enemy.y, targetX, targetY, map);
 
-  // Si A* encuentra un camino
+  // Si A* encuentra un camino (basado en muros)
   if (nextStep) {
-    // 1a. CAMINO LIBRE: Si el paso óptimo está libre, tómalo.
-    if (isTileFree(nextStep.x, nextStep.y, map, otherEnemies, chests, npcs)) {
-      // Evitar pisar al jugador
-      if (nextStep.x !== player.x || nextStep.y !== player.y) {
-        return nextStep;
-      }
+    // 1a. CAMINO LIBRE: Verificamos entidades con el Hash
+    if (isTileFree(nextStep.x, nextStep.y, map, spatialHash)) {
+      return nextStep;
     }
     
-    // 1b. FLOCKING: Buscar casilla adyacente libre si el camino óptimo está bloqueado
+    // 1b. FLOCKING: Si el paso óptimo está bloqueado por otra entidad, buscar adyacente
     const neighbors = [
       { x: enemy.x + 1, y: enemy.y },
       { x: enemy.x - 1, y: enemy.y },
@@ -175,10 +167,7 @@ function moveToward(enemy, targetX, targetY, map, enemies, player, chests, npcs)
       { x: enemy.x, y: enemy.y - 1 }
     ];
 
-    const validMoves = neighbors.filter(pos => 
-      isTileFree(pos.x, pos.y, map, otherEnemies, chests, npcs) &&
-      (pos.x !== player.x || pos.y !== player.y)
-    );
+    const validMoves = neighbors.filter(pos => isTileFree(pos.x, pos.y, map, spatialHash));
 
     if (validMoves.length > 0) {
       // Ordenamos las opciones por distancia al objetivo
@@ -200,8 +189,7 @@ function moveToward(enemy, targetX, targetY, map, enemies, player, chests, npcs)
   if (dy !== 0) simpleMoves.push({ x: enemy.x, y: enemy.y + dy });
   
   for (const move of simpleMoves) {
-    if ((move.x !== player.x || move.y !== player.y) && 
-        isTileFree(move.x, move.y, map, otherEnemies, chests, npcs)) {
+    if (isTileFree(move.x, move.y, map, spatialHash)) {
       return move;
     }
   }
@@ -210,7 +198,8 @@ function moveToward(enemy, targetX, targetY, map, enemies, player, chests, npcs)
 }
 
 // PROCESO PRINCIPAL: Turno del Enemigo
-export function processEnemyTurn(enemy, player, enemies, map, visible, log, chests, npcs) {
+// Ahora recibe spatialHash en lugar de las listas sueltas
+export function processEnemyTurn(enemy, player, enemies, map, visible, log, spatialHash) {
   // 1. Estados alterados
   if (enemy.stunned > 0) {
     enemy.stunned--;
@@ -239,27 +228,22 @@ export function processEnemyTurn(enemy, player, enemies, map, visible, log, ches
   const dist = Math.abs(enemy.x - player.x) + Math.abs(enemy.y - player.y);
   const canSee = visible[enemy.y]?.[enemy.x];
   
-  // -- CORRECCIÓN INVISIBILIDAD --
-  // Si el jugador es invisible, el enemigo PIERDE EL OBJETIVO SIEMPRE (incluso adyacente)
   const isPlayerInvisible = player.skills?.buffs?.some(b => b.invisible);
   
   if (isPlayerInvisible) {
-      // Vagar sin rumbo (movimiento aleatorio)
-      const newPos = moveRandomly(enemy, map, enemies, chests, npcs, player);
+      const newPos = moveRandomly(enemy, map, spatialHash, player);
       if (newPos) {
+          // ACTUALIZAR HASH AL MOVER
+          spatialHash.move(enemy.x, enemy.y, newPos.x, newPos.y, { ...enemy, type: 'enemy' });
           enemy.x = newPos.x;
           enemy.y = newPos.y;
-          
-          // --- CORRECCIÓN: Actualizar tiempo de movimiento aquí también ---
           enemy.lastMoveTime = Date.now(); 
-          // ---------------------------------------------------------------
-          
           return { action: 'wander', x: newPos.x, y: newPos.y };
       }
       return { action: 'wait_confused' };
   }
   
-  // Ataque cuerpo a cuerpo (Solo si el jugador es visible, garantizado por el if anterior)
+  // Ataque cuerpo a cuerpo
   if (dist === 1) return { action: 'melee_attack' };
   
   // Ataque a distancia
@@ -277,7 +261,7 @@ export function processEnemyTurn(enemy, player, enemies, map, visible, log, ches
   switch (behavior) {
     case AI_BEHAVIORS.AGGRESSIVE:
       if (canSee || dist <= 10) {
-        newPos = moveToward(enemy, player.x, player.y, map, enemies, player, chests, npcs);
+        newPos = moveToward(enemy, player.x, player.y, map, spatialHash, player);
       }
       break;
       
@@ -286,19 +270,21 @@ export function processEnemyTurn(enemy, player, enemies, map, visible, log, ches
         const optimalRange = ranged ? Math.floor(ranged.range * 0.7) : 4;
         
         if (dist <= 2) {
-            newPos = moveAway(enemy, player, map, enemies, chests, npcs); 
+            newPos = moveAway(enemy, player, map, spatialHash); 
         } else if (dist < optimalRange && canSee) {
-            if (Math.random() < 0.6) newPos = moveAway(enemy, player, map, enemies, chests, npcs);
+            if (Math.random() < 0.6) newPos = moveAway(enemy, player, map, spatialHash);
         } else if (dist > optimalRange + 2 && canSee) {
-            newPos = moveToward(enemy, player.x, player.y, map, enemies, player, chests, npcs); 
+            newPos = moveToward(enemy, player.x, player.y, map, spatialHash, player); 
         } else if (canSee && Math.random() < 0.2) {
-            const lateralMove = getLateralMove(enemy, player, map, enemies, chests, npcs); 
+            const lateralMove = getLateralMove(enemy, player, map, spatialHash); 
             if (lateralMove) newPos = lateralMove;
         }
         break;
       
     case AI_BEHAVIORS.PACK:
         if (canSee || dist <= 8) {
+            // Aquí seguimos usando el array 'enemies' para encontrar aliados, 
+            // pero el movimiento usará el hash
             const allies = enemies.filter(e => 
               e !== enemy && 
               getEnemyBehavior(e.type) === AI_BEHAVIORS.PACK &&
@@ -306,64 +292,62 @@ export function processEnemyTurn(enemy, player, enemies, map, visible, log, ches
             );
             
             if (allies.length > 0) {
-              const flankPos = getFlankingPosition(player, allies, enemy, map, chests, npcs);
+              const flankPos = getFlankingPosition(player, allies, enemy, map, spatialHash);
               if (flankPos) {
-                newPos = moveToward(enemy, flankPos.x, flankPos.y, map, enemies, player, chests, npcs);
+                newPos = moveToward(enemy, flankPos.x, flankPos.y, map, spatialHash, player);
               } else {
-                newPos = moveToward(enemy, player.x, player.y, map, enemies, player, chests, npcs);
+                newPos = moveToward(enemy, player.x, player.y, map, spatialHash, player);
               }
             } else {
-              newPos = moveToward(enemy, player.x, player.y, map, enemies, player, chests, npcs);
+              newPos = moveToward(enemy, player.x, player.y, map, spatialHash, player);
             }
         }
         break;
       
     case AI_BEHAVIORS.AMBUSH:
         if (dist <= 3) {
-            newPos = moveToward(enemy, player.x, player.y, map, enemies, player, chests, npcs);
+            newPos = moveToward(enemy, player.x, player.y, map, spatialHash, player);
         }
         break;
       
     case AI_BEHAVIORS.BOSS:
         if (canSee || dist <= 12) {
             if (dist <= 2 && Math.random() < 0.3) {
-              newPos = moveAway(enemy, player, map, enemies, chests, npcs);
+              newPos = moveAway(enemy, player, map, spatialHash);
             } else {
-              newPos = moveToward(enemy, player.x, player.y, map, enemies, player, chests, npcs);
+              newPos = moveToward(enemy, player.x, player.y, map, spatialHash, player);
             }
         }
         break;
   }
   
   if (newPos) {
+    // ACTUALIZAR HASH AL MOVER
+    spatialHash.move(enemy.x, enemy.y, newPos.x, newPos.y, { ...enemy, type: 'enemy' });
+    
     enemy.x = newPos.x;
     enemy.y = newPos.y;
-    // --- CAMBIO AQUÍ: Registrar tiempo de movimiento ---
     enemy.lastMoveTime = Date.now(); 
-    // ---------------------------------------------------
     return { action: 'move', x: newPos.x, y: newPos.y };
   }
   
   return { action: 'wait' };
 }
 
-// Calcular daño recibido por el jugador
+// (La función calculateEnemyDamage se mantiene igual, no necesita cambios)
 export function calculateEnemyDamage(enemy, player, playerStats, playerBuffs) {
   let baseDamage = enemy.attack - playerStats.defense + Math.floor(Math.random() * 3);
   
-  // Evasión
   const evasionBonus = playerBuffs.reduce((sum, b) => sum + (b.evasion || 0), 0);
   if (evasionBonus > 0 && Math.random() < evasionBonus * 0.5) {
     return { damage: 0, evaded: true };
   }
   
-  // Escudos / Absorción
   const absorbPercent = playerBuffs.reduce((sum, b) => sum + (b.absorb || 0), 0);
   if (absorbPercent > 0) {
     baseDamage = Math.floor(baseDamage * (1 - absorbPercent));
   }
   
-  // Marcado
   if (enemy.marked) {
     baseDamage = Math.floor(baseDamage * 0.75);
   }

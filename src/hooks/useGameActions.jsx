@@ -38,7 +38,8 @@ export function useGameActions(context) {
     handleEnemyDeath, 
     reorderInventory,
     executeSkillAction: coreExecuteSkillAction, 
-    selectedSkill
+    selectedSkill,
+    spatialHash // <--- RECIBIMOS EL SPATIAL HASH
   } = context;
 
   const performAttack = (enemy, enemyIdx) => {
@@ -121,12 +122,12 @@ export function useGameActions(context) {
         const nx = player.x + dx;
         const ny = player.y + dy;
         
+        // Verificación de límites y muros (mapa estático)
         if (nx < 0 || nx >= dungeon.map[0].length || ny < 0 || ny >= dungeon.map.length) return;
-        
         const targetTile = dungeon.map[ny][nx];
-        
         if (targetTile === TILE.WALL) return;
 
+        // Caso especial: Puertas
         if (targetTile === TILE.DOOR) {
             const newMap = [...dungeon.map];
             newMap[ny] = [...newMap[ny]];
@@ -139,81 +140,92 @@ export function useGameActions(context) {
             return; 
         }
         
-        if (dungeon.chests.some(c => c.x === nx && c.y === ny)) {
+        // --- OPTIMIZACIÓN SPATIAL HASH ---
+        // Obtenemos todas las entidades en la casilla destino en O(1)
+        const entitiesAtTarget = spatialHash.get(nx, ny);
+
+        // 1. Bloqueo por Cofres
+        if (entitiesAtTarget.some(e => e.type === 'chest')) {
             addMessage("Un cofre bloquea el camino (Usa 'E')", 'info');
             return;
         }
-        if (dungeon.npcs.some(n => n.x === nx && n.y === ny)) {
+
+        // 2. Bloqueo por NPCs
+        if (entitiesAtTarget.some(e => e.type === 'npc')) {
             addMessage("Un NPC bloquea el camino (Usa 'E')", 'info');
             return;
         }
         
-        // CORRECCIÓN: Detectar colisión con NPC (incluyendo la forja del herrero en x+1)
-        const blockingNPC = dungeon.npcs.find(n => 
-            (n.x === nx && n.y === ny) || 
-            (n.type === 'blacksmith' && n.x + 1 === nx && n.y === ny)
-        );
-
-        if (blockingNPC) {
-            addMessage("Un NPC bloquea el camino (Usa 'E')", 'info');
-            return;
-        }
+        // 3. Combate (Enemigos)
+        // Buscamos si hay un enemigo en la casilla destino usando el Hash
+        const enemyRef = entitiesAtTarget.find(e => e.type === 'enemy');
         
-        const enemyIdx = dungeon.enemies.findIndex(e => e.x === nx && e.y === ny);
-        if (enemyIdx !== -1) {
-            const enemy = dungeon.enemies[enemyIdx];
+        if (enemyRef) {
+            // Buscamos el índice real en el array de estado para modificarlo
+            const enemyIdx = dungeon.enemies.findIndex(e => e.x === nx && e.y === ny);
+            
+            if (enemyIdx !== -1) {
+                const enemy = dungeon.enemies[enemyIdx];
 
-            if (selectedSkill && SKILLS[selectedSkill]) {
-                const skill = SKILLS[selectedSkill];
-                if (skill.type === 'melee') {
-                    if (canUseSkill(selectedSkill, player.skills.cooldowns)) {
-                        const success = actions.executeSkillAction(selectedSkill, enemy);
-                        if (success) return; 
-                    } else {
-                        if (effectsManager.current) {
-                            effectsManager.current.addText(player.x, player.y, "CD", '#94a3b8', false, true);
+                // Lógica de uso de Skill Melee (si está seleccionada)
+                if (selectedSkill && SKILLS[selectedSkill]) {
+                    const skill = SKILLS[selectedSkill];
+                    if (skill.type === 'melee') {
+                        if (canUseSkill(selectedSkill, player.skills.cooldowns)) {
+                            const success = actions.executeSkillAction(selectedSkill, enemy);
+                            if (success) return; 
+                        } else {
+                            if (effectsManager.current) {
+                                effectsManager.current.addText(player.x, player.y, "CD", '#94a3b8', false, true);
+                            }
                         }
                     }
                 }
-            }
 
-            const nextEnemiesState = performAttack(enemy, enemyIdx);
-            executeTurn(player, nextEnemiesState);
-            return;
+                const nextEnemiesState = performAttack(enemy, enemyIdx);
+                executeTurn(player, nextEnemiesState);
+                return;
+            }
         }
         
+        // 4. Movimiento Válido
+        // Actualizamos el Hash inmediatamente para mantener consistencia
+        spatialHash.move(player.x, player.y, nx, ny, { ...player, type: 'player' });
         updatePlayer({ x: nx, y: ny, lastMoveTime: Date.now() });
         
-        const itemIdx = dungeon.items.findIndex(i => i.x === nx && i.y === ny);
-        if (itemIdx !== -1) {
-            const item = dungeon.items[itemIdx];
-            if (item.category === 'currency') {
-                soundManager.play('pickup');
-                updatePlayer({ gold: player.gold + item.value });
-                addMessage(`+${item.value} Oro`, 'pickup');
-                if (effectsManager.current) effectsManager.current.addText(nx, ny, `+${item.value}`, '#fbbf24');
-                
-                const newItems = [...dungeon.items];
-                newItems.splice(itemIdx, 1);
-                setDungeon(prev => ({ ...prev, items: newItems }));
-            } else {
-                const success = addItem(item);
-                if (success) {
+        // 5. Recoger Items (No bloquean)
+        const itemRef = entitiesAtTarget.find(e => e.type === 'item');
+        if (itemRef) {
+            // Buscamos el item real en el array
+            const itemIdx = dungeon.items.findIndex(i => i.x === nx && i.y === ny);
+            if (itemIdx !== -1) {
+                const item = dungeon.items[itemIdx];
+                if (item.category === 'currency') {
                     soundManager.play('pickup');
-                    if (effectsManager.current) effectsManager.current.addSparkles(nx, ny);
-                    addMessage(`Recogiste: ${item.name}`, 'pickup');
+                    updatePlayer({ gold: player.gold + item.value });
+                    addMessage(`+${item.value} Oro`, 'pickup');
+                    if (effectsManager.current) effectsManager.current.addText(nx, ny, `+${item.value}`, '#fbbf24');
                     
                     const newItems = [...dungeon.items];
                     newItems.splice(itemIdx, 1);
                     setDungeon(prev => ({ ...prev, items: newItems }));
                 } else {
-                    addMessage("Inventario lleno", 'info');
+                    const success = addItem(item);
+                    if (success) {
+                        soundManager.play('pickup');
+                        if (effectsManager.current) effectsManager.current.addSparkles(nx, ny);
+                        addMessage(`Recogiste: ${item.name}`, 'pickup');
+                        
+                        const newItems = [...dungeon.items];
+                        newItems.splice(itemIdx, 1);
+                        setDungeon(prev => ({ ...prev, items: newItems }));
+                    } else {
+                        addMessage("Inventario lleno", 'info');
+                    }
                 }
             }
         }
 
-        
-        
         executeTurn({ ...player, x: nx, y: ny });
     },
 
@@ -223,56 +235,62 @@ export function useGameActions(context) {
             const tx = player.x + dx;
             const ty = player.y + dy;
 
-            const chestIdx = dungeon.chests.findIndex(c => c.x === tx && c.y === ty);
-            if (chestIdx !== -1) {
-                const chest = dungeon.chests[chestIdx];
-                if (chest.isOpen) {
-                    addMessage("Este cofre ya está vacío.", 'info');
-                    return null;
-                }
-                soundManager.play('chest'); 
-                if (effectsManager.current) effectsManager.current.addSparkles(tx, ty, '#fbbf24');
-                const item = chest.item;
+            // --- OPTIMIZACIÓN SPATIAL HASH ---
+            const entities = spatialHash.get(tx, ty);
+
+            // 1. Interactuar con Cofre
+            const chestRef = entities.find(e => e.type === 'chest');
+            if (chestRef) {
+                // Buscamos el cofre real en el array para modificar su estado
+                const chestIdx = dungeon.chests.findIndex(c => c.x === tx && c.y === ty);
                 
-                if (item) {
-                    const added = addItem(item);
-                    if (added) {
-                        addMessage(`Encontraste: ${item.name}`, 'pickup');
-                        
-                        let floatText = "ITEM";
-                        if (typeof item.symbol === 'string') floatText = item.symbol;
-                        else if (item.category === 'weapon') floatText = "⚔️";
-                        else if (item.category === 'armor') floatText = "🛡️";
-                        else if (item.category === 'potion') floatText = "♥";
-                        
-                        if (effectsManager.current) effectsManager.current.addText(tx, ty, floatText, '#fff');
+                if (chestIdx !== -1) {
+                    const chest = dungeon.chests[chestIdx];
+                    if (chest.isOpen) {
+                        addMessage("Este cofre ya está vacío.", 'info');
+                        return null;
+                    }
+                    soundManager.play('chest'); 
+                    if (effectsManager.current) effectsManager.current.addSparkles(tx, ty, '#fbbf24');
+                    const item = chest.item;
+                    
+                    if (item) {
+                        const added = addItem(item);
+                        if (added) {
+                            addMessage(`Encontraste: ${item.name}`, 'pickup');
+                            
+                            let floatText = "ITEM";
+                            if (typeof item.symbol === 'string') floatText = item.symbol;
+                            else if (item.category === 'weapon') floatText = "⚔️";
+                            else if (item.category === 'armor') floatText = "🛡️";
+                            else if (item.category === 'potion') floatText = "♥";
+                            
+                            if (effectsManager.current) effectsManager.current.addText(tx, ty, floatText, '#fff');
+                            setDungeon(prev => ({
+                                ...prev,
+                                chests: prev.chests.map((c, i) => i === chestIdx ? { ...c, isOpen: true } : c)
+                            }));
+                        } else {
+                            addMessage("Inventario lleno.", 'info');
+                            return null;
+                        }
+                    } else {
+                        addMessage("El cofre estaba vacío...", 'info');
                         setDungeon(prev => ({
                             ...prev,
                             chests: prev.chests.map((c, i) => i === chestIdx ? { ...c, isOpen: true } : c)
                         }));
-                    } else {
-                        addMessage("Inventario lleno.", 'info');
-                        return null;
                     }
-                } else {
-                    addMessage("El cofre estaba vacío...", 'info');
-                    setDungeon(prev => ({
-                        ...prev,
-                        chests: prev.chests.map((c, i) => i === chestIdx ? { ...c, isOpen: true } : c)
-                    }));
+                    return { type: 'chest' };
                 }
-                return { type: 'chest' };
             }
 
-            // CORRECCIÓN: Detectar interacción con NPC o su forja
-            const npc = dungeon.npcs.find(n => 
-                (n.x === tx && n.y === ty) || 
-                (n.type === 'blacksmith' && n.x + 1 === tx && n.y === ty)
-            );
-
-            if (npc) {
+            // 2. Interactuar con NPC
+            const npcRef = entities.find(e => e.type === 'npc');
+            if (npcRef) {
                 soundManager.play('speech'); 
-                return { type: 'npc', data: npc };
+                // npcRef.ref contiene el objeto NPC real guardado en el hash
+                return { type: 'npc', data: npcRef.ref };
             }
         }
         addMessage("No hay nada aquí para interactuar.", 'info');
@@ -435,11 +453,8 @@ export function useGameActions(context) {
         addMessage(`Soltaste ${item.name}`, 'info');
     },
 
-    // --- CORRECCIÓN EN CRAFTITEM ---
-    // Usamos 'inventory' en lugar de 'materials' (que es un objeto vacío o legacy)
     craftItem: (key) => {
         const newInv = [...inventory];
-        // Pasamos el ARRAY de inventario (2 argumentos)
         const res = craftItem(key, newInv); 
         if(res.success) {
             setInventory(newInv);
@@ -448,15 +463,12 @@ export function useGameActions(context) {
         } else addMessage(res.message, 'info');
     },
 
-    // --- CORRECCIÓN EN UPGRADEITEM ---
-    // Usamos 'inventory' (array) para buscar materiales
     upgradeItem: (slot) => {
         const newEq = { ...equipment };
         const item = newEq[slot];
         if(!item) return;
         
         const newInv = [...inventory];
-        // Pasamos el ARRAY de inventario
         const res = upgradeItem(item, newInv, player.gold); 
         
         if(res.success) {

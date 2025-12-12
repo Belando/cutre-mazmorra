@@ -1362,37 +1362,6 @@ const SPRITES = {
   },
 };
 
-// Map enemy types to sprite names
-const ENEMY_SPRITES_MAP = {
-  2: "rat",
-  3: "bat",
-  4: "goblin",
-  5: "skeleton",
-  6: "orc",
-  7: "spider",
-  8: "zombie",
-  9: "troll",
-  10: "wraith",
-  11: "demon",
-  12: "dragon",
-  13: "slime",
-  14: "wolf",
-  15: "cultist",
-  16: "golem",
-  17: "vampire",
-  18: "mimic",
-  19: "ghost",
-  100: "goblin_king",
-  101: "skeleton_lord",
-  102: "orc_warlord",
-  103: "spider_queen",
-  104: "lich",
-  105: "demon_lord",
-  106: "ancient_dragon",
-  107: "vampire_lord",
-  108: "golem_king",
-};
-
 function drawStunStars(ctx, x, y, size, frame) {
   const s = size;
   const cx = x + s * 0.5;
@@ -1415,7 +1384,10 @@ function drawShadow(ctx, x, y, size) {
 }
 
 export function drawEnemy(ctx, enemyType, x, y, size, frame = 0, isStunned = false, lastAttackTime = 0, lastAttackDir = {x:0, y:0}, lastMoveTime = 0) {
-  const spriteKey = ENEMY_SPRITES_MAP[enemyType];
+  // 1. Obtener la clave de renderizado desde los datos (Source of Truth)
+  const stats = ENEMY_STATS[enemyType];
+  const spriteKey = stats?.renderKey; // Ej: 'rat', 'goblin'
+
   drawShadow(ctx, x, y, size);
 
   const now = Date.now();
@@ -1423,19 +1395,20 @@ export function drawEnemy(ctx, enemyType, x, y, size, frame = 0, isStunned = fal
   const isAttacking = timeSinceAttack < ATTACK_DURATION;
   const attackProgress = isAttacking ? timeSinceAttack / ATTACK_DURATION : 0;
 
+  // 2. Usar la clave para buscar el sprite en SPRITES (y si no existe, usar el renderKey como fallback o generic)
+  // Nota: Si has definido todos los sprites en SPRITES, esto funcionará directo.
+  // Si falta alguno, usará 'generic'.
   if (spriteKey && SPRITES[spriteKey]) {
-    // AQUÍ ESTABA EL ERROR: Faltaba pasar lastMoveTime al sprite específico
     SPRITES[spriteKey].draw(ctx, x, y, size, frame, isAttacking, attackProgress, lastAttackDir, lastMoveTime);
   } else {
-    const stats = ENEMY_STATS[enemyType];
     const color = stats ? stats.color : "#ef4444";
-    // El genérico también podría recibirlo si decides animarlo en el futuro
     SPRITES.generic.draw(ctx, x, y, size, frame, color, isAttacking, attackProgress, lastAttackDir);
   }
 
   if (isStunned) drawStunStars(ctx, x, y, size, frame);
 }
 
+// ... (drawLargeEnemy y drawWeapon se mantienen igual) ...
 export function drawLargeEnemy(ctx, spriteName, x, y, size, frame = 0, isStunned, lastAttackTime = 0) {
   const s = size;
   const pulse = Math.sin(frame * 0.05) * 0.02 + 1;
@@ -1458,35 +1431,23 @@ export function drawLargeEnemy(ctx, spriteName, x, y, size, frame = 0, isStunned
 }
 
 function drawWeapon(ctx, x, y, size, type = 'sword', progress = 0, angle = 0) {
+    // ... (código existente de drawWeapon) ...
     ctx.save();
     ctx.translate(x, y);
-    
-    // 1. Orientar hacia el jugador
     ctx.rotate(angle); 
-    
-    // 2. Animación de golpe (Swing)
     const swing = Math.sin(progress * Math.PI);
     ctx.rotate(swing * 2.0 - 1.0); 
-
-    // Dibujo del arma
     ctx.fillStyle = '#9ca3af'; 
     if (type === 'dagger') {
         ctx.fillRect(size*0.2, -size*0.05, size*0.3, size*0.1); 
-        ctx.fillStyle = '#4b5563';
-        ctx.fillRect(0, -size*0.05, size*0.2, size*0.1); // Mango
+        ctx.fillStyle = '#4b5563'; ctx.fillRect(0, -size*0.05, size*0.2, size*0.1); 
     } else if (type === 'axe') {
-        ctx.fillStyle = '#78350f'; 
-        ctx.fillRect(0, -size*0.05, size*0.6, size*0.1); 
-        ctx.fillStyle = '#9ca3af'; 
-        ctx.beginPath();
-        ctx.arc(size*0.5, 0, size*0.2, 0, Math.PI*2); 
-        ctx.fill();
-    } else { // Sword
+        ctx.fillStyle = '#78350f'; ctx.fillRect(0, -size*0.05, size*0.6, size*0.1); 
+        ctx.fillStyle = '#9ca3af'; ctx.beginPath(); ctx.arc(size*0.5, 0, size*0.2, 0, Math.PI*2); ctx.fill();
+    } else { 
         ctx.fillRect(size*0.2, -size*0.05, size*0.5, size*0.1); 
-        ctx.fillStyle = '#fbbf24'; 
-        ctx.fillRect(size*0.2, -size*0.15, size*0.05, size*0.3); 
-        ctx.fillStyle = '#78350f';
-        ctx.fillRect(0, -size*0.04, size*0.2, size*0.08); 
+        ctx.fillStyle = '#fbbf24'; ctx.fillRect(size*0.2, -size*0.15, size*0.05, size*0.3); 
+        ctx.fillStyle = '#78350f'; ctx.fillRect(0, -size*0.04, size*0.2, size*0.08); 
     }
     ctx.restore();
 }

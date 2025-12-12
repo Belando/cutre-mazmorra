@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
 import { usePlayer } from './usePlayer';
 import { useDungeon } from './useDungeon';
 import { useInventory } from './useInventory';
@@ -7,21 +7,26 @@ import { soundManager } from "@/engine/systems/SoundSystem";
 import { useGameEffects } from "@/hooks/useGameEffects";
 import { useCombatLogic } from '@/hooks/useCombatLogic';
 import { useGameActions } from '@/hooks/useGameActions';
+// NUEVO: Importamos la clase SpatialHash
+import { SpatialHash } from '@/engine/core/SpatialHash';
 
 export function useGameEngine() {
   const { player, setPlayer, initPlayer, updatePlayer, gainExp, regenerate: regenPlayer } = usePlayer();
   const { dungeon, setDungeon, generateLevel, updateMapFOV } = useDungeon();
   
-  // AÑADIR reorderInventory
   const { 
     inventory, setInventory, equipment, setEquipment, materials, setMaterials, 
     quickSlots, setQuickSlots, initInventory, addItem, addMaterial, resetInventory,
-    reorderInventory // <--- AQUÍ
+    reorderInventory 
   } = useInventory();
   
   const { processTurn } = useTurnSystem();
   const { messages, setMessages, addMessage, effectsManager, showFloatingText } = useGameEffects();
   
+  // 1. INSTANCIAR SPATIAL HASH (Referencia mutable para rendimiento)
+  // Usamos useRef para que persista entre renders sin provocar re-renders
+  const spatialHash = useRef(new SpatialHash());
+
   const [gameStarted, setGameStarted] = useState(false);
   const [gameOver, setGameOver] = useState(false);
   const [stats, setStats] = useState({ maxLevel: 1, kills: 0, gold: 0, playerLevel: 1 });
@@ -35,12 +40,34 @@ export function useGameEngine() {
   const [rangedMode, setRangedMode] = useState(false);
   const [rangedTargets, setRangedTargets] = useState([]);
 
+  // 2. SINCRONIZAR HASH CUANDO CAMBIA EL NIVEL O SE CARGA JUEGO
+  // Reconstruimos el índice espacial completo cuando se genera una nueva mazmorra
+  useEffect(() => {
+    if (dungeon.map.length > 0) {
+      spatialHash.current.rebuild({
+        player,
+        enemies: dungeon.enemies,
+        chests: dungeon.chests,
+        npcs: dungeon.npcs,
+        items: dungeon.items
+      });
+    }
+  }, [dungeon.level, dungeon.map, gameStarted]); 
+
   const executeTurn = useCallback((currentPlayerState = player, enemiesOverride = null) => {
     regenPlayer();
     const dungeonState = enemiesOverride ? { ...dungeon, enemies: enemiesOverride } : dungeon;
+    
     processTurn({
-      dungeon: dungeonState, setDungeon, player: currentPlayerState, setPlayer,
-      addMessage, setGameOver, showFloatingText
+      dungeon: dungeonState, 
+      setDungeon, 
+      player: currentPlayerState, 
+      setPlayer,
+      addMessage, 
+      setGameOver, 
+      showFloatingText,
+      // Opcional: Pasar spatialHash aquí si TurnSystem lo necesita para validaciones extra
+      spatialHash: spatialHash.current 
     });
     updateMapFOV(currentPlayerState.x, currentPlayerState.y);
   }, [dungeon, player, regenPlayer, processTurn, updateMapFOV, addMessage, setPlayer, setDungeon, showFloatingText]);
@@ -72,7 +99,7 @@ export function useGameEngine() {
     materials, setMaterials, addMaterial,
     quickSlots, setQuickSlots,
     resetInventory,
-    reorderInventory, // <--- PASAR AL CONTEXTO
+    reorderInventory,
     stats, setStats,
     activeQuests, setActiveQuests,
     completedQuests, setCompletedQuests,
@@ -80,7 +107,8 @@ export function useGameEngine() {
     initGame, executeTurn, addMessage, showFloatingText, effectsManager,
     setGameStarted, setGameOver, setPlayerName, setSelectedSkill, setRangedMode, setRangedTargets, setMessages, updateMapFOV,
     playerName, selectedAppearance, setSelectedAppearance, setPlayerClass,
-    handleEnemyDeath, executeSkillAction, selectedSkill
+    handleEnemyDeath, executeSkillAction, selectedSkill,
+    spatialHash: spatialHash.current // <--- 3. PASAR AL CONTEXTO DE ACCIONES
   };
 
   const actions = useGameActions(actionsContext);
@@ -99,7 +127,8 @@ export function useGameEngine() {
     player, map: dungeon.map, enemies: dungeon.enemies, items: dungeon.items, chests: dungeon.chests,
     torches: dungeon.torches, npcs: dungeon.npcs, stairs: dungeon.stairs, stairsUp: dungeon.stairsUp,
     visible: dungeon.visible, explored: dungeon.explored, level: dungeon.level, bossDefeated: dungeon.bossDefeated,
-    inventory, equipment, questProgress, materials, effectsManager: effectsManager.current
+    inventory, equipment, questProgress, materials, effectsManager: effectsManager.current,
+    spatialHash: spatialHash.current // <--- 4. EXPORTAR EN GAMESTATE (Útil para debug o renderizado)
   };
 
   return {

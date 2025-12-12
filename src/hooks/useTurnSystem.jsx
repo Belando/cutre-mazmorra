@@ -12,10 +12,24 @@ export function useTurnSystem() {
     player, setPlayer,
     addMessage,
     setGameOver,
-    showFloatingText
+    showFloatingText,
+    spatialHash // <--- RECIBIMOS EL SPATIAL HASH AQUÍ
   }) => {
+    
+    // 1. RECONSTRUIR HASH
+    // Antes de que los enemigos piensen, actualizamos el mapa espacial con el estado actual
+    if (spatialHash) {
+      spatialHash.rebuild({
+        player,
+        enemies: dungeon.enemies,
+        chests: dungeon.chests,
+        npcs: dungeon.npcs,
+        items: dungeon.items
+      });
+    }
+
     // 2. IA Enemiga
-    // Creamos una copia nueva para asegurar reactividad
+    // Creamos una copia nueva para asegurar reactividad y no mutar el estado directamente durante el loop
     const newEnemies = dungeon.enemies.map(e => ({ ...e }));
     let playerHit = false;
     let totalDamage = 0;
@@ -26,23 +40,19 @@ export function useTurnSystem() {
       const action = processEnemyTurn(
         enemy, 
         player, 
-        newEnemies, // Pasamos la lista nueva para que se detecten entre ellos
+        newEnemies, 
         dungeon.map, 
         dungeon.visible, 
         addMessage, 
-        dungeon.chests,
-        dungeon.npcs 
+        spatialHash // <--- Pasamos el hash actualizado a la IA
       );
       
       if (action.action.includes('attack')) {
-        // --- REGISTRAR TIEMPO Y DIRECCIÓN DE ATAQUE ---
         enemy.lastAttackTime = Date.now();
-        // Calculamos la dirección hacia el jugador
         enemy.lastAttackDir = { 
             x: player.x - enemy.x, 
             y: player.y - enemy.y 
         };
-        // ----------------------------------------------
 
         const isRanged = action.action === 'ranged_attack';
         const enemyStats = isRanged ? { ...enemy, attack: Math.floor(enemy.attack * 0.7) } : enemy;

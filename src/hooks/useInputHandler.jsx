@@ -28,20 +28,31 @@ export function useInputHandler({
       pressedKeys.current.add(key);
 
       // -- ACCIONES DE INTERFAZ --
-      if (key === 'i') { setInventoryOpen(p => !p); return; }
-      // ELIMINADO: if (key === 'c') { setCraftingOpen(p => !p); return; }
-      if (key === 't') { setSkillTreeOpen(p => !p); return; }
-      
       if (e.key === 'Escape') {
-        setInventoryOpen(false); setCraftingOpen(false); setSkillTreeOpen(false);
-        setActiveNPC(null);
-        if (uiState.rangedMode) actions.setRangedMode(false);
+        // Lógica de cierre prioritario (Stack simple)
+        if (activeNPC) setActiveNPC(null);
+        else if (skillTreeOpen) setSkillTreeOpen(false);
+        else if (craftingOpen) setCraftingOpen(false);
+        else if (inventoryOpen) setInventoryOpen(false);
+        else if (uiState.rangedMode) actions.setRangedMode(false);
         return;
       }
 
-      if (inventoryOpen || craftingOpen || skillTreeOpen || activeNPC) return;
+      // Toggles independientes (solo si no hay otro modal abierto o es el mismo)
+      const anyModalOpen = inventoryOpen || craftingOpen || skillTreeOpen || activeNPC;
 
-      // ... resto del código igual ...
+      if (key === 'i') { 
+          if (!anyModalOpen || inventoryOpen) setInventoryOpen(p => !p); 
+          return; 
+      }
+      if (key === 't') { 
+          if (!anyModalOpen || skillTreeOpen) setSkillTreeOpen(p => !p); 
+          return; 
+      }
+
+      // Si hay un modal abierto, bloqueamos el resto de inputs de juego
+      if (anyModalOpen) return;
+
       const now = Date.now();
       if (now - lastActionTime.current < INPUT_COOLDOWN) return;
 
@@ -93,7 +104,7 @@ export function useInputHandler({
 
       if (actionTaken) {
           lastActionTime.current = now;
-          if (onAction) onAction(); // <--- ¡REINICIAMOS EL RELOJ!
+          if (onAction) onAction(); 
       }
     };
 
@@ -109,12 +120,13 @@ export function useInputHandler({
     };
   }, [gameStarted, gameOver, uiState, gameState, modals, actions]);
 
-  // --- 2. BUCLE DE MOVIMIENTO ---
+  // --- 2. BUCLE DE MOVIMIENTO CONTINUO ---
   useEffect(() => {
     if (!gameStarted || gameOver) return;
 
     const moveInterval = setInterval(() => {
-      if (inventoryOpen || craftingOpen || skillTreeOpen || activeNPC) return;
+      // Bloqueo si hay modales
+      if (modals.inventoryOpen || modals.craftingOpen || modals.skillTreeOpen || modals.activeNPC) return;
 
       const now = Date.now();
       if (now - lastActionTime.current < INPUT_COOLDOWN) return;
@@ -138,14 +150,11 @@ export function useInputHandler({
       if (dx !== 0 || dy !== 0) {
         actions.move(Math.sign(dx), Math.sign(dy));
         lastActionTime.current = now;
-        
-        // --- AÑADIR ESTA LÍNEA ---
         if (onAction) onAction(); 
-        // --------------------------
       }
 
     }, 50);
 
     return () => clearInterval(moveInterval);
-  }, [gameStarted, gameOver, modals, actions, inventoryOpen, craftingOpen, skillTreeOpen, activeNPC, onAction]); // Añade onAction a las dependencias si hace falta, aunque con useRef no es estricto
+  }, [gameStarted, gameOver, modals, actions, onAction]); 
 }
