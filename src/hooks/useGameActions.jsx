@@ -122,81 +122,63 @@ export function useGameActions(context) {
         const nx = player.x + dx;
         const ny = player.y + dy;
         
-        // Verificación de límites y muros (mapa estático)
         if (nx < 0 || nx >= dungeon.map[0].length || ny < 0 || ny >= dungeon.map.length) return;
         const targetTile = dungeon.map[ny][nx];
         if (targetTile === TILE.WALL) return;
 
-        // Caso especial: Puertas
         if (targetTile === TILE.DOOR) {
             const newMap = [...dungeon.map];
             newMap[ny] = [...newMap[ny]];
             newMap[ny][nx] = TILE.DOOR_OPEN;
-            
             setDungeon(prev => ({ ...prev, map: newMap }));
-            soundManager.play('step'); 
+            soundManager.play('door'); 
             addMessage("Abres la puerta.", 'info');
             updateMapFOV(player.x, player.y);
             return; 
         }
         
-        // --- OPTIMIZACIÓN SPATIAL HASH ---
-        // Obtenemos todas las entidades en la casilla destino en O(1)
+        // Consultar Hash
         const entitiesAtTarget = spatialHash.get(nx, ny);
 
-        // 1. Bloqueo por Cofres
+        // Bloqueos
         if (entitiesAtTarget.some(e => e.type === 'chest')) {
             addMessage("Un cofre bloquea el camino (Usa 'E')", 'info');
             return;
         }
-
-        // 2. Bloqueo por NPCs
         if (entitiesAtTarget.some(e => e.type === 'npc')) {
             addMessage("Un NPC bloquea el camino (Usa 'E')", 'info');
             return;
         }
         
-        // 3. Combate (Enemigos)
-        // Buscamos si hay un enemigo en la casilla destino usando el Hash
+        // Combate
         const enemyRef = entitiesAtTarget.find(e => e.type === 'enemy');
-        
         if (enemyRef) {
-            // Buscamos el índice real en el array de estado para modificarlo
             const enemyIdx = dungeon.enemies.findIndex(e => e.x === nx && e.y === ny);
-            
             if (enemyIdx !== -1) {
                 const enemy = dungeon.enemies[enemyIdx];
-
-                // Lógica de uso de Skill Melee (si está seleccionada)
-                if (selectedSkill && SKILLS[selectedSkill]) {
-                    const skill = SKILLS[selectedSkill];
-                    if (skill.type === 'melee') {
-                        if (canUseSkill(selectedSkill, player.skills.cooldowns)) {
-                            const success = actions.executeSkillAction(selectedSkill, enemy);
-                            if (success) return; 
-                        } else {
-                            if (effectsManager.current) {
-                                effectsManager.current.addText(player.x, player.y, "CD", '#94a3b8', false, true);
-                            }
-                        }
+                if (selectedSkill && SKILLS[selectedSkill] && SKILLS[selectedSkill].type === 'melee') {
+                    if (canUseSkill(selectedSkill, player.skills.cooldowns)) {
+                        const success = actions.executeSkillAction(selectedSkill, enemy);
+                        if (success) return; 
                     }
                 }
-
                 const nextEnemiesState = performAttack(enemy, enemyIdx);
                 executeTurn(player, nextEnemiesState);
                 return;
             }
         }
         
-        // 4. Movimiento Válido
-        // Actualizamos el Hash inmediatamente para mantener consistencia
+        // --- MOVIMIENTO VÁLIDO ---
         spatialHash.move(player.x, player.y, nx, ny, { ...player, type: 'player' });
         updatePlayer({ x: nx, y: ny, lastMoveTime: Date.now() });
         
-        // 5. Recoger Items (No bloquean)
+        // >>> AQUÍ ESTÁ LA CLAVE: SONIDO DE PASOS <<<
+        soundManager.play('step');
+        // -------------------------------------------
+        
+        // Recoger Items
         const itemRef = entitiesAtTarget.find(e => e.type === 'item');
         if (itemRef) {
-            // Buscamos el item real en el array
             const itemIdx = dungeon.items.findIndex(i => i.x === nx && i.y === ny);
             if (itemIdx !== -1) {
                 const item = dungeon.items[itemIdx];
@@ -299,11 +281,21 @@ export function useGameActions(context) {
 
     descend: (goUp) => {
         if (goUp && dungeon.stairsUp && player.x === dungeon.stairsUp.x && player.y === dungeon.stairsUp.y) {
-            if (dungeon.level > 1) initGame(dungeon.level - 1, player);
+            if (dungeon.level > 1) {
+                // --- CAMBIO: Sonido escaleras ---
+                soundManager.play('stairs');
+                // --------------------------------
+                initGame(dungeon.level - 1, player);
+            }
             else addMessage("No puedes salir aún", 'info');
         } else if (!goUp && player.x === dungeon.stairs.x && player.y === dungeon.stairs.y) {
             if (dungeon.enemies.some(e => e.isBoss)) addMessage("¡Mata al jefe primero!", 'info');
-            else initGame(dungeon.level + 1, player);
+            else {
+                // --- CAMBIO: Sonido escaleras ---
+                soundManager.play('stairs');
+                // --------------------------------
+                initGame(dungeon.level + 1, player);
+            }
         } else {
             addMessage("No hay escaleras aquí", 'info');
         }

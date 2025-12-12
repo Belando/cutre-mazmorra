@@ -72,6 +72,10 @@ export function useTurnSystem() {
           playerHit = true;
           addMessage(`${ENEMY_STATS[enemy.type].name} te golpea: -${combatResult.damage} HP`, 'enemy_damage');
           
+          // --- CAMBIO: Sonido específico de recibir daño ---
+          soundManager.play('enemy_hit'); 
+          // ------------------------------------------------
+          
           if (showFloatingText) showFloatingText(player.x, player.y, `${combatResult.damage}`, '#dc2626', false, true);
         }
       }

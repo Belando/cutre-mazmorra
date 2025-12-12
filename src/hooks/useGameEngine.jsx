@@ -7,7 +7,6 @@ import { soundManager } from "@/engine/systems/SoundSystem";
 import { useGameEffects } from "@/hooks/useGameEffects";
 import { useCombatLogic } from '@/hooks/useCombatLogic';
 import { useGameActions } from '@/hooks/useGameActions';
-// NUEVO: Importamos la clase SpatialHash
 import { SpatialHash } from '@/engine/core/SpatialHash';
 
 export function useGameEngine() {
@@ -24,7 +23,6 @@ export function useGameEngine() {
   const { messages, setMessages, addMessage, effectsManager, showFloatingText } = useGameEffects();
   
   // 1. INSTANCIAR SPATIAL HASH (Referencia mutable para rendimiento)
-  // Usamos useRef para que persista entre renders sin provocar re-renders
   const spatialHash = useRef(new SpatialHash());
 
   const [gameStarted, setGameStarted] = useState(false);
@@ -41,7 +39,6 @@ export function useGameEngine() {
   const [rangedTargets, setRangedTargets] = useState([]);
 
   // 2. SINCRONIZAR HASH CUANDO CAMBIA EL NIVEL O SE CARGA JUEGO
-  // Reconstruimos el índice espacial completo cuando se genera una nueva mazmorra
   useEffect(() => {
     if (dungeon.map.length > 0) {
       spatialHash.current.rebuild({
@@ -53,6 +50,34 @@ export function useGameEngine() {
       });
     }
   }, [dungeon.level, dungeon.map, gameStarted]); 
+
+  // 3. GESTIÓN DE AMBIENTE SONORO (NUEVO)
+  useEffect(() => {
+    if (gameStarted && !gameOver) {
+        // Iniciar bucles de ambiente (viento/mazmorra)
+        soundManager.initAmbience();
+
+        // Calcular distancia a la antorcha más cercana para el volumen del fuego
+        if (player && dungeon.torches) {
+            let minDist = Infinity;
+            dungeon.torches.forEach(torch => {
+                // Distancia euclidiana para sonido espacial suave
+                const dist = Math.sqrt(Math.pow(torch.x - player.x, 2) + Math.pow(torch.y - player.y, 2));
+                if (dist < minDist) minDist = dist;
+            });
+            
+            // Actualizar volumen del canal de fuego
+            soundManager.updateFireAmbience(minDist);
+        }
+    } else {
+        // Silenciar ambiente en menús o muerte
+        soundManager.stopAmbience();
+    }
+    
+    return () => {
+        if (!gameStarted) soundManager.stopAmbience();
+    };
+  }, [gameStarted, gameOver, player?.x, player?.y, dungeon.torches]);
 
   const executeTurn = useCallback((currentPlayerState = player, enemiesOverride = null) => {
     regenPlayer();
@@ -66,7 +91,7 @@ export function useGameEngine() {
       addMessage, 
       setGameOver, 
       showFloatingText,
-      // Opcional: Pasar spatialHash aquí si TurnSystem lo necesita para validaciones extra
+      // Pasamos el hash actualizado a la IA
       spatialHash: spatialHash.current 
     });
     updateMapFOV(currentPlayerState.x, currentPlayerState.y);
@@ -108,7 +133,7 @@ export function useGameEngine() {
     setGameStarted, setGameOver, setPlayerName, setSelectedSkill, setRangedMode, setRangedTargets, setMessages, updateMapFOV,
     playerName, selectedAppearance, setSelectedAppearance, setPlayerClass,
     handleEnemyDeath, executeSkillAction, selectedSkill,
-    spatialHash: spatialHash.current // <--- 3. PASAR AL CONTEXTO DE ACCIONES
+    spatialHash: spatialHash.current // Pasar Hash a Acciones
   };
 
   const actions = useGameActions(actionsContext);
@@ -128,7 +153,7 @@ export function useGameEngine() {
     torches: dungeon.torches, npcs: dungeon.npcs, stairs: dungeon.stairs, stairsUp: dungeon.stairsUp,
     visible: dungeon.visible, explored: dungeon.explored, level: dungeon.level, bossDefeated: dungeon.bossDefeated,
     inventory, equipment, questProgress, materials, effectsManager: effectsManager.current,
-    spatialHash: spatialHash.current // <--- 4. EXPORTAR EN GAMESTATE (Útil para debug o renderizado)
+    spatialHash: spatialHash.current // Exportar Hash en Estado
   };
 
   return {
