@@ -401,9 +401,28 @@ export function generateNPCs(floor, rooms, map, excludeRoomIndices = [], enemies
       const x = room.x + Math.floor(room.width / 2);
       const y = room.y + Math.floor(room.height / 2);
       
-      // VERIFICACIÓN EXTRA PARA HERRERO (Necesita 2 casillas: x y x+1)
+      // VERIFICACIÓN EXTRA PARA HERRERO
       if (npcTemplate.type === NPC_TYPES.BLACKSMITH) {
+          // Necesita suelo en su posición y a la derecha (horno)
           if (map[y]?.[x] === TILE.FLOOR && map[y]?.[x + 1] === TILE.FLOOR) {
+             
+             // --- CORRECCIÓN: CHEQUEO DE PUERTAS ADYACENTES ---
+             // Verificamos que no haya puertas pegadas al herrero (x,y) ni al horno (x+1,y)
+             const neighbors = [
+                 map[y][x-1],     // Izquierda Herrero
+                 map[y][x+2],     // Derecha Horno
+                 map[y-1][x],     // Arriba Herrero
+                 map[y+1][x],     // Abajo Herrero
+                 map[y-1][x+1],   // Arriba Horno
+                 map[y+1][x+1]    // Abajo Horno
+             ];
+
+             // Si alguno de los vecinos es una puerta, abortamos esta posición
+             if (neighbors.some(tile => tile === TILE.DOOR || tile === TILE.DOOR_OPEN)) {
+                 continue; 
+             }
+             // ------------------------------------------------
+
              npcs.push({ ...npcTemplate, x, y, id: `${idPrefix}_${floor}` });
              return true;
           }

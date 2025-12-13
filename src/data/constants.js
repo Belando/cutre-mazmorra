@@ -8,6 +8,13 @@ export const TILE = {
   DOOR: 3,
   STAIRS_UP: 4,
   DOOR_OPEN: 5,
+  // --- NUEVOS TERRENOS ---
+  WATER: 6,
+  MUD: 7,
+  TRAP: 8,         // Trampa armada (invisible)
+  TRAP_TRIGGERED: 9, // Trampa activada (visible)
+  BARREL: 10,
+  BARREL_EXPLOSIVE: 11,      // Escombros (bloquean el paso)
 };
 
 export const ENTITY = {

@@ -39,7 +39,7 @@ export function useGameActions(context) {
     reorderInventory,
     executeSkillAction: coreExecuteSkillAction, 
     selectedSkill,
-    spatialHash // <--- RECIBIMOS EL SPATIAL HASH
+    spatialHash 
   } = context;
 
   const performAttack = (enemy, enemyIdx) => {
@@ -123,10 +123,101 @@ export function useGameActions(context) {
         const nx = player.x + dx;
         const ny = player.y + dy;
         
+        // 1. CHEQUEO DE LÍMITES Y MUROS
         if (nx < 0 || nx >= dungeon.map[0].length || ny < 0 || ny >= dungeon.map.length) return;
         const targetTile = dungeon.map[ny][nx];
         if (targetTile === TILE.WALL) return;
 
+        // 2. CHEQUEO DE BARRILES (Cobertura destructible)
+        // IMPORTANTE: Asegúrate de que en constants.js tienes TILE.BARREL = 10
+        if (targetTile === TILE.BARREL) {
+            addMessage("Rompes el barril en pedazos.", 'info');
+            soundManager.play('hit'); // <--- AQUÍ SUENA EL GOLPE
+            
+            // Opcional: Drop sorpresa (10% probabilidad)
+            if (Math.random() < 0.1) {
+                 addMessage("¡Había algo oculto!", 'pickup');
+                 updatePlayer({ gold: (player.gold || 0) + 5 });
+            }
+
+            // Destruir: Barril -> Suelo
+            const newMap = [...dungeon.map];
+            newMap[ny] = [...newMap[ny]];
+            newMap[ny][nx] = TILE.FLOOR;
+            setDungeon(prev => ({ ...prev, map: newMap }));
+            
+            // Consume turno pero NO mueve al jugador
+            executeTurn(player);
+            return;
+        }
+
+        // 2b. CHEQUEO DE BARRIL EXPLOSIVO
+        if (targetTile === TILE.BARREL_EXPLOSIVE) {
+            addMessage("¡BOOM! El barril explota.", 'damage');
+            soundManager.play('critical'); // O un sonido de explosión si tienes
+            
+            // Efecto visual de sacudida
+            if (effectsManager.current) effectsManager.current.addShake(10);
+
+            // Calcular Área de Explosión (3x3 alrededor del barril)
+            const explosionRadius = 1; 
+            const targets = [];
+            
+            for (let dy = -explosionRadius; dy <= explosionRadius; dy++) {
+                for (let dx = -explosionRadius; dx <= explosionRadius; dx++) {
+                    const ex = nx + dx;
+                    const ey = ny + dy;
+                    
+                    // Efecto visual (Fuego/Humo)
+                    if (effectsManager.current) {
+                        effectsManager.current.addText(ex, ey, "BOOM", "#ef4444");
+                        // Aquí podrías añadir partículas de fuego si tu sistema lo permite
+                    }
+
+                    // 1. Dañar Jugador si está cerca
+                    if (player.x === ex && player.y === ey) {
+                        const dmg = 15;
+                        updatePlayer({ hp: Math.max(0, player.hp - dmg) });
+                        addMessage(`La explosión te quita ${dmg} HP.`, 'damage');
+                    }
+
+                    // 2. Dañar Enemigos
+                    const enemyIdx = dungeon.enemies.findIndex(e => e.x === ex && e.y === ey);
+                    if (enemyIdx !== -1) {
+                        const enemy = dungeon.enemies[enemyIdx];
+                        const dmg = 20 + Math.floor(Math.random() * 10); // Daño alto
+                        
+                        // Aplicar daño al enemigo directamente
+                        // (Necesitarás una función auxiliar o hacerlo manualmente aquí)
+                        // Esto es una simplificación de lo que hace combatSystem
+                        const newEnemies = [...dungeon.enemies];
+                        newEnemies[enemyIdx] = { ...enemy, hp: enemy.hp - dmg };
+                        
+                        addMessage(`${enemy.name || 'Enemigo'} recibe ${dmg} de daño explosivo!`, 'info');
+                        
+                        if (newEnemies[enemyIdx].hp <= 0) {
+                            // Manejo de muerte simple
+                            newEnemies.splice(enemyIdx, 1);
+                            addMessage(`${enemy.name || 'Enemigo'} explota en pedazos.`, 'kill');
+                        }
+                        
+                        // Actualizar estado de enemigos (esto requiere acceso a setDungeon o similar)
+                        setDungeon(prev => ({ ...prev, enemies: newEnemies }));
+                    }
+                }
+            }
+
+            // Destruir el barril -> Suelo chamuscado (o suelo normal)
+            const newMap = [...dungeon.map];
+            newMap[ny] = [...newMap[ny]];
+            newMap[ny][nx] = TILE.FLOOR; // O un nuevo TILE.SCORCHED_GROUND
+            setDungeon(prev => ({ ...prev, map: newMap }));
+            
+            executeTurn(player);
+            return;
+        }
+
+        // 3. CHEQUEO DE PUERTAS
         if (targetTile === TILE.DOOR) {
             const newMap = [...dungeon.map];
             newMap[ny] = [...newMap[ny]];
@@ -138,64 +229,124 @@ export function useGameActions(context) {
             return; 
         }
         
-        // Consultar Hash
+        // 4. CHEQUEO DE ENTIDADES (Enemigos, NPCs, Cofres)
         const entitiesAtTarget = spatialHash.get(nx, ny);
 
-        // Bloqueos
+        // A. Bloqueos pasivos
         if (entitiesAtTarget.some(e => e.type === 'chest')) {
             addMessage("Un cofre bloquea el camino (Usa 'E')", 'info');
-            soundManager.play('error'); // Sonido
+            soundManager.play('error');
             return;
         }
         if (entitiesAtTarget.some(e => e.type === 'npc')) {
             addMessage("Un NPC bloquea el camino (Usa 'E')", 'info');
-            soundManager.play('error'); // Sonido
+            soundManager.play('error');
             return;
         }
 
         const entitiesLeft = spatialHash.get(nx - 1, ny);
-        const blacksmithLeft = entitiesLeft.find(e => e.type === 'npc'); 
-        if (blacksmithLeft && blacksmithLeft.ref && blacksmithLeft.ref.type === 'blacksmith') {
-             addMessage("El horno está muy caliente, mejor no tocarlo.", 'info');
+        
+        // Si hay un herrero a la izquierda, estamos chocando con su forja
+        // NOTA: Asegúrate de que 'blacksmith' coincida con el e.type o e.subtype que usas para generar al NPC
+        if (entitiesLeft.some(e => e.type === 'blacksmith' || e.type === 100)) { // (100 o el ID que use tu herrero)
+             addMessage("La forja está hirviendo, mejor no tocarla.", 'warning');
+             soundManager.play('error');
+             // Empujoncito visual (opcional)
+             if (effectsManager.current) effectsManager.current.addShake(2);
              return;
         }
-        
-        // Combate
+
+        // B. Combate (Enemigos)
         const enemyRef = entitiesAtTarget.find(e => e.type === 'enemy');
         if (enemyRef) {
             const enemyIdx = dungeon.enemies.findIndex(e => e.x === nx && e.y === ny);
             if (enemyIdx !== -1) {
                 const enemy = dungeon.enemies[enemyIdx];
+                
+                // Intentar usar skill melee si está seleccionada
                 if (selectedSkill && SKILLS[selectedSkill] && SKILLS[selectedSkill].type === 'melee') {
                     if (canUseSkill(selectedSkill, player.skills.cooldowns)) {
                         const success = actions.executeSkillAction(selectedSkill, enemy);
                         if (success) return; 
                     }
                 }
+                
+                // Ataque básico
                 const nextEnemiesState = performAttack(enemy, enemyIdx);
+                // performAttack ya llama a soundManager.play('attack') o 'critical'
                 executeTurn(player, nextEnemiesState);
-                return;
+                return; 
             }
         }
         
         // --- MOVIMIENTO VÁLIDO ---
+        
+        // 5. EFECTOS DE TERRENO (Se aplican al entrar en la casilla)
+        let moveMessage = null;
+        let damageTaken = 0;
+
+        // A) TRAMPAS
+        if (targetTile === TILE.TRAP) {
+            addMessage("¡CLACK! ¡Has pisado una trampa!", 'damage');
+            soundManager.play('critical'); // Sonido fuerte de daño
+            damageTaken = Math.floor(player.maxHp * 0.15) + 2;
+            
+            if (effectsManager.current) {
+                effectsManager.current.addBlood(nx, ny);
+                effectsManager.current.addText(nx, ny, `-${damageTaken}`, '#dc2626', true);
+                effectsManager.current.addShake(5);
+            }
+
+            // Revelar la trampa
+            const newMap = [...dungeon.map];
+            newMap[ny] = [...newMap[ny]];
+            newMap[ny][nx] = TILE.TRAP_TRIGGERED;
+            setDungeon(prev => ({ ...prev, map: newMap }));
+        }
+        
+        // B) AGUA / LODO
+        if (targetTile === TILE.WATER) {
+            soundManager.playNoise(0.2, 0.3, 800); // Sonido chapoteo
+            if (Math.random() > 0.8) moveMessage = "Chapoteas en el agua.";
+        }
+        else if (targetTile === TILE.MUD) {
+            soundManager.playNoise(0.3, 0.3, 200); 
+            if (Math.random() > 0.8) moveMessage = "El lodo te frena.";
+        }
+        else {
+            // Suelo normal
+            soundManager.play('step');
+        }
+
+        // 6. EJECUTAR MOVIMIENTO FÍSICO
         spatialHash.move(player.x, player.y, nx, ny, { ...player, type: 'player' });
-        updatePlayer({ x: nx, y: ny, lastMoveTime: Date.now() });
         
-        soundManager.play('step');
+        const updates = { x: nx, y: ny, lastMoveTime: Date.now() };
         
-        // Recoger Items
+        // Aplicar daño si hubo trampa
+        if (damageTaken > 0) {
+            updates.hp = player.hp - damageTaken;
+            if (updates.hp <= 0) {
+                setGameOver(true);
+                addMessage("Moriste por una trampa...", 'death');
+                soundManager.play('gameOver');
+            }
+        }
+        
+        updatePlayer(updates);
+        if (moveMessage) addMessage(moveMessage, 'info');
+        
+        // Recoger items del suelo
         const itemRef = entitiesAtTarget.find(e => e.type === 'item');
         if (itemRef) {
-            const itemIdx = dungeon.items.findIndex(i => i.x === nx && i.y === ny);
-            if (itemIdx !== -1) {
+             const itemIdx = dungeon.items.findIndex(i => i.x === nx && i.y === ny);
+             if (itemIdx !== -1) {
                 const item = dungeon.items[itemIdx];
                 if (item.category === 'currency') {
                     soundManager.play('pickup');
-                    updatePlayer({ gold: player.gold + item.value });
+                    updatePlayer({ gold: (player.gold || 0) + item.value, ...updates });
                     addMessage(`+${item.value} Oro`, 'pickup');
                     if (effectsManager.current) effectsManager.current.addText(nx, ny, `+${item.value}`, '#fbbf24');
-                    
                     const newItems = [...dungeon.items];
                     newItems.splice(itemIdx, 1);
                     setDungeon(prev => ({ ...prev, items: newItems }));
@@ -203,9 +354,7 @@ export function useGameActions(context) {
                     const success = addItem(item);
                     if (success) {
                         soundManager.play('pickup');
-                        if (effectsManager.current) effectsManager.current.addSparkles(nx, ny);
                         addMessage(`Recogiste: ${item.name}`, 'pickup');
-                        
                         const newItems = [...dungeon.items];
                         newItems.splice(itemIdx, 1);
                         setDungeon(prev => ({ ...prev, items: newItems }));
@@ -213,10 +362,10 @@ export function useGameActions(context) {
                         addMessage("Inventario lleno", 'info');
                     }
                 }
-            }
+             }
         }
 
-        executeTurn({ ...player, x: nx, y: ny });
+        executeTurn({ ...player, ...updates });
     },
 
     interact: () => {
@@ -374,11 +523,26 @@ export function useGameActions(context) {
         }
     },
     
+    // --- FUNCIÓN DE GUARDADO CORREGIDA ---
     saveGame: () => {
-        saveSystem({ player, inventory, equipment, level: dungeon.level, bossDefeated: dungeon.bossDefeated }, stats, activeQuests, completedQuests, context.questProgress, materials, quickSlots);
+        saveSystem(
+            { 
+                player, 
+                inventory, 
+                equipment, 
+                ...dungeon // SPREAD DUNGEON TO SAVE MAP, ENEMIES, ETC.
+            }, 
+            stats, 
+            activeQuests, 
+            completedQuests, 
+            context.questProgress, 
+            materials, 
+            quickSlots
+        );
         addMessage("Juego guardado", 'info');
     },
     
+    // --- FUNCIÓN QUE FALTABA (Y OTRAS) ---
     selectCharacter: (k, a) => { 
         soundManager.play('start_adventure'); 
         setPlayerName(playerName || 'Héroe'); 
@@ -393,7 +557,6 @@ export function useGameActions(context) {
         setPlayer(null);
         setMessages([]);
 
-        // REINICIAR INVENTARIO Y EQUIPO
         setInventory([]);
         setEquipment({ 
             weapon: null, offhand: null, helmet: null, chest: null, 
@@ -403,10 +566,8 @@ export function useGameActions(context) {
         setMaterials({});
         setQuickSlots([null, null, null]);
 
-        // REINICIAR ESTADÍSTICAS GLOBALES
         setStats({ maxLevel: 1, kills: 0, gold: 0, playerLevel: 1 });
 
-        // REINICIAR MISIONES
         setActiveQuests([]);
         setCompletedQuests([]);
         if (context.setQuestProgress) context.setQuestProgress({});

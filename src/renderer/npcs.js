@@ -179,6 +179,9 @@ export const NPC_SPRITES = {
       const s = size * 1.2;
       const adjX = x - size * 0.1;
       const adjY = y - size * 0.4;
+      
+      // Definimos breath al principio para evitar el crash
+      const breath = Math.sin(frame * 0.08) * s * 0.01;
 
       const c = {
         skin: "#854d0e", 
@@ -204,18 +207,32 @@ export const NPC_SPRITES = {
       const forgeY = adjY + s * 0.1;
 
       // ==========================================
-      // 1. LA FORJA DETALLADA (Fondo)
+      // 1. LA FORJA (Corregida: Unida)
       // ==========================================
-      // -- Estructura Principal --
-      // Fondo más oscuro para dar profundidad
+      
+      // -- CHIMENEA (CAMPANA) --
+      // La dibujamos PRIMERO para que quede detrás del cuerpo si solapan, 
+      // o ajustamos coordenadas para que toque exactamente.
+      ctx.fillStyle = c.stoneDark;
+      ctx.beginPath();
+      // Base ancha (Bajada a forgeY para tocar el horno)
+      ctx.moveTo(forgeX + s*0.15, forgeY); 
+      ctx.lineTo(forgeX + s*0.95, forgeY);
+      // Estrechamiento hacia arriba
+      ctx.lineTo(forgeX + s*0.75, forgeY - s*0.4); 
+      ctx.lineTo(forgeX + s*0.35, forgeY - s*0.4);
+      ctx.closePath();
+      ctx.fill();
+
+      // -- Cuerpo Principal (Horno) --
       ctx.fillStyle = "#1c1917"; 
       ctx.fillRect(forgeX + s*0.05, forgeY + s*0.05, s*1.1, s*0.95);
       
       ctx.fillStyle = c.stoneDark; 
       ctx.fillRect(forgeX, forgeY, s*1.1, s*0.95);
       
+      // Detalles de ladrillos
       ctx.fillStyle = c.stoneMid; 
-      // Ladrillos
       for(let i=0; i<5; i++) { 
           let off = (i%2===0) ? 0 : s*0.1; 
           ctx.fillRect(forgeX + off + s*0.05, forgeY + i*s*0.18 + s*0.05, s*0.35, s*0.12);
@@ -223,46 +240,31 @@ export const NPC_SPRITES = {
       }
 
       // -- Boca y Fuego --
-      ctx.fillStyle = "#1c1917"; // Borde arco
+      ctx.fillStyle = "#1c1917"; // Fondo oscuro arco
       ctx.beginPath(); ctx.arc(forgeX + s*0.55, forgeY + s*0.75, s*0.45, Math.PI, 0); ctx.fill();
       
-      ctx.fillStyle = c.stoneDark; ctx.beginPath(); ctx.moveTo(forgeX + s*0.15, forgeY + s*0.75); ctx.arc(forgeX + s*0.55, forgeY + s*0.75, s*0.4, Math.PI, 0); ctx.lineTo(forgeX + s*0.95, forgeY + s*0.95); ctx.lineTo(forgeX + s*0.15, forgeY + s*0.95); ctx.fill();
+      ctx.fillStyle = c.stoneDark; // Arco piedra
+      ctx.beginPath(); ctx.moveTo(forgeX + s*0.15, forgeY + s*0.75); ctx.arc(forgeX + s*0.55, forgeY + s*0.75, s*0.4, Math.PI, 0); ctx.lineTo(forgeX + s*0.95, forgeY + s*0.95); ctx.lineTo(forgeX + s*0.15, forgeY + s*0.95); ctx.fill();
       
       ctx.strokeStyle = c.stoneLight; ctx.lineWidth = s*0.08; ctx.beginPath(); ctx.arc(forgeX + s*0.55, forgeY + s*0.75, s*0.4, Math.PI, 0); ctx.stroke();
+      
+      // Fuego
       const fireAnim = Math.sin(frame * 0.3); const fireX = forgeX + s*0.55; const fireY = forgeY + s*0.85;
       ctx.fillStyle = c.fire[0]; ctx.beginPath(); ctx.arc(fireX, fireY, s*0.25, 0, Math.PI*2); ctx.fill();
       ctx.fillStyle = c.fire[1]; ctx.beginPath(); ctx.arc(fireX, fireY-s*0.05, s*(0.2 + fireAnim*0.02), 0, Math.PI*2); ctx.fill();
       
-      // -- CHIMENEA (CAMPANA TRAPEZOIDAL) --
-      // Visualmente separada del cuerpo principal
-      ctx.fillStyle = c.stoneDark;
-      ctx.beginPath();
-      // Base ancha (voladizo)
-      ctx.moveTo(forgeX + s*0.15, forgeY - s*0.15); 
-      ctx.lineTo(forgeX + s*0.95, forgeY - s*0.15);
-      // Estrechamiento hacia arriba
-      ctx.lineTo(forgeX + s*0.75, forgeY - s*0.5); 
-      ctx.lineTo(forgeX + s*0.35, forgeY - s*0.5);
-      ctx.closePath();
-      ctx.fill();
-
-      // Borde inferior de la campana (Separación visual)
-      ctx.fillStyle = "#1c1917"; // Sombra
-      ctx.fillRect(forgeX + s*0.15, forgeY - s*0.15, s*0.8, s*0.05); 
-      ctx.fillStyle = c.stoneMid; // Borde iluminado
-      ctx.fillRect(forgeX + s*0.15, forgeY - s*0.2, s*0.8, s*0.05); 
-      
+      // Humo
       ctx.fillStyle = c.smoke; 
       for(let i=0; i<4; i++) {
           const smokeOffset = (frame * 1.5 + i * 30) % 120; const t = smokeOffset / 120;
-          const smokeY = (forgeY - s*0.5) - (smokeOffset * s * 0.015); 
+          const smokeY = (forgeY - s*0.4) - (smokeOffset * s * 0.015); 
           const spread = (Math.random()-0.5) * s * 0.2;
           const smokeX = (forgeX + s*0.55) + Math.sin(smokeOffset * 0.08) * s * 0.2 * t + spread * t;
           ctx.globalAlpha = 1 - t; ctx.beginPath(); ctx.arc(smokeX, smokeY, s * (0.1 + t * 0.25), 0, Math.PI*2); ctx.fill(); ctx.globalAlpha = 1.0;
       }
 
       // ==========================================
-      // 2. YUNQUE (Sin cambios)
+      // 2. YUNQUE
       // ==========================================
       const anvilX = adjX + s * 0.75;
       const anvilY = adjY + s * 0.75;
@@ -289,7 +291,6 @@ export const NPC_SPRITES = {
       // ==========================================
       const smithX = adjX + s * 0.25;
       const smithY = adjY + s * 0.3;
-      const breath = Math.sin(frame * 0.08) * s * 0.01;
       const ingotX = anvilX + s*0.15; const ingotY = anvilY - s*0.05;
 
       const cycle = frame % 60;
@@ -299,21 +300,18 @@ export const NPC_SPRITES = {
       else if (cycle < 45) { const t = (cycle-40)/5; armRot = -Math.PI/1.8 + (Math.PI/1.8 + 0.1)*t; forearmRot = -Math.PI/3 + (Math.PI/3 + 0.2)*t; if(cycle>=43){hit=true; metalGlow=1;}}
       else { const t = (cycle-45)/15; armRot = 0.1 - 0.1*t; forearmRot = 0.2 - 0.2*t; metalGlow = 1-t;}
 
-      if (cycle === 43) {
-          soundManager.play('anvil');
-      }
+      // Nota: El sonido se gestiona mejor fuera del draw loop, pero se mantiene la lógica visual
+      if (cycle === 43) soundManager.play('anvil'); 
 
       ctx.save();
       ctx.translate(smithX + s*0.35, smithY + s*0.25 + breath); 
       ctx.rotate(armRot);
       ctx.fillStyle = "#6b3d0a"; ctx.fillRect(0, -s*0.06, s*0.25, s*0.14); 
       
-      // CAMBIO: Antebrazo aún más corto (s*0.12)
       ctx.translate(s*0.25, 0); ctx.rotate(forearmRot); ctx.fillRect(0, -s*0.05, s*0.12, s*0.12);
       
-      // CAMBIO: Mango del martillo más corto
       ctx.translate(s*0.12, 0); ctx.rotate(Math.PI/2);
-      ctx.fillStyle = c.wood; ctx.fillRect(-s*0.05, -s*0.1, s*0.1, s*0.15); // Mango corto
+      ctx.fillStyle = c.wood; ctx.fillRect(-s*0.05, -s*0.1, s*0.1, s*0.15); 
       ctx.fillStyle = c.metalDark; ctx.fillRect(-s*0.12, -s*0.25, s*0.24, s*0.15); 
       ctx.fillStyle = c.metalLight; ctx.fillRect(-s*0.12, -s*0.12, s*0.24, s*0.03); 
       ctx.restore();
@@ -337,25 +335,27 @@ export const NPC_SPRITES = {
       ctx.fillRect(smithX + s*0.05, smithY - s*0.08 + breath, s*0.3, s*0.1); 
       ctx.fillStyle = "#000"; ctx.fillRect(smithX + s*0.3, smithY + s*0.05 + breath, s*0.04, s*0.03); 
       
-      // -- CAMBIO: Brazo Izquierdo (Tenazas) RECTO Y ABAJO --
+      // -- BRAZO IZQUIERDO (CORREGIDO: VACÍO) --
       ctx.save(); 
-      // Punto de origen más abajo
       ctx.translate(smithX + s*0.25, smithY + s*0.35 + breath); 
       
-      // Rotación directa hacia el yunque (sin articulación extraña)
-      ctx.rotate(0.6); 
+      // Rotación relajada
+      ctx.rotate(0.3); 
       
       ctx.fillStyle = c.skin;
-      // Brazo entero (recto)
-      ctx.fillRect(0, -s*0.05, s*0.45, s*0.1);
+      // Brazo (recto hacia abajo)
+      ctx.fillRect(0, -s*0.05, s*0.40, s*0.1);
       
-      // Tenazas en la punta
-      ctx.translate(s*0.45, 0); 
-      ctx.fillStyle = c.metalDark; ctx.fillRect(0, -s*0.05, s*0.3, s*0.05); ctx.fillRect(0, s*0.05, s*0.3, s*0.05); ctx.fillRect(s*0.3, -s*0.05, s*0.05, s*0.15);
+      // Mano (puño cerrado o mano relajada)
+      ctx.beginPath();
+      ctx.arc(s*0.40, 0, s*0.06, 0, Math.PI*2);
+      ctx.fill();
+      
+      // (Eliminado el código de las tenazas aquí)
       ctx.restore();
 
       // ==========================================
-      // 5. EFECTOS (Primerísimo plano)
+      // 5. EFECTOS
       // ==========================================
       ctx.fillStyle = metalGlow > 0 ? "#ffffff" : c.hotMetal; ctx.shadowColor = c.fire[1]; ctx.shadowBlur = metalGlow * 25; ctx.fillRect(ingotX, ingotY, s*0.25, s*0.06); ctx.shadowBlur = 0;
       if (hit) {

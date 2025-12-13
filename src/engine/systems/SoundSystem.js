@@ -211,9 +211,16 @@ class SoundSystem {
           this.playFM(100, 50, 100, 0.4, 'sine', 0.3);
           break;
         case 'anvil':
-          this.playFM(700, 1200, 1500, 0.4, 'sine', 0.3);
-          setTimeout(() => { this.playFM(1800, 0, 0, 0.8, 'sine', 0.1); }, 10);
-          this.playNoise(0.05, 0.3, 1000);
+          // 1. "CLANG" Metálico: Bajamos volumen de 0.3 a 0.1
+          this.playFM(700, 1200, 1500, 0.4, 'sine', 0.1); 
+          
+          // 2. Resonancia aguda: Bajamos volumen de 0.1 a 0.05
+          setTimeout(() => {
+             this.playFM(1800, 0, 0, 0.8, 'sine', 0.05); 
+          }, 10);
+          
+          // 3. Golpe físico: Bajamos volumen de 0.3 a 0.15
+          this.playNoise(0.05, 0.15, 1000);
           break;
 
         // MAGIA

@@ -11,7 +11,14 @@ export function useDungeon() {
   });
 
   const calculateFOV = useCallback((playerX, playerY, currentMap) => {
-    // Crear matrices vacías si no existen o resetearlas
+    // GUARD CLAUSE: Return safe empty state if map is undefined
+    if (!currentMap || !currentMap.map || currentMap.map.length === 0) {
+        return { 
+            visible: Array(MAP_HEIGHT).fill().map(() => Array(MAP_WIDTH).fill(false)), 
+            explored: currentMap?.explored || Array(MAP_HEIGHT).fill().map(() => Array(MAP_WIDTH).fill(false)) 
+        };
+    }
+
     const visible = Array(MAP_HEIGHT).fill().map(() => Array(MAP_WIDTH).fill(false));
     const explored = currentMap.explored || Array(MAP_HEIGHT).fill().map(() => Array(MAP_WIDTH).fill(false));
     
@@ -45,7 +52,6 @@ export function useDungeon() {
 
     const newDungeon = generateDungeon(MAP_WIDTH, MAP_HEIGHT, level, playerLevel);
     
-    // CORRECCIÓN: Pasamos newDungeon.enemies como último argumento
     const npcs = generateNPCs(level, newDungeon.rooms, newDungeon.map, [0, newDungeon.rooms.length - 1], newDungeon.enemies);
     
     const cleanChests = (newDungeon.chests || []).filter(c => !npcs.some(n => n.x === c.x && n.y === c.y));
