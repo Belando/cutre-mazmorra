@@ -1,6 +1,6 @@
-import { TILE } from "@/data/constants";
+import { TILE, SIZE } from "@/data/constants";
 
-const TILE_SIZE = 32;
+const TILE_SIZE = SIZE;
 
 // --- CACHÉ DE LUCES (SPRITES) ---
 const lightCache = {};
@@ -21,11 +21,11 @@ function getLightSprite(key, colorStart, colorEnd, size = 256, isSoft = false) {
       gradient.addColorStop(0.5, 'rgba(0, 0, 0, 1)'); 
       gradient.addColorStop(1, 'rgba(0, 0, 0, 0)');
   } else {
-      // SPRITE PARA ANTORCHA
-      gradient.addColorStop(0, colorStart); 
-      gradient.addColorStop(0.1, colorStart); 
-      gradient.addColorStop(0.4, colorStart.replace(/[\d.]+\)$/, '0.3)')); 
-      gradient.addColorStop(1, colorEnd || 'rgba(0,0,0,0)'); 
+      // SPRITE PARA ANTORCHA (Warmer & Multi-layer)
+      gradient.addColorStop(0, 'rgba(255, 255, 200, 0.9)'); // Core text
+      gradient.addColorStop(0.1, 'rgba(255, 200, 50, 0.8)'); // Inner
+      gradient.addColorStop(0.4, 'rgba(255, 100, 0, 0.3)'); // Mid
+      gradient.addColorStop(1, 'rgba(0,0,0,0)'); // Edge
   }
 
   ctx.fillStyle = gradient;
@@ -80,7 +80,10 @@ function updateFogCache(state) {
     ctx.globalCompositeOperation = "destination-out";
 
     const revealSprite = lightCache[SPRITE_REVEAL];
-    const revealSize = 60; 
+    // Ajuste de escala para evitar "efecto focos":
+    // Antes: revealSize 60 / Tile 32 (~1.8x)
+    // Ahora: SIZE 64. Usamos un factor similar o mayor para buen solapamiento.
+    const revealSize = TILE_SIZE * 2.5;   
     const offsetReveal = revealSize / 2;
 
     // Recorremos todo el mapa (esto se hace solo una vez por turno/movimiento)
@@ -105,7 +108,8 @@ function updateFogCache(state) {
     // Usamos coordenadas de mundo absolutas
     const px = state.player.x * TILE_SIZE + TILE_SIZE / 2;
     const py = state.player.y * TILE_SIZE + TILE_SIZE / 2;
-    drawHole(SPRITE_HOLE, px, py, 150);
+    // Escalar radio del jugador también
+    drawHole(SPRITE_HOLE, px, py, 5 * TILE_SIZE);
 
     // Restaurar modo
     ctx.globalCompositeOperation = "source-over";

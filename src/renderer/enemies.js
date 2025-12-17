@@ -1,4 +1,6 @@
 import { ENEMY_STATS } from "@/data/enemies";
+import { spriteManager } from '@/engine/core/SpriteManager';
+import { animationSystem } from '@/engine/systems/AnimationSystem';
 
 const ATTACK_DURATION = 300; 
 
@@ -1375,7 +1377,7 @@ function drawStunStars(ctx, x, y, size, frame) {
   }
 }
 
-function drawShadow(ctx, x, y, size) {
+export function drawShadow(ctx, x, y, size) {
   const s = size;
   ctx.fillStyle = "rgba(0, 0, 0, 0.3)";
   ctx.beginPath();
@@ -1383,10 +1385,41 @@ function drawShadow(ctx, x, y, size) {
   ctx.fill();
 }
 
-export function drawEnemy(ctx, enemyType, x, y, size, frame = 0, isStunned = false, lastAttackTime = 0, lastAttackDir = {x:0, y:0}, lastMoveTime = 0) {
-  // 1. Obtener la clave de renderizado desde los datos (Source of Truth)
+export function drawEnemy(ctx, enemyType, x, y, size, frame = 0, isStunned = false, lastAttackTime = 0, lastAttackDir = {x:0, y:0}, lastMoveTime = 0, sprite = null) {
+  
+  // 1. INTENTAR DIBUJAR SPRITE
+  if (sprite && sprite.texture) {
+      const img = spriteManager.get(sprite.texture);
+      if (img) {
+          const frameRect = animationSystem.getFrame(sprite);
+          if (frameRect) {
+              ctx.save();
+              
+              // Sombra
+              drawShadow(ctx, x, y, size);
+
+              // 2.5D Effect: Offset de dibujo
+              // Dibujamos un poco más arriba para simular altura (pies en la base de la casilla)
+              const drawW = size; 
+              const drawH = size; // Asumiendo frames cuadrados por ahora, o ajustar según se quiera
+              
+              ctx.drawImage(
+                  img, 
+                  frameRect.x, frameRect.y, frameRect.w, frameRect.h, 
+                  x, y - size * 0.2, drawW, drawH
+              );
+
+              if (isStunned) drawStunStars(ctx, x, y, size, frame);
+
+              ctx.restore();
+              return; // Renderizado por sprite exitoso -> Salir
+          }
+      }
+  }
+  
+  // 2. FALLBACK: Renderizado por Formas (Si no hay sprite o falla la carga)
   const stats = ENEMY_STATS[enemyType];
-  const spriteKey = stats?.renderKey; // Ej: 'rat', 'goblin'
+  const spriteKey = stats?.renderKey; 
 
   drawShadow(ctx, x, y, size);
 
@@ -1395,9 +1428,6 @@ export function drawEnemy(ctx, enemyType, x, y, size, frame = 0, isStunned = fal
   const isAttacking = timeSinceAttack < ATTACK_DURATION;
   const attackProgress = isAttacking ? timeSinceAttack / ATTACK_DURATION : 0;
 
-  // 2. Usar la clave para buscar el sprite en SPRITES (y si no existe, usar el renderKey como fallback o generic)
-  // Nota: Si has definido todos los sprites en SPRITES, esto funcionará directo.
-  // Si falta alguno, usará 'generic'.
   if (spriteKey && SPRITES[spriteKey]) {
     SPRITES[spriteKey].draw(ctx, x, y, size, frame, isAttacking, attackProgress, lastAttackDir, lastMoveTime);
   } else {

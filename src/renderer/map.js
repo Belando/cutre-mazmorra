@@ -3,37 +3,91 @@ import { getThemeForFloor } from "@/components/game/DungeonThemes";
 
 import { drawEnvironmentSprite } from "./environment";
 
-const TILE_SIZE = 32;
+const TILE_SIZE = 64; // Explicitly matching the new global SIZE (or we could import SIZE, but this file had TILE_SIZE 32 before)
+// Actually, let's import SIZE to be safe, or just trust the caller passes TILE_SIZE implicitly via scaling?
+// The global constant changed to 64. 
+// In drawMap below, it uses TILE_SIZE const defined here.
+// I should update this local const or import it.
+// Let's import it to be correct 
+import { SIZE } from "@/data/constants";
 
-// ... (Mantén tu función drawTexturedTile y getTileColors igual que antes) ...
-function drawTexturedTile(ctx, screenX, screenY, size, color, mapX, mapY) {
-  // 1. Dibujar base sólida
+// Helper for high-res floors
+function drawHighResFloor(ctx, x, y, size, color, mapX, mapY) {
+  // Base background
   ctx.fillStyle = color;
-  ctx.fillRect(screenX, screenY, size, size);
+  ctx.fillRect(x, y, size, size);
 
-  // 2. Generar ruido procedimental
-  const seed = Math.sin(mapX * 12.9898 + mapY * 78.233) * 43758.5453;
-  const rand = (offset) => {
-    const val = Math.sin(seed + offset) * 10000;
-    return val - Math.floor(val);
-  };
-
-  // Dibujar 4 "granos" de textura por tile
-  for (let i = 0; i < 4; i++) {
-    const px = Math.floor(rand(i) * size);
-    const py = Math.floor(rand(i + 10) * size);
-    const w = Math.floor(rand(i + 20) * 2) + 1;
-    const h = Math.floor(rand(i + 30) * 2) + 1;
-
-    const isHighlight = rand(i + 50) > 0.6;
-    const opacity = 0.05 + rand(i + 40) * 0.1;
-
-    ctx.fillStyle = isHighlight
-      ? `rgba(255, 255, 255, ${opacity * 0.5})`
-      : `rgba(0, 0, 0, ${opacity})`;
-
-    ctx.fillRect(screenX + px, screenY + py, w, h);
+  // Pattern: Stone Slabs (Baldosas de piedra) with irregularities
+  ctx.lineWidth = 2; 
+  ctx.strokeStyle = "rgba(0,0,0,0.15)";
+  
+  const seed = (mapX * 17 + mapY * 23) % 100;
+  
+  // 2x2 grid of sub-tiles for detail
+  const subSize = size / 2;
+  
+  for(let i=0; i<2; i++) {
+      for(let j=0; j<2; j++) {
+          const sx = x + i * subSize;
+          const sy = y + j * subSize;
+          
+          // Slight color variation
+          const subSeed = (seed + i*7 + j*13) % 100;
+          if (subSeed > 70) {
+             ctx.fillStyle = "rgba(0,0,0,0.05)";
+             ctx.fillRect(sx, sy, subSize, subSize);
+          } else if (subSeed < 20) {
+             ctx.fillStyle = "rgba(255,255,255,0.03)";
+             ctx.fillRect(sx, sy, subSize, subSize);
+          }
+          
+          // Border
+          ctx.strokeRect(sx, sy, subSize, subSize);
+          
+          // High density noise (grain)
+          for(let k=0; k<3; k++) {
+              const nx = sx + Math.random() * subSize;
+              const ny = sy + Math.random() * subSize;
+              const nw = 2 + Math.random() * 2;
+              
+              ctx.fillStyle = "rgba(0,0,0,0.1)";
+              ctx.fillRect(nx, ny, nw, nw);
+          }
+      }
   }
+}
+
+// Helper for high-res walls
+function drawHighResWall(ctx, x, y, size, color, theme, mapX, mapY) {
+    // 1. Base Wall (Gradient for height look)
+    const grad = ctx.createLinearGradient(x, y, x, y + size);
+    grad.addColorStop(0, theme.wallDetail); // Top is lighter/base color
+    grad.addColorStop(1, theme.wall);       // Bottom is darker/shadowed
+    ctx.fillStyle = grad;
+    ctx.fillRect(x, y, size, size);
+    
+    // 2. 3D Bevel (Top Edge Highlight)
+    ctx.fillStyle = "rgba(255,255,255,0.2)";
+    ctx.fillRect(x, y, size, 4); 
+    
+    // 3. Brick Pattern (4 rows)
+    ctx.fillStyle = "rgba(0,0,0,0.3)";
+    const rowHeight = size / 4; 
+    
+    for(let i=0; i<4; i++) {
+        const rowY = y + i * rowHeight;
+        // Horizontal mortar lines
+        ctx.fillRect(x, rowY, size, 2);
+        
+        // Vertical mortar lines (staggered)
+        const offset = (i % 2 === 0) ? 0 : size / 2;
+        ctx.fillRect(x + offset, rowY, 2, rowHeight);
+        ctx.fillRect(x + offset + size/2, rowY, 2, rowHeight);
+    }
+    
+    // 4. Shadow at base
+    ctx.fillStyle = "rgba(0,0,0,0.5)";
+    ctx.fillRect(x, y + size - 6, size, 6);
 }
 
 function getTileColors(floor) {
@@ -60,233 +114,93 @@ export function drawMap(
   const TILE_COLORS = getTileColors(level);
   const theme = getThemeForFloor(level);
 
-  // Fondo negro
+  // Background
   ctx.fillStyle = "#000000";
   ctx.fillRect(0, 0, ctx.canvas.width, ctx.canvas.height);
+  
+  // Enable Smoothing for static map elements
+  ctx.imageSmoothingEnabled = true;
+  ctx.imageSmoothingQuality = 'high';
+
+  // Use imported SIZE
+  const tileSize = SIZE;
 
   const startMapX = Math.floor(offsetX);
   const startMapY = Math.floor(offsetY);
-  const fineShiftX = (offsetX - startMapX) * TILE_SIZE;
-  const fineShiftY = (offsetY - startMapY) * TILE_SIZE;
+  const fineShiftX = (offsetX - startMapX) * tileSize;
+  const fineShiftY = (offsetY - startMapY) * tileSize;
 
   for (let y = 0; y <= viewportHeight + 1; y++) {
     for (let x = 0; x <= viewportWidth + 1; x++) {
       const mapX = x + startMapX;
       const mapY = y + startMapY;
 
-      const screenX = Math.floor(x * TILE_SIZE - fineShiftX);
-      const screenY = Math.floor(y * TILE_SIZE - fineShiftY);
+      const screenX = Math.floor(x * tileSize - fineShiftX);
+      const screenY = Math.floor(y * tileSize - fineShiftY);
 
       if (mapX >= 0 && mapX < map[0].length && mapY >= 0 && mapY < map.length) {
-        // Necesitamos saber si es visible para los detalles extra (opcional),
-        // pero lo CRÍTICO es usar isExplored para dibujar la base.
         const isExplored = explored[mapY]?.[mapX];
-        const isVisibleByPlayer = visible[mapY]?.[mapX];
-
+        
         if (isExplored) {
           const tile = map[mapY][mapX];
-
-          // CORRECCIÓN: Usamos SIEMPRE el color normal.
-          // lighting.js pondrá una capa negra semitransparente encima si no es visible.
-          // lighting.js quitará esa capa si hay luz (antorcha).
           const baseColor = TILE_COLORS[tile];
 
-          drawTexturedTile(
-            ctx,
-            screenX,
-            screenY,
-            TILE_SIZE,
-            baseColor,
-            mapX,
-            mapY
-          );
-
           if (tile === TILE.WALL) {
-            // Relieve normal
-            ctx.fillStyle = theme.wallDetail;
+            drawHighResWall(ctx, screenX, screenY, tileSize, baseColor, theme, mapX, mapY);
 
-            // Bordes irregulares
-            const seed = mapX * 3 + mapY * 7;
-            const v1 = seed % 3;
-            const v2 = (seed * 2) % 3;
-
-            ctx.beginPath();
-            ctx.moveTo(screenX + 2, screenY + 2 + v1);
-            ctx.lineTo(screenX + TILE_SIZE - 2, screenY + 2 + v2);
-            ctx.lineTo(screenX + TILE_SIZE - 2 - v1, screenY + TILE_SIZE - 2);
-            ctx.lineTo(screenX + 2 + v2, screenY + TILE_SIZE - 2);
-            ctx.fill();
-
-            // Sombra inferior del muro
-            ctx.fillStyle = theme.wall;
-            ctx.fillRect(screenX + 4, screenY + 6 + v1, TILE_SIZE - 10, 2);
-
-            // Detalles extra (Telarañas, etc.)
-            // Puedes decidir dibujarlos siempre o solo si isVisibleByPlayer
-            // Dibujarlos siempre queda mejor para el efecto de luz ambiental
+            // Wall Details (Randomized)
             const wallSeed = (mapX * 11 + mapY * 17) % 100;
+            
+            // Cracks or Moss
+            if (wallSeed < 15) {
+                 ctx.fillStyle = "rgba(0,0,0,0.2)";
+                 ctx.beginPath();
+                 ctx.moveTo(screenX + tileSize*0.3, screenY + tileSize*0.2);
+                 ctx.lineTo(screenX + tileSize*0.4, screenY + tileSize*0.4);
+                 ctx.lineTo(screenX + tileSize*0.35, screenY + tileSize*0.6);
+                 ctx.stroke();
+            }
+
             if (wallSeed < (level <= 4 ? 8 : 3)) {
-              drawEnvironmentSprite(ctx, "cobweb", screenX, screenY, TILE_SIZE);
+              drawEnvironmentSprite(ctx, "cobweb", screenX, screenY, tileSize);
             }
             if (theme.lavaGlow && wallSeed >= 90) {
               ctx.strokeStyle = "#ef4444";
               ctx.lineWidth = 1;
               ctx.beginPath();
-              ctx.moveTo(screenX + TILE_SIZE * 0.3, screenY + TILE_SIZE * 0.2);
-              ctx.lineTo(screenX + TILE_SIZE * 0.5, screenY + TILE_SIZE * 0.5);
+              ctx.moveTo(screenX + tileSize * 0.3, screenY + tileSize * 0.2);
+              ctx.lineTo(screenX + tileSize * 0.5, screenY + tileSize * 0.5);
               ctx.stroke();
             }
-          } else if (tile === TILE.FLOOR) {
-            // Detalles del suelo
-            ctx.fillStyle = theme.floorDetail;
-            if ((mapX + mapY) % 2 === 0)
-              ctx.fillRect(screenX + 10, screenY + 10, 4, 4);
 
-            // Decoración (Sangre, escombros, etc)
-            // Dibujamos siempre para que se vean si la luz de la antorcha les da
-            const seed = (mapX * 7 + mapY * 13) % 100;
-            if (level <= 4) {
-              if (seed < 5)
-                drawEnvironmentSprite(
-                  ctx,
-                  "bones",
-                  screenX,
-                  screenY,
-                  TILE_SIZE
-                );
-              else if (seed < 9)
-                drawEnvironmentSprite(
-                  ctx,
-                  "rubble",
-                  screenX,
-                  screenY,
-                  TILE_SIZE
-                );
-              else if (seed < 13)
-                drawEnvironmentSprite(
-                  ctx,
-                  "bloodstain",
-                  screenX,
-                  screenY,
-                  TILE_SIZE
-                );
-              else if (seed < 18)
-                drawEnvironmentSprite(
-                  ctx,
-                  "crack",
-                  screenX,
-                  screenY,
-                  TILE_SIZE
-                );
-            } else {
-              if (seed < 10) {
-                ctx.fillStyle = "rgba(239, 68, 68, 0.5)";
-                ctx.beginPath();
-                ctx.ellipse(
-                  screenX + 16,
-                  screenY + 20,
-                  10,
-                  5,
-                  0,
-                  0,
-                  Math.PI * 2
-                );
-                ctx.fill();
-              } else if (seed < 15)
-                drawEnvironmentSprite(
-                  ctx,
-                  "rubble",
-                  screenX,
-                  screenY,
-                  TILE_SIZE
-                );
-            }
+          } else {
+             // Floor base (including doors/stairs backgrounds)
+             drawHighResFloor(ctx, screenX, screenY, tileSize, baseColor, mapX, mapY);
+
+             if (tile === TILE.STAIRS) {
+                drawEnvironmentSprite(ctx, 'stairs', screenX, screenY, tileSize);
+             }
+             else if (tile === TILE.DOOR || tile === TILE.DOOR_OPEN) {
+                  const type = (tile === TILE.DOOR_OPEN) ? 'door_open' : 'door_closed';
+                  drawEnvironmentSprite(ctx, type, screenX, screenY, tileSize);
+             }
+             
+             // Decor
+             const seed = (mapX * 7 + mapY * 13) % 100;
+             if (level <= 4) {
+               if (seed < 5) drawEnvironmentSprite(ctx, "bones", screenX, screenY, tileSize);
+               else if (seed < 9) drawEnvironmentSprite(ctx, "rubble", screenX, screenY, tileSize);
+               else if (seed < 13) drawEnvironmentSprite(ctx, "bloodstain", screenX, screenY, tileSize);
+               else if (seed < 18) drawEnvironmentSprite(ctx, "crack", screenX, screenY, tileSize);
+             }
           }
-
-          // --- DIBUJO DE PUERTAS ---
-          if (tile === TILE.DOOR) {
-              // 1. Marco de Piedra (Fondo oscuro)
-              ctx.fillStyle = '#1c1917'; // Piedra oscura
-              ctx.fillRect(screenX, screenY, TILE_SIZE, TILE_SIZE);
-              
-              // 2. Cuerpo de la Puerta (Madera vieja)
-              const pad = 4; // Grosor del marco
-              ctx.fillStyle = '#2c1203ff'; // Madera oscura
-              ctx.fillRect(screenX + pad, screenY + 2, TILE_SIZE - pad*2, TILE_SIZE - 4);
-              
-              // 3. Textura: Tablones verticales
-              ctx.fillStyle = 'rgba(0,0,0,0.3)';
-              ctx.fillRect(screenX + 12, screenY + 2, 1, TILE_SIZE - 4); // Línea separación 1
-              ctx.fillRect(screenX + 20, screenY + 2, 1, TILE_SIZE - 4); // Línea separación 2
-
-              // 4. Refuerzos de Hierro (Bandas horizontales)
-              ctx.fillStyle = '#3c3c41ff'; // Metal gris
-              ctx.fillRect(screenX + pad, screenY + 6, TILE_SIZE - pad*2, 3);  // Banda superior
-              ctx.fillRect(screenX + pad, screenY + 22, TILE_SIZE - pad*2, 3); // Banda inferior
-              
-              // Remaches (Brillos)
-              ctx.fillStyle = '#a1a1aa';
-              ctx.fillRect(screenX + 6, screenY + 7, 2, 2);
-              ctx.fillRect(screenX + 24, screenY + 7, 2, 2);
-              ctx.fillRect(screenX + 6, screenY + 23, 2, 2);
-              ctx.fillRect(screenX + 24, screenY + 23, 2, 2);
-
-              // 5. Aldaba / Pomo (Anilla)
-              ctx.strokeStyle = '#79797aff'; // Plata vieja
-              ctx.lineWidth = 1;
-              ctx.beginPath();
-              ctx.arc(screenX + 24, screenY + 16, 1, 0, Math.PI * 2); // Anilla
-              ctx.stroke();
-              
-              // Sombra de contacto en el suelo
-              ctx.fillStyle = 'rgba(0,0,0,0.5)';
-              ctx.fillRect(screenX + pad, screenY + TILE_SIZE - 2, TILE_SIZE - pad*2, 2);
-          } 
-          else if (tile === TILE.DOOR_OPEN) {
-              // 1. Sombra del umbral (Paso oscuro)
-              ctx.fillStyle = 'rgba(0,0,0,0.2)';
-              ctx.fillRect(screenX + 4, screenY, TILE_SIZE - 8, TILE_SIZE);
-
-              // 2. Marco de Piedra (Jambas laterales con bloques)
-              ctx.fillStyle = '#44403c'; // Piedra gris
-              
-              // Jamba Izquierda
-              ctx.fillRect(screenX, screenY, 5, TILE_SIZE);
-              // Cortes de bloques
-              ctx.fillStyle = '#292524';
-              ctx.fillRect(screenX, screenY + 10, 5, 1);
-              ctx.fillRect(screenX, screenY + 22, 5, 1);
-
-              // Jamba Derecha
-              ctx.fillStyle = '#44403c';
-              ctx.fillRect(screenX + TILE_SIZE - 5, screenY, 5, TILE_SIZE);
-              // Cortes de bloques
-              ctx.fillStyle = '#292524';
-              ctx.fillRect(screenX + TILE_SIZE - 5, screenY + 10, 5, 1);
-              ctx.fillRect(screenX + TILE_SIZE - 5, screenY + 22, 5, 1);
-
-              // 3. Dintel superior (Arco simple)
-              ctx.fillStyle = '#292524';
-              ctx.fillRect(screenX, screenY, TILE_SIZE, 3); // Borde superior oscuro
-
-              // 4. Hoja de la puerta abierta (Vista de canto)
-              // Simulamos que la puerta está abierta hacia adentro a la izquierda
-              ctx.fillStyle = '#1b0e01ff'; // Madera muy oscura en sombra
-              ctx.fillRect(screenX + 5, screenY + 2, 3, TILE_SIZE - 4); 
-          }
-
-          // Escaleras
-          if (tile === TILE.STAIRS) {
-            drawEnvironmentSprite(ctx, 'stairs', screenX, screenY, TILE_SIZE);
-          } 
         }
       }
     }
   }
 }
 
-// --- UTILIDADES DE CÁMARA ---
-
+// Helper utils
 export function getCameraTarget(player, map, viewportWidth, viewportHeight) {
   const halfViewW = Math.floor(viewportWidth / 2);
   const halfViewH = Math.floor(viewportHeight / 2);

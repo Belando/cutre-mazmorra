@@ -1,5 +1,9 @@
 // src/renderer/player.js
 
+import { spriteManager } from '@/engine/core/SpriteManager';
+import { animationSystem } from '@/engine/systems/AnimationSystem';
+import { drawShadow } from './enemies'; // Fix ReferenceError
+
 export function drawPlayer(
   ctx,
   x,
@@ -13,8 +17,129 @@ export function drawPlayer(
   lastSkillTime = 0, 
   lastSkillId = null,
   isInvisible = false,
-  lastMoveTime = 0 
+  lastMoveTime = 0,
+  sprite = null // NEW ARGUMENT
 ) {
+  // 1. INTENTAR DIBUJAR SPRITE
+  // RENDERIZADO DE SPRITE
+  // RENDERIZADO DE SPRITE
+  // RENDERIZADO DE SPRITE
+  if (sprite) {
+      // MODO MULTI-ARCHIVO (NUEVO)
+      if (sprite.isMultiFile && sprite.textureKeys) {
+          
+          
+          // --- LÓGICA DE ANIMACIÓN (ATAQUE VS WALK VS IDLE) ---
+          const now = Date.now();
+          const isAttacking = (now - lastAttackTime) < 300; 
+          const isMoving = (now - lastMoveTime) < 150; // Mismo umbral que drawCustomPlayer
+
+          let animToPlay = 'idle'; // Default fallback
+
+          if (isAttacking) {
+              // ATAQUE (Prioridad Máxima)
+              if (Math.abs(lastAttackDir.x) > Math.abs(lastAttackDir.y)) {
+                 animToPlay = lastAttackDir.x > 0 ? 'attack_right' : 'attack_left';
+              } else {
+                 animToPlay = lastAttackDir.y > 0 ? 'attack_down' : 'attack_up';
+              }
+          } else if (isMoving) {
+              // CAMINAR
+              // Por ahora solo tenemos walk_down definido en useAssetLoader para todos.
+              // Pero el sistema está listo para walk_left/right si existieran.
+              animToPlay = 'walk_down'; 
+          } else {
+              // IDLE
+              animToPlay = 'idle';
+          }
+
+          const animKeys = sprite.textureKeys[animToPlay];
+          // Fallback a idle si la anim actual no existe
+          const keys = animKeys || sprite.textureKeys['idle']; 
+          
+          if (keys) {
+              // Calcular frame
+              let frameIdx = sprite.currentFrameIndex;
+              
+              if (isAttacking) {
+                  // Calcular frame basado en tiempo de ataque (0-300ms -> frames 0-2)
+                  const progress = (now - lastAttackTime) / 300;
+                  frameIdx = Math.floor(progress * keys.length);
+                  if (frameIdx >= keys.length) frameIdx = keys.length - 1;
+              }
+
+              const keyIndex = frameIdx % keys.length;
+              const textureKey = keys[keyIndex];
+              const img = spriteManager.get(textureKey);
+              
+              if (img) {
+                  ctx.save();
+                  if (isInvisible) ctx.globalAlpha = 0.4;
+                  
+                  // MEJORA DE CALIDAD: Suavizado activado para evitar "pixelado" feo al reducir de 1024px a 64px
+                  ctx.imageSmoothingEnabled = true;
+                  ctx.imageSmoothingQuality = 'high';
+
+                  // Shadow
+                  drawShadow(ctx, x, y, size);
+
+                  // SCALE UP: 1.6x (Massive Hero Scale)
+                  let scale = 1.6; 
+                  
+                  // TÚ PEDISTE MÁS GRANDE: Si ataca, lo hacemos GIGANTE (1.2x extra)
+                  if (isAttacking) {
+                      scale *= 1.35; 
+                  }
+                  
+                  const drawSize = size * scale;
+                  
+                  // Centrar horizontalmente
+                  const offsetX = (drawSize - size) / 2;
+                  
+                  // Ajuste Vertical:
+                  const feetPosInImage = drawSize * 0.93;
+                  const shadowPosInWorld = size * 0.85;
+                  const offsetY = feetPosInImage - shadowPosInWorld;
+
+                  // Dibujar imagen completa
+                  ctx.drawImage(
+                      img, 
+                      0, 0, img.width, img.height, 
+                      x - offsetX, y - offsetY, 
+                      drawSize, drawSize 
+                  );
+
+                  ctx.restore();
+                  return; // Éxito -> Salir
+              }
+          }
+      } 
+      // MODO HOJA DE SPRITES (CLASICO - Fallback SVG)
+      else if (sprite.texture) {
+          const img = spriteManager.get(sprite.texture);
+          if (img) {
+              const frameRect = animationSystem.getFrame(sprite);
+              if (frameRect) {
+                  ctx.save();
+                  if (isInvisible) ctx.globalAlpha = 0.4;
+                  drawShadow(ctx, x, y, size);
+
+                  const drawW = size; 
+                  const drawH = size; 
+                  
+                  ctx.drawImage(
+                      img, 
+                      frameRect.x, frameRect.y, frameRect.w, frameRect.h, 
+                      x, y - size * 0.2, drawW, drawH
+                  );
+
+                  ctx.restore();
+                  return; 
+              }
+          }
+      }
+  }
+
   const app = appearance || {
     colors: { tunic: "#3b82f6", hair: "#8b5a2b", skin: "#fcd5b8" },
     class: "warrior",

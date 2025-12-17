@@ -19,6 +19,7 @@ import { hasSaveGame, deleteSave } from '@/engine/systems/SaveSystem';
 import { useGame } from '@/context/GameContext';
 import { useInputHandler } from '@/hooks/useInputHandler';
 import { useAutoTurn } from '@/hooks/useAutoTurn'; // El hook corregido
+import { useAssetLoader } from '@/hooks/useAssetLoader';
 
 export default function Game() {
   const { gameState, gameStarted, gameOver, messages, stats, playerInfo, uiState, actions } = useGame();
@@ -75,6 +76,9 @@ export default function Game() {
     onAction: handleAction // <--- IMPORTANTE: Conecta el input con el reloj
   });
 
+  // --- ASSET LOADER ---
+  const { loading: assetsLoading, progress: assetProgress } = useAssetLoader();
+
   if (!gameStarted) {
     const hasSave = hasSaveGame();
     return (
@@ -85,6 +89,16 @@ export default function Game() {
         </div>
       </div>
     );
+  }
+
+  // PANTALLA DE CARGA DE ASSETS
+  if (assetsLoading) {
+     return (
+        <div className="flex flex-col items-center justify-center min-h-screen text-white bg-slate-950">
+           <div className="w-16 h-16 mb-4 border-4 border-emerald-500 rounded-full border-t-transparent animate-spin"></div>
+           <h2 className="text-xl font-bold animate-pulse">Cargando Sprites... {assetProgress}%</h2>
+        </div>
+     );
   }
 
   if (!gameState || !gameState.player || !gameState.map || gameState.map.length === 0) {
@@ -121,7 +135,9 @@ export default function Game() {
 
           <div className="relative flex items-center justify-center p-1 border bg-black/50 rounded-xl border-slate-800">
               <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
-                <GameBoard gameState={gameState} viewportWidth={23} viewportHeight={15} />
+              <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
+                <GameBoard gameState={gameState} viewportWidth={19} viewportHeight={13} />
+              </motion.div>
               </motion.div>
               
               {isInteractable && (

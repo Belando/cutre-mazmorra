@@ -1,0 +1,104 @@
+<svg width="96" height="128" viewBox="0 0 96 128" xmlns="http://www.w3.org/2000/svg" shape-rendering="crispEdges">
+  <defs>
+    <!-- Paleta -->
+    <style>
+      .skin { fill: #fca; }
+      .metal { fill: #94a3b8; }
+      .metal-dark { fill: #475569; }
+      .cloth { fill: #3b82f6; }
+      .cloth-dark { fill: #1e3a8a; }
+      .black { fill: #000; }
+    </style>
+    
+    <!-- PIXEL ART WARRIOR TEMPLATES (32x32) -->
+    
+    <!-- IDLE/WALK DOWN (Generic base) -->
+    <g id="warrior_down">
+      <!-- Shadow/Feet -->
+      <rect x="10" y="28" width="4" height="4" class="black" opacity="0.3"/>
+      <rect x="18" y="28" width="4" height="4" class="black" opacity="0.3"/>
+      <!-- Legs -->
+      <rect x="11" y="22" width="4" height="6" class="metal-dark"/>
+      <rect x="17" y="22" width="4" height="6" class="metal-dark"/>
+      <!-- Body/Armor -->
+      <rect x="8" y="14" width="16" height="10" class="metal"/>
+      <rect x="10" y="16" width="12" height="8" class="cloth"/>
+      <!-- Head -->
+      <rect x="10" y="4" width="12" height="10" class="skin"/>
+      <!-- Helmet -->
+      <rect x="9" y="2" width="14" height="4" class="metal"/>
+      <rect x="9" y="2" width="2" height="10" class="metal"/>
+      <rect x="21" y="2" width="2" height="10" class="metal"/>
+      <!-- Face -->
+      <rect x="12" y="8" width="2" height="2" class="black"/> <!-- Eye L -->
+      <rect x="18" y="8" width="2" height="2" class="black"/> <!-- Eye R -->
+    </g>
+
+    <!-- WALK DOWN 1 (Stepping) -->
+    <g id="warrior_down_step1">
+      <use href="#warrior_down" />
+      <rect x="11" y="26" width="4" height="2" class="metal-dark"/> <!-- Leg Ext -->
+    </g>
+
+    <!-- WALK DOWN 2 -->
+    <g id="warrior_down_step2">
+      <use href="#warrior_down" />
+      <rect x="17" y="26" width="4" height="2" class="metal-dark"/>
+    </g>
+
+    <!-- WALK LEFT -->
+    <g id="warrior_left">
+      <rect x="12" y="22" width="6" height="6" class="metal-dark"/>
+      <rect x="10" y="14" width="10" height="10" class="metal"/>
+      <rect x="8" y="4" width="12" height="10" class="skin"/> 
+      <rect x="8" y="2" width="12" height="4" class="metal"/> <!-- Helmet Top -->
+      <rect x="8" y="2" width="4" height="10" class="metal"/>  <!-- Helmet Side -->
+      <rect x="8" y="8" width="2" height="2" class="black"/> <!-- Eye -->
+      <rect x="6" y="16" width="4" height="8" class="black"/> <!-- Shield Side -->
+    </g>
+
+    <!-- WALK RIGHT -->
+    <g id="warrior_right">
+       <!-- Mirror of Left roughly -->
+      <rect x="14" y="22" width="6" height="6" class="metal-dark"/>
+      <rect x="12" y="14" width="10" height="10" class="metal"/>
+      <rect x="12" y="4" width="12" height="10" class="skin"/> 
+      <rect x="12" y="2" width="12" height="4" class="metal"/>
+      <rect x="20" y="2" width="4" height="10" class="metal"/>
+      <rect x="22" y="8" width="2" height="2" class="black"/>
+      <rect x="22" y="16" width="4" height="8" class="metal"/> <!-- Sword arm -->
+    </g>
+
+    <!-- WALK UP -->
+    <g id="warrior_up">
+      <rect x="11" y="22" width="4" height="6" class="metal-dark"/>
+      <rect x="17" y="22" width="4" height="6" class="metal-dark"/>
+      <rect x="8" y="14" width="16" height="10" class="metal"/>
+      <rect x="10" y="14" width="12" height="10" class="cloth-dark"/> <!-- Cape -->
+      <rect x="9" y="2" width="14" height="12" class="metal"/> <!-- Helmet Back -->
+    </g>
+
+  </defs>
+
+  <!-- GRID LAYOUT (4 Rows, 3 Cols) -->
+  
+  <!-- ROW 1: DOWN ([0]=Idle, [1]=Step1, [2]=Step2) -->
+  <g transform="translate(0,0)">   <use href="#warrior_down"/> </g>
+  <g transform="translate(32,0)">  <use href="#warrior_down_step1"/> </g>
+  <g transform="translate(64,0)">  <use href="#warrior_down_step2"/> </g>
+
+  <!-- ROW 2: LEFT -->
+  <g transform="translate(0,32)">  <use href="#warrior_left"/> </g>
+  <g transform="translate(32,32)"> <use href="#warrior_left"/> </g> <!-- Laziness: Repeat for now, easy to animate leg later if needed -->
+  <g transform="translate(64,32)"> <use href="#warrior_left"/> </g>
+
+  <!-- ROW 3: RIGHT -->
+  <g transform="translate(0,64)">  <use href="#warrior_right"/> </g>
+  <g transform="translate(32,64)"> <use href="#warrior_right"/> </g>
+  <g transform="translate(64,64)"> <use href="#warrior_right"/> </g>
+
+  <!-- ROW 4: UP -->
+  <g transform="translate(0,96)">  <use href="#warrior_up"/> </g>
+  <g transform="translate(32,96)"> <use href="#warrior_up"/> </g> <!-- TODO: Add variants -->
+  <g transform="translate(64,96)"> <use href="#warrior_up"/> </g>
+</svg>

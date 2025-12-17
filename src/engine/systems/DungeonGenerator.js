@@ -27,6 +27,40 @@ function getEnemiesForLevel(level) {
   }
   return available;
 }
+// Helper para configurar el sprite según el tipo de enemigo
+function getSpriteForEnemy(type) {
+  // Mapeo de IDs a texturas (SVG placeholders generados)
+  // Ajustar IDs según constants.js
+  let texture = null;
+  
+  switch (parseInt(type)) {
+      case ENTITY.ENEMY_RAT: texture = 'rat_sheet'; break;
+      case ENTITY.ENEMY_GOBLIN: texture = 'goblin_sheet'; break;
+      case ENTITY.ENEMY_SKELETON: texture = 'skeleton_sheet'; break;
+      case ENTITY.ENEMY_ZOMBIE: 
+      case ENTITY.BOSS_SKELETON_LORD:
+          texture = 'skeleton_sheet'; // Reusamos por ahora
+          break;
+      default: return null; // Sin sprite -> Render por defecto (formas)
+  }
+
+  if (!texture) return null;
+
+  return {
+      texture: texture,
+      frameSize: { x: 32, y: 32 },
+      anims: {
+           walk_down: [0, 1, 2, 1],
+           walk_left: [3, 4, 5, 4],
+           walk_right: [6, 7, 8, 7],
+           walk_up: [9, 10, 11, 10]
+      },
+      currentAnim: 'walk_down',
+      currentFrameIndex: 1, 
+      frameTimer: 0,
+      frameDuration: 200 + Math.random() * 50
+  };
+}
 
 // Escalar estadísticas de enemigos según nivel del jugador y mazmorra (Curva de Dificultad)
 export function scaleEnemyStats(baseStats, playerLevel, dungeonLevel) {
@@ -202,7 +236,9 @@ export function generateDungeon(width, height, level, playerLevel = 1) {
             isBoss: baseStats.isBoss || false, 
             stunned: 0,
             slowed: 0,
-            poisoned: 0 
+            poisoned: 0,
+            poisoned: 0,
+            sprite: getSpriteForEnemy(entity) // Asignación dinámica
           });
         }
       }

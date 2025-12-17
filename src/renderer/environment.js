@@ -1,3 +1,5 @@
+import { spriteManager } from '@/engine/core/SpriteManager';
+
 export const ENV_SPRITES = {
   torch: {
     draw: (ctx, x, y, size, frame = 0) => {
@@ -30,10 +32,41 @@ export const ENV_SPRITES = {
       ctx.shadowBlur = 0;
     }
   },
+  door_closed: {
+    draw: (ctx, x, y, size) => {
+      const img = spriteManager.get('door_closed');
+      if (img) {
+        // Render 25% larger and centered
+        const newSize = size * 1.25;
+        const offset = (size - newSize) / 2;
+        ctx.drawImage(img, x + offset, y + offset, newSize, newSize);
+      } else {
+        // Fallback or loading state
+        ctx.fillStyle = '#451a03';
+        ctx.fillRect(x + size*0.1, y + size*0.1, size*0.8, size*0.8);
+      }
+    }
+  },
+  door_open: {
+    draw: (ctx, x, y, size) => {
+      const img = spriteManager.get('door_open');
+      if (img) {
+        // Render 25% larger and centered
+        const newSize = size * 1.25;
+        const offset = (size - newSize) / 2;
+        ctx.drawImage(img, x + offset, y + offset, newSize, newSize);
+      } else {
+        // Fallback
+        ctx.fillStyle = '#271c19';
+        ctx.fillRect(x + size*0.1, y + size*0.1, size*0.1, size*0.8);
+      }
+    }
+  },
   chest: {
     draw: (ctx, x, y, size, isOpen = false) => {
       const s = size;
-      // Paleta de colores fija (Madera y Hierro)
+      // High-Res 2.5D Chest
+      
       const c = {
         outline: '#271c19',
         woodDark: '#451a03',
@@ -52,103 +85,77 @@ export const ENV_SPRITES = {
         
         // 1. Tapa (Abierta hacia atrás)
         ctx.fillStyle = c.outline;
-        ctx.fillRect(x + s*0.15, y + s*0.1, s*0.7, s*0.35); // Sombra tapa
+        ctx.fillRect(x + s*0.15, y + s*0.1, s*0.7, s*0.35); // Borde
         ctx.fillStyle = c.woodDark;
         ctx.fillRect(x + s*0.18, y + s*0.12, s*0.64, s*0.3); // Interior tapa
         
-        // Bandas de metal en la tapa
+        // Bandas de metal tapa
         ctx.fillStyle = c.metalDark;
         ctx.fillRect(x + s*0.25, y + s*0.1, s*0.1, s*0.35);
         ctx.fillRect(x + s*0.65, y + s*0.1, s*0.1, s*0.35);
 
-        // 2. Interior (Fondo oscuro)
+        // 2. Interior (Fondo y Oro)
         ctx.fillStyle = c.void;
         ctx.fillRect(x + s*0.15, y + s*0.4, s*0.7, s*0.35);
 
-        // 3. Tesoro (Montaña de oro)
+        // Montaña Oro
         ctx.fillStyle = c.gold;
         ctx.beginPath();
-        ctx.ellipse(x + s*0.5, y + s*0.6, s*0.25, s*0.15, 0, Math.PI, 0); // Montaña
+        ctx.ellipse(x + s*0.5, y + s*0.6, s*0.25, s*0.15, 0, Math.PI, 0); 
         ctx.fill();
         
-        // Brillos del tesoro (Monedas individuales)
+        // Brillos
         ctx.fillStyle = c.goldShine;
         ctx.fillRect(x + s*0.4, y + s*0.55, s*0.05, s*0.05);
         ctx.fillRect(x + s*0.55, y + s*0.6, s*0.05, s*0.05);
-        ctx.fillRect(x + s*0.45, y + s*0.65, s*0.05, s*0.05);
 
-        // 4. Frente del cofre (Cuerpo inferior)
-        // Borde
+        // 3. Frente del cofre (Cuerpo inferior)
         ctx.fillStyle = c.outline;
         ctx.fillRect(x + s*0.15, y + s*0.5, s*0.7, s*0.35);
-        // Madera
         ctx.fillStyle = c.woodMid;
         ctx.fillRect(x + s*0.18, y + s*0.53, s*0.64, s*0.29);
-        // Sombras madera (tablones)
-        ctx.fillStyle = c.woodDark;
-        ctx.fillRect(x + s*0.18, y + s*0.6, s*0.64, s*0.02);
-        ctx.fillRect(x + s*0.18, y + s*0.7, s*0.64, s*0.02);
-
-        // Bandas verticales de metal (Frente)
+        
+        // Bandas verticales
         ctx.fillStyle = c.metalDark;
         ctx.fillRect(x + s*0.25, y + s*0.5, s*0.1, s*0.35);
         ctx.fillRect(x + s*0.65, y + s*0.5, s*0.1, s*0.35);
-        
-        // Remaches
-        ctx.fillStyle = c.metalLight;
-        ctx.fillRect(x + s*0.27, y + s*0.55, s*0.06, s*0.06);
-        ctx.fillRect(x + s*0.67, y + s*0.55, s*0.06, s*0.06);
 
       } else {
         // --- COFRE CERRADO ---
-
-        // 1. Sombra base (Suelo)
+        
+        // Sombra suelo
         ctx.fillStyle = "rgba(0,0,0,0.4)";
         ctx.beginPath();
         ctx.ellipse(x + s*0.5, y + s*0.85, s*0.4, s*0.15, 0, 0, Math.PI * 2);
         ctx.fill();
 
-        // 2. Cuerpo Principal
+        // Cuerpo Principal
         ctx.fillStyle = c.outline;
-        ctx.fillRect(x + s*0.15, y + s*0.35, s*0.7, s*0.5); // Borde total
-        
-        // Madera Frontal (Degradado fake)
+        ctx.fillRect(x + s*0.15, y + s*0.35, s*0.7, s*0.5); 
         ctx.fillStyle = c.woodMid;
-        ctx.fillRect(x + s*0.18, y + s*0.38, s*0.64, s*0.44);
+        ctx.fillRect(x + s*0.18, y + s*0.38, s*0.64, s*0.44); // Panel frontal
         
-        // Detalle: Tablones horizontales
-        ctx.fillStyle = "rgba(0,0,0,0.2)";
-        ctx.fillRect(x + s*0.18, y + s*0.52, s*0.64, s*0.02);
-        ctx.fillRect(x + s*0.18, y + s*0.66, s*0.64, s*0.02);
-
-        // 3. Tapa (Curva superior simulada con rectángulos escalonados)
-        ctx.fillStyle = c.woodLight; // Parte superior más clara
-        ctx.fillRect(x + s*0.18, y + s*0.3, s*0.64, s*0.15); // Tapa superior plana
+        // Tapa (Curva simulada)
+        ctx.fillStyle = c.woodLight; 
+        ctx.fillRect(x + s*0.18, y + s*0.3, s*0.64, s*0.15); // Tapa superior
         
-        // Borde tapa (separación)
+        // Borde tapa
         ctx.fillStyle = c.outline;
         ctx.fillRect(x + s*0.15, y + s*0.45, s*0.7, s*0.05);
 
-        // 4. Refuerzos de Hierro (Bandas verticales)
-        // Banda Izquierda
+        // Refuerzos de Hierro
         ctx.fillStyle = c.metalDark;
-        ctx.fillRect(x + s*0.22, y + s*0.3, s*0.1, s*0.55);
-        ctx.fillStyle = c.metalLight; // Brillo borde
-        ctx.fillRect(x + s*0.22, y + s*0.3, s*0.02, s*0.55);
-        
-        // Banda Derecha
-        ctx.fillStyle = c.metalDark;
-        ctx.fillRect(x + s*0.68, y + s*0.3, s*0.1, s*0.55);
-        ctx.fillStyle = c.metalLight; // Brillo borde
+        ctx.fillRect(x + s*0.22, y + s*0.3, s*0.1, s*0.55); // Izq
+        ctx.fillRect(x + s*0.68, y + s*0.3, s*0.1, s*0.55); // Der
+        ctx.fillStyle = c.metalLight; 
+        ctx.fillRect(x + s*0.22, y + s*0.3, s*0.02, s*0.55); // Brillo
         ctx.fillRect(x + s*0.68, y + s*0.3, s*0.02, s*0.55);
 
-        // 5. Cerradura (Centro)
-        ctx.fillStyle = c.metalDark; // Base cerradura
+        // Cerradura
+        ctx.fillStyle = c.metalDark; 
         ctx.fillRect(x + s*0.42, y + s*0.42, s*0.16, s*0.16);
-        ctx.fillStyle = c.lock; // Oro cerradura
+        ctx.fillStyle = c.lock; 
         ctx.fillRect(x + s*0.44, y + s*0.44, s*0.12, s*0.12);
-        ctx.fillStyle = c.woodDark; // Ojo de la cerradura
-        ctx.fillRect(x + s*0.48, y + s*0.48, s*0.04, s*0.06);
       }
     }
   },

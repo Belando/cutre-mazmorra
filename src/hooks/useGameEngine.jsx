@@ -8,6 +8,8 @@ import { useGameEffects } from "@/hooks/useGameEffects";
 import { useCombatLogic } from '@/hooks/useCombatLogic';
 import { useGameActions } from '@/hooks/useGameActions';
 import { SpatialHash } from '@/engine/core/SpatialHash';
+import { loadPlaceholders, ASSETS } from '@/engine/core/PlaceholderGenerator';
+import { spriteManager } from '@/engine/core/SpriteManager';
 
 export function useGameEngine() {
   const { player, setPlayer, initPlayer, updatePlayer, gainExp, regenerate: regenPlayer } = usePlayer();
@@ -22,8 +24,13 @@ export function useGameEngine() {
   const { processTurn } = useTurnSystem();
   const { messages, setMessages, addMessage, effectsManager, showFloatingText } = useGameEffects();
   
-  // 1. INSTANCIAR SPATIAL HASH (Referencia mutable para rendimiento)
+  // 1. INSTANCIAR SPATIAL HASH
   const spatialHash = useRef(new SpatialHash());
+
+  // CARGAR SPRITES
+  useEffect(() => {
+    loadPlaceholders(spriteManager);
+  }, []);
 
   const [gameStarted, setGameStarted] = useState(false);
   const [gameOver, setGameOver] = useState(false);

@@ -53,4 +53,4 @@ export const NPC_TYPES = {
     BLACKSMITH: "blacksmith", // NUEVO TIPO
 } as const;
 
-export const SIZE = 32;
+export const SIZE = 64;

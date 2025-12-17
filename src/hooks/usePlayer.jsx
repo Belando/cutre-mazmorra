@@ -36,7 +36,43 @@ export function usePlayer() {
       exp: 0, level: 1, gold: 0,
       name,
       class: classType, appearance, 
-      skills: initializeSkills(classType)
+      skills: initializeSkills(classType),
+      
+      // Sprite Component (Multi-File Mode)
+      sprite: {
+          isMultiFile: true, // Flag para el renderer
+          textureKeys: {
+              idle: ['warrior_idle_1', 'warrior_idle_2', 'warrior_idle_3'],
+              
+              // Walk (Only Down exists, reuse for others or just use idle if preferred? Let's use Walk Down for all)
+              walk_down: ['warrior_walk_down_1', 'warrior_walk_down_2', 'warrior_walk_down_3'],
+              walk_up: ['warrior_walk_down_1', 'warrior_walk_down_2', 'warrior_walk_down_3'], 
+              walk_left: ['warrior_walk_down_1', 'warrior_walk_down_2', 'warrior_walk_down_3'],
+              walk_right: ['warrior_walk_down_1', 'warrior_walk_down_2', 'warrior_walk_down_3'],
+
+              // Attack (Left/Right exist)
+              attack_left: ['warrior_attack_left_1', 'warrior_attack_left_2', 'warrior_attack_left_3'],
+              attack_right: ['warrior_attack_right_1', 'warrior_attack_right_2', 'warrior_attack_right_3'],
+              // Fallback for Up/Down attacks
+              attack_down: ['warrior_attack_left_1', 'warrior_attack_left_2', 'warrior_attack_left_3'], 
+              attack_up: ['warrior_attack_right_1', 'warrior_attack_right_2', 'warrior_attack_right_3'],
+          },
+          anims: {
+              idle: [0, 1, 2],
+              walk_down: [0, 1, 2],
+              walk_up: [0, 1, 2],
+              walk_left: [0, 1, 2],
+              walk_right: [0, 1, 2],
+              attack_left: [0, 1, 2],
+              attack_right: [0, 1, 2],
+              attack_down: [0, 1, 2],
+              attack_up: [0, 1, 2]
+          },
+          currentAnim: 'idle',
+          currentFrameIndex: 0, 
+          frameTimer: 0,
+          frameDuration: 150
+      }
     });
   }, []);
 

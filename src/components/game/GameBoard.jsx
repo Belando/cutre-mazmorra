@@ -8,6 +8,7 @@ import { drawEnvironmentSprite } from '@/renderer/environment';
 import { drawEnemy, drawLargeEnemy } from '@/renderer/enemies';
 import { drawNPC } from '@/renderer/npcs';
 import { drawPlayer } from '@/renderer/player';
+import { animationSystem } from '@/engine/systems/AnimationSystem';
 
 export default function GameBoard({ gameState, viewportWidth = 21, viewportHeight = 15 }) {
   const staticCanvasRef = useRef(null);
@@ -18,6 +19,7 @@ export default function GameBoard({ gameState, viewportWidth = 21, viewportHeigh
   // Estado mutable para la cámara y el loop
   const cameraPos = useRef({ x: 0, y: 0, initialized: false });
   const frameRef = useRef(0);
+  const lastTimeRef = useRef(0);
   const animationFrameId = useRef(null);
   const gameStateRef = useRef(gameState);
 
@@ -37,7 +39,7 @@ export default function GameBoard({ gameState, viewportWidth = 21, viewportHeigh
   }, [gameState]);
 
   // --- BUCLE PRINCIPAL DE RENDERIZADO ---
-  const renderGameLoop = () => {
+  const renderGameLoop = (timestamp) => {
     const staticCanvas = staticCanvasRef.current;
     const dynamicCanvas = dynamicCanvasRef.current;
     const lightingCanvas = lightingCanvasRef.current;
@@ -46,6 +48,17 @@ export default function GameBoard({ gameState, viewportWidth = 21, viewportHeigh
     if (!staticCanvas || !dynamicCanvas || !lightingCanvas || !gameStateRef.current) {
         animationFrameId.current = requestAnimationFrame(renderGameLoop);
         return;
+    }
+
+    // 0. CALCULAR DELTA TIME
+    if (!lastTimeRef.current) lastTimeRef.current = timestamp;
+    const dt = timestamp - lastTimeRef.current;
+    lastTimeRef.current = timestamp;
+    
+    // UPDATE ANIMATIONS
+    if (gameStateRef.current.player && animationSystem) {
+         const allEntities = [gameStateRef.current.player, ...gameStateRef.current.enemies];
+         animationSystem.update(dt, allEntities);
     }
     
     const currentState = gameStateRef.current;
@@ -190,7 +203,8 @@ export default function GameBoard({ gameState, viewportWidth = 21, viewportHeigh
                         isStunnedVisual, 
                         enemy.lastAttackTime || 0,
                         enemy.lastAttackDir || { x: 0, y: 0 },
-                        enemy.lastMoveTime || 0
+                        enemy.lastMoveTime || 0,
+                        enemy.sprite
                     );
                     
                     drawHealthBar(ctx, sx - offsetDraw, sy - offsetDraw, drawSize, enemy.hp, enemy.maxHp);
@@ -224,7 +238,9 @@ export default function GameBoard({ gameState, viewportWidth = 21, viewportHeigh
 
             drawPlayer(ctx, psx, psy, SIZE, player.appearance, player.class, frameRef.current, 
                 player.lastAttackTime || 0, player.lastAttackDir || { x: 0, y: 0 }, 
-                player.lastSkillTime || 0, player.lastSkillId || null, isInvisible, player.lastMoveTime || 0);
+                player.lastSkillTime || 0, player.lastSkillId || null, isInvisible, player.lastMoveTime || 0,
+                player.sprite
+            );
         }
     });
 
