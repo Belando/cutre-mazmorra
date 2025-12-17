@@ -30,6 +30,10 @@ const REQUIRED_ASSETS = [
     { key: 'goblin_sheet', src: '/sprites/goblin_sheet.svg' },
     { key: 'door_closed', src: '/sprites/door_closed.png' },
     { key: 'door_open', src: '/sprites/door_open.png' },
+    { key: 'bones', src: '/sprites/bones.png' },
+    { key: 'rubble', src: '/sprites/rubble.png' },
+    { key: 'bloodstain', src: '/sprites/bloodstain.png' },
+    { key: 'crack', src: '/sprites/crack.png' },
 ];
 
 export function useAssetLoader() {

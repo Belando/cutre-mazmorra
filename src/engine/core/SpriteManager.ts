@@ -28,8 +28,9 @@ export class SpriteManager {
             const img = new Image();
             img.src = src;
             img.onload = () => {
-                // AUTO-PROCESS: Eliminar fondo blanco/gris para warrior y door (puertas)
-                if (key.startsWith('warrior') || key.startsWith('door')) {
+                // AUTO-PROCESS: Eliminar fondo blanco/gris para warrior, door y decor
+                if (key.startsWith('warrior') || key.startsWith('door') ||
+                    ['bones', 'rubble', 'bloodstain', 'crack'].includes(key)) {
                     try {
                         const processed = this.removeWhiteBackground(img);
                         this.cache.set(key, processed);

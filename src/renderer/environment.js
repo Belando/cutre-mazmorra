@@ -267,29 +267,38 @@ export const ENV_SPRITES = {
   },
   bones: {
     draw: (ctx, x, y, size) => {
+      const img = spriteManager.get('bones');
+      if (img) {
+          ctx.drawImage(img, x, y, size, size);
+          return;
+      }
       const s = size;
-      ctx.fillStyle = '#d4d4d4';
-      ctx.beginPath();
-      ctx.arc(x + s*0.35, y + s*0.6, s*0.12, 0, Math.PI * 2);
-      ctx.fill();
-      ctx.fillStyle = '#1c1917';
-      ctx.fillRect(x + s*0.28, y + s*0.56, s*0.04, s*0.04);
-      ctx.fillRect(x + s*0.36, y + s*0.56, s*0.04, s*0.04);
+      // Skull (Fallback)
       ctx.fillStyle = '#e5e5e5';
-      ctx.save();
-      ctx.translate(x + s*0.6, y + s*0.5);
-      ctx.rotate(0.3);
-      ctx.fillRect(-s*0.15, -s*0.03, s*0.3, s*0.06);
       ctx.beginPath();
-      ctx.arc(-s*0.15, 0, s*0.05, 0, Math.PI * 2);
-      ctx.arc(s*0.15, 0, s*0.05, 0, Math.PI * 2);
+      ctx.arc(x + s*0.5, y + s*0.5, s*0.12, 0, Math.PI * 2); // Cranium
       ctx.fill();
-      ctx.restore();
-      ctx.save();
-      ctx.translate(x + s*0.55, y + s*0.7);
-      ctx.rotate(-0.4);
-      ctx.fillRect(-s*0.12, -s*0.025, s*0.24, s*0.05);
-      ctx.restore();
+      ctx.fillRect(x + s*0.44, y + s*0.58, s*0.12, s*0.08); // Jaw
+      
+      // Eyes
+      ctx.fillStyle = '#171717';
+      ctx.beginPath();
+      ctx.arc(x + s*0.46, y + s*0.5, s*0.035, 0, Math.PI * 2);
+      ctx.arc(x + s*0.54, y + s*0.5, s*0.035, 0, Math.PI * 2);
+      ctx.fill();
+
+      // Crossbones
+      ctx.strokeStyle = '#d4d4d4';
+      ctx.lineWidth = s * 0.05;
+      ctx.lineCap = 'round';
+      ctx.beginPath();
+      // Bone 1
+      ctx.moveTo(x + s*0.35, y + s*0.65);
+      ctx.lineTo(x + s*0.65, y + s*0.35);
+      // Bone 2
+      ctx.moveTo(x + s*0.65, y + s*0.65);
+      ctx.lineTo(x + s*0.35, y + s*0.35);
+      ctx.stroke();
     }
   },
   barrel: {
@@ -325,62 +334,90 @@ export const ENV_SPRITES = {
   },
   crack: {
     draw: (ctx, x, y, size) => {
+      const img = spriteManager.get('crack');
+      if (img) {
+          ctx.globalAlpha = 0.8;
+          ctx.drawImage(img, x, y, size, size);
+          ctx.globalAlpha = 1.0;
+          return;
+      }
       const s = size;
-      ctx.strokeStyle = '#0f172a';
+      ctx.strokeStyle = 'rgba(0,0,0,0.4)';
       ctx.lineWidth = 2;
+      ctx.lineCap = 'round';
       ctx.beginPath();
-      ctx.moveTo(x + s*0.3, y + s*0.2);
-      ctx.lineTo(x + s*0.45, y + s*0.4);
-      ctx.lineTo(x + s*0.35, y + s*0.55);
-      ctx.lineTo(x + s*0.5, y + s*0.7);
-      ctx.lineTo(x + s*0.42, y + s*0.85);
+      // Main crack
+      ctx.moveTo(x + s*0.3, y + s*0.2); 
+      ctx.lineTo(x + s*0.4, y + s*0.35);
+      ctx.lineTo(x + s*0.35, y + s*0.5);
+      ctx.lineTo(x + s*0.5, y + s*0.65);
       ctx.stroke();
+      
+      // Secondary crack
+      ctx.lineWidth = 1;
       ctx.beginPath();
-      ctx.moveTo(x + s*0.45, y + s*0.4);
-      ctx.lineTo(x + s*0.6, y + s*0.5);
-      ctx.stroke();
-      ctx.beginPath();
-      ctx.moveTo(x + s*0.5, y + s*0.7);
-      ctx.lineTo(x + s*0.65, y + s*0.75);
+      ctx.moveTo(x + s*0.4, y + s*0.35);
+      ctx.lineTo(x + s*0.55, y + s*0.3);
       ctx.stroke();
     }
   },
   rubble: {
     draw: (ctx, x, y, size) => {
+      const img = spriteManager.get('rubble');
+      if (img) {
+          ctx.drawImage(img, x, y, size, size);
+          return;
+      }
       const s = size;
-      ctx.fillStyle = '#44403c';
-      ctx.beginPath();
-      ctx.arc(x + s*0.3, y + s*0.7, s*0.12, 0, Math.PI * 2);
-      ctx.fill();
-      ctx.beginPath();
-      ctx.arc(x + s*0.55, y + s*0.65, s*0.1, 0, Math.PI * 2);
-      ctx.fill();
-      ctx.beginPath();
-      ctx.arc(x + s*0.7, y + s*0.72, s*0.08, 0, Math.PI * 2);
-      ctx.fill();
+      // Rock 1
       ctx.fillStyle = '#57534e';
       ctx.beginPath();
-      ctx.arc(x + s*0.4, y + s*0.55, s*0.06, 0, Math.PI * 2);
+      ctx.moveTo(x + s*0.3, y + s*0.7);
+      ctx.lineTo(x + s*0.35, y + s*0.6);
+      ctx.lineTo(x + s*0.45, y + s*0.62);
+      ctx.lineTo(x + s*0.48, y + s*0.75);
       ctx.fill();
+      
+      // Rock 2
+      ctx.fillStyle = '#44403c';
       ctx.beginPath();
-      ctx.arc(x + s*0.6, y + s*0.8, s*0.05, 0, Math.PI * 2);
+      ctx.moveTo(x + s*0.6, y + s*0.8);
+      ctx.lineTo(x + s*0.55, y + s*0.65);
+      ctx.lineTo(x + s*0.7, y + s*0.6);
+      ctx.lineTo(x + s*0.75, y + s*0.75);
       ctx.fill();
+
+      // Debris
+      ctx.fillStyle = '#292524';
+      ctx.fillRect(x + s*0.5, y + s*0.7, s*0.05, s*0.05);
+      ctx.fillRect(x + s*0.4, y + s*0.75, s*0.03, s*0.03);
     }
   },
   bloodstain: {
     draw: (ctx, x, y, size) => {
+      const img = spriteManager.get('bloodstain');
+      if (img) {
+          ctx.globalAlpha = 0.8;
+          ctx.drawImage(img, x, y, size, size);
+          ctx.globalAlpha = 1.0;
+          return;
+      }
       const s = size;
-      ctx.fillStyle = 'rgba(127, 29, 29, 0.6)';
+      ctx.fillStyle = 'rgba(136, 19, 55, 0.7)'; // Dried blood red
+      
+      // Main splatter
       ctx.beginPath();
-      ctx.ellipse(x + s*0.5, y + s*0.6, s*0.25, s*0.15, 0.2, 0, Math.PI * 2);
+      ctx.ellipse(x + s*0.5, y + s*0.5, s*0.25, s*0.15, Math.random(), 0, Math.PI*2);
       ctx.fill();
-      ctx.fillStyle = 'rgba(153, 27, 27, 0.5)';
-      ctx.beginPath();
-      ctx.ellipse(x + s*0.35, y + s*0.5, s*0.1, s*0.08, -0.3, 0, Math.PI * 2);
-      ctx.fill();
-      ctx.beginPath();
-      ctx.ellipse(x + s*0.65, y + s*0.7, s*0.08, s*0.06, 0.5, 0, Math.PI * 2);
-      ctx.fill();
+
+      // Droplets
+      for(let i=0; i<3; i++) {
+          const dx = (Math.random() - 0.5) * s * 0.4;
+          const dy = (Math.random() - 0.5) * s * 0.3;
+          ctx.beginPath();
+          ctx.arc(x + s*0.5 + dx, y + s*0.5 + dy, s*0.03 + Math.random()*s*0.04, 0, Math.PI*2);
+          ctx.fill();
+      }
     }
   },
   cobweb: {

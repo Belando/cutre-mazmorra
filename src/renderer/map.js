@@ -185,13 +185,22 @@ export function drawMap(
                   drawEnvironmentSprite(ctx, type, screenX, screenY, tileSize);
              }
              
-             // Decor
-             const seed = (mapX * 7 + mapY * 13) % 100;
-             if (level <= 4) {
-               if (seed < 5) drawEnvironmentSprite(ctx, "bones", screenX, screenY, tileSize);
-               else if (seed < 9) drawEnvironmentSprite(ctx, "rubble", screenX, screenY, tileSize);
-               else if (seed < 13) drawEnvironmentSprite(ctx, "bloodstain", screenX, screenY, tileSize);
-               else if (seed < 18) drawEnvironmentSprite(ctx, "crack", screenX, screenY, tileSize);
+             // Decor (Only on empty floor)
+             const isOccupied = 
+                tile === TILE.DOOR || 
+                tile === TILE.DOOR_OPEN || 
+                tile === TILE.STAIRS || 
+                tile === TILE.STAIRS_UP ||
+                state.chests?.some(c => c.x === mapX && c.y === mapY);
+
+             if (!isOccupied) {
+               const seed = (mapX * 7 + mapY * 13) % 100;
+               if (level <= 4) {
+                 if (seed < 5) drawEnvironmentSprite(ctx, "bones", screenX, screenY, tileSize);
+                 else if (seed < 9) drawEnvironmentSprite(ctx, "rubble", screenX, screenY, tileSize);
+                 else if (seed < 13) drawEnvironmentSprite(ctx, "bloodstain", screenX, screenY, tileSize);
+                 else if (seed < 18) drawEnvironmentSprite(ctx, "crack", screenX, screenY, tileSize);
+               }
              }
           }
         }
