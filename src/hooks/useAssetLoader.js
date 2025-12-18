@@ -34,6 +34,11 @@ const REQUIRED_ASSETS = [
     { key: 'rubble', src: '/sprites/rubble.png' },
     { key: 'bloodstain', src: '/sprites/bloodstain.png' },
     { key: 'crack', src: '/sprites/crack.png' },
+    { key: 'chest_closed', src: '/sprites/chest_closed.png' },
+    { key: 'chest_open', src: '/sprites/chest_open.png' },
+    { key: 'floor_stone', src: '/sprites/floor_stone.png' },
+    { key: 'torch_v2', src: '/sprites/torch_v2.png' },
+    { key: 'wall_stone', src: '/sprites/wall_stone.png' }, // Ensure this is here
 ];
 
 export function useAssetLoader() {

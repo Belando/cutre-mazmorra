@@ -3,7 +3,7 @@ import { getThemeForFloor } from "@/components/game/DungeonThemes";
 
 import { drawEnvironmentSprite } from "./environment";
 
-const TILE_SIZE = 64; // Explicitly matching the new global SIZE (or we could import SIZE, but this file had TILE_SIZE 32 before)
+const TILE_SIZE = SIZE;
 // Actually, let's import SIZE to be safe, or just trust the caller passes TILE_SIZE implicitly via scaling?
 // The global constant changed to 64. 
 // In drawMap below, it uses TILE_SIZE const defined here.

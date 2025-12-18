@@ -81,7 +81,19 @@ export const ENV_SPRITES = {
       };
 
       if (isOpen) {
-        // --- COFRE ABIERTO ---
+        const imgOpen = spriteManager.get('chest_open');
+        if (imgOpen) {
+             // 2.5D Open Sprite (Upscaled)
+             const scale = 1.4;
+             const w = size * scale;
+             const h = size * scale;
+             const offsetX = (size - w) / 2;
+             const offsetY = (size - h) / 1.5; // Slightly higher
+             ctx.drawImage(imgOpen, x + offsetX, y + offsetY, w, h);
+             return;
+        }
+
+        // --- COFRE ABIERTO (FALLBACK) ---
         
         // 1. Tapa (Abierta hacia atrás)
         ctx.fillStyle = c.outline;
@@ -121,7 +133,19 @@ export const ENV_SPRITES = {
         ctx.fillRect(x + s*0.65, y + s*0.5, s*0.1, s*0.35);
 
       } else {
-        // --- COFRE CERRADO ---
+        const imgClosed = spriteManager.get('chest_closed');
+        if (imgClosed) {
+             // 2.5D Closed Sprite (Upscaled)
+             const scale = 1.4;
+             const w = size * scale;
+             const h = size * scale;
+             const offsetX = (size - w) / 2;
+             const offsetY = (size - h) / 1.5;
+             ctx.drawImage(imgClosed, x + offsetX, y + offsetY, w, h);
+             return;
+        }
+
+        // --- COFRE CERRADO (FALLBACK) ---
         
         // Sombra suelo
         ctx.fillStyle = "rgba(0,0,0,0.4)";

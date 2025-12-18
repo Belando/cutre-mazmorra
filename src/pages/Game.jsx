@@ -117,55 +117,65 @@ export default function Game() {
   
   return (
     <div className="min-h-screen p-2 bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950">
-      <div className="max-w-7xl mx-auto h-[calc(100vh-16px)] flex gap-2">
+      <div className="relative w-screen h-screen overflow-hidden bg-black">
         
-        <div className="flex flex-col w-20 gap-2">
-          <SkillBar disabled={inventoryOpen || gameOver} />
-          <QuickSlots quickSlots={uiState.quickSlots} onUseSlot={actions.useQuickSlot} disabled={inventoryOpen || gameOver} inventory={gameState?.inventory} />
-        </div>
-
-        <div className="flex flex-col flex-1 min-w-0 gap-4 overflow-hidden">
-          
-          {/* BARRA DE TIEMPO (Solo visible si el juego corre) */}
-          {gameStarted && !gameOver && (
-             <div className="w-full max-w-[400px] mx-auto -mb-2 z-10 relative">
-                <TurnTimer duration={TURN_DURATION} trigger={turnTrigger} />
-             </div>
-          )}
-
-          <div className="relative flex items-center justify-center p-1 border bg-black/50 rounded-xl border-slate-800">
-              <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
-              <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
-                <GameBoard gameState={gameState} viewportWidth={19} viewportHeight={13} />
-              </motion.div>
-              </motion.div>
-              
-              {isInteractable && (
-                <div className="absolute z-10 transform -translate-x-1/2 -translate-y-16 top-1/2 left-1/2 animate-bounce">
+        {/* Layer 0: Game Board (Full Screen) */}
+        <div className="absolute inset-0 flex items-center justify-center">
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="relative">
+              <GameBoard gameState={gameState} viewportWidth={24} viewportHeight={15} />
+               
+               {/* Floating Interact Prompt (Attached to GameBoard center usually, but here fixed overlay for simplicity or logic inside GameBoard?) 
+                   Actually keeping it here relative to GameBoard container might be tricky if GameBoard is fixed.
+                   Let's keep the isInteractable prompt in the center for now, or move it to a UI layer.
+               */}
+               {isInteractable && (
+                <div className="absolute z-30 transform -translate-x-1/2 -translate-y-16 top-1/2 left-1/2 animate-bounce pointer-events-none">
                   <div className="bg-slate-900/90 text-yellow-400 px-3 py-1.5 rounded-full text-xs font-bold border border-yellow-500/50 shadow-lg flex items-center gap-2">
                     <span className="w-5 h-5 bg-yellow-500 text-black rounded flex items-center justify-center text-[10px]">E</span>
                     Interactuar
                   </div>
                 </div>
               )}
-          </div>
-          <div className="h-52 w-full max-w-[744px] mx-auto flex-shrink-0">
-            <MessageLog messages={messages} />
-          </div>
+            </motion.div>
         </div>
 
-        <div className="flex flex-col w-48 gap-2">
-          <PlayerStats player={gameState?.player} dungeonLevel={gameState?.level} onOpenInventory={() => setInventoryOpen(true)} inventoryCount={gameState?.inventory?.length} appearance={playerInfo.appearance} playerClass={playerInfo.class} />
-          <MiniMap gameState={gameState} />
-          
-          <div className="flex flex-col gap-1 mt-2">
-            <Button onClick={() => setSkillTreeOpen(true)} className="h-8 text-xs border bg-purple-900/80 hover:bg-purple-800 border-purple-700/50 flex items-center justify-center gap-2">
-              <GiTreeGrowth className="w-4 h-4" /> Habilidades [T]
-            </Button>
-            <Button onClick={actions.saveGame} className="h-8 text-xs border bg-slate-800 hover:bg-slate-700 border-slate-600 flex items-center justify-center gap-2">
-              <GiScrollQuill className="w-4 h-4" /> Guardar [G]
-            </Button>
-          </div>
+        {/* Layer 1: HUD Overlays */}
+        
+        {/* Top Left: Skills & QuickSlots */}
+        <div className="absolute top-4 left-4 z-20 flex flex-col gap-2">
+           <div className="bg-slate-950/80 p-3 rounded-xl border border-slate-700/50 backdrop-blur-sm shadow-xl flex flex-col gap-2 w-fit">
+              <SkillBar disabled={inventoryOpen || gameOver} />
+              <QuickSlots quickSlots={uiState.quickSlots} onUseSlot={actions.useQuickSlot} disabled={inventoryOpen || gameOver} inventory={gameState?.inventory} />
+           </div>
+        </div>
+
+        {/* Top Right: Stats, MiniMap, Buttons */}
+        <div className="absolute top-4 right-4 z-20 flex flex-col gap-2 w-56">
+            <div className="bg-slate-950/80 p-3 rounded-xl border border-slate-700/50 backdrop-blur-sm shadow-xl flex flex-col gap-2">
+               <PlayerStats player={gameState?.player} dungeonLevel={gameState?.level} onOpenInventory={() => setInventoryOpen(true)} inventoryCount={gameState?.inventory?.length} appearance={playerInfo.appearance} playerClass={playerInfo.class} />
+               <MiniMap gameState={gameState} />
+               
+               <div className="flex flex-col gap-1 mt-1">
+                <Button onClick={() => setSkillTreeOpen(true)} className="h-8 text-xs border bg-purple-900/60 hover:bg-purple-800/80 border-purple-500/30 flex items-center justify-center gap-2">
+                  <GiTreeGrowth className="w-4 h-4" /> Habilidades [T]
+                </Button>
+                <Button onClick={actions.saveGame} className="h-8 text-xs border bg-slate-800/60 hover:bg-slate-700/80 border-slate-600/30 flex items-center justify-center gap-2">
+                  <GiScrollQuill className="w-4 h-4" /> Guardar [G]
+                </Button>
+              </div>
+            </div>
+        </div>
+
+        {/* Bottom Center: Logs & Timer */}
+        <div className="absolute bottom-6 left-1/2 -translate-x-1/2 w-[600px] max-w-[90vw] flex flex-col gap-2 z-20 pointer-events-none">
+            {gameStarted && !gameOver && (
+              <div className="w-full max-w-[400px] mx-auto pointer-events-auto">
+                 <TurnTimer duration={TURN_DURATION} trigger={turnTrigger} />
+              </div>
+            )}
+            <div className="h-40 bg-slate-950/80 p-3 rounded-xl border border-slate-700/50 backdrop-blur-sm shadow-2xl overflow-hidden pointer-events-auto">
+               <MessageLog messages={messages} />
+            </div>
         </div>
       </div>
 
