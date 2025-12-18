@@ -15,6 +15,8 @@ export function useDungeon() {
     const visible = Array(MAP_HEIGHT).fill().map(() => Array(MAP_WIDTH).fill(false));
     const explored = currentMap.explored || Array(MAP_HEIGHT).fill().map(() => Array(MAP_WIDTH).fill(false));
     
+    if (!currentMap.map || currentMap.map.length === 0) return { visible, explored };
+
     for (let angle = 0; angle < 360; angle += 1) { 
       const rad = angle * Math.PI / 180;
       const dx = Math.cos(rad), dy = Math.sin(rad);
@@ -45,8 +47,13 @@ export function useDungeon() {
 
     const newDungeon = generateDungeon(MAP_WIDTH, MAP_HEIGHT, level, playerLevel);
     
+    if (!newDungeon || !newDungeon.rooms || !newDungeon.map) {
+        console.error("Dungeon Generation Failed!", newDungeon);
+        return null;
+    }
+
     // CORRECCIÓN: Pasamos newDungeon.enemies como último argumento
-    const npcs = generateNPCs(level, newDungeon.rooms, newDungeon.map, [0, newDungeon.rooms.length - 1], newDungeon.enemies);
+    const npcs = generateNPCs(level, newDungeon.rooms, newDungeon.map, [0, newDungeon.rooms.length - 1], newDungeon.enemies || []);
     
     const cleanChests = (newDungeon.chests || []).filter(c => !npcs.some(n => n.x === c.x && n.y === c.y));
 

@@ -14,39 +14,65 @@ import {
   // Accesorios
   GiRing, GiNecklace, GiEarrings
 } from 'react-icons/gi';
+import { Stats } from '../types';
 
-export const ARMOR_TYPES = {
+export interface ArmorTypeInfo {
+  name: string;
+  classes: string[];
+}
+
+export const ARMOR_TYPES: Record<string, ArmorTypeInfo> = {
   heavy: { name: 'Placas', classes: ['warrior', 'knight', 'berserker'] },
   medium: { name: 'Cuero', classes: ['rogue', 'assassin', 'archer'] },
   light: { name: 'Tela', classes: ['mage', 'arcane', 'druid'] },
 };
 
-export const WEAPON_TYPES = {
+export interface WeaponTypeInfo {
+  name: string;
+  classes: string[];
+  damageType: 'physical' | 'magical';
+  ranged: boolean;
+  range?: number;
+}
+
+export const WEAPON_TYPES: Record<string, WeaponTypeInfo> = {
   // Guerrero
   sword: { name: 'Espada', classes: ['warrior', 'knight', 'berserker'], damageType: 'physical', ranged: false },
   axe: { name: 'Hacha', classes: ['warrior', 'knight', 'berserker'], damageType: 'physical', ranged: false },
   shield: { name: 'Escudo', classes: ['warrior', 'knight', 'berserker'], damageType: 'physical', ranged: false },
-  
+
   // Pícaro
   dagger: { name: 'Daga', classes: ['rogue', 'assassin'], damageType: 'physical', ranged: false },
   bow: { name: 'Arco', classes: ['rogue', 'archer'], damageType: 'physical', ranged: true, range: 6 },
   quiver: { name: 'Carcaj', classes: ['rogue', 'archer', 'assassin'], damageType: 'physical', ranged: false },
-  
+
   // Mago
   staff: { name: 'Bastón', classes: ['mage', 'arcane', 'druid'], damageType: 'magical', ranged: true, range: 5 },
   wand: { name: 'Varita', classes: ['mage', 'arcane', 'druid'], damageType: 'magical', ranged: true, range: 4 },
   tome: { name: 'Tomo', classes: ['mage', 'arcane', 'druid'], damageType: 'magical', ranged: false },
 };
 
+export interface ItemTemplate {
+  name: string;
+  category: 'weapon' | 'armor' | 'accessory' | 'potion';
+  slot?: 'helmet' | 'chest' | 'legs' | 'boots' | 'gloves' | 'weapon' | 'offhand' | 'ring' | 'necklace' | 'earring';
+  weaponType?: string;
+  armorType?: 'heavy' | 'medium' | 'light';
+  symbol: any; // React Icon component
+  description?: string;
+  stackable?: boolean;
+  baseStats?: Stats;
+}
+
 // Templates BASE (Se escalarán según nivel y rareza)
-export const ITEM_TEMPLATES = {
+export const ITEM_TEMPLATES: Record<string, ItemTemplate> = {
   // --- CONSUMIBLES ---
   health_potion: { name: 'Poción de Vida', category: 'potion', symbol: GiHealthPotion, description: 'Restaura vida.', stackable: true, baseStats: { health: 50 } },
   mana_potion: { name: 'Poción de Maná', category: 'potion', symbol: GiWaterFlask, description: 'Restaura maná.', stackable: true, baseStats: { mana: 30 } },
-  
+
   // --- ARMAS (Stats base para Nivel 1 Común) ---
   sword: { name: 'Espada', category: 'weapon', slot: 'weapon', weaponType: 'sword', symbol: GiBroadsword, baseStats: { attack: 4 } },
-  axe: { name: 'Hacha', category: 'weapon', slot: 'weapon', weaponType: 'axe', symbol: GiBattleAxe, baseStats: { attack: 5, attackSpeed: -1 } }, 
+  axe: { name: 'Hacha', category: 'weapon', slot: 'weapon', weaponType: 'axe', symbol: GiBattleAxe, baseStats: { attack: 5, attackSpeed: -1 } },
   dagger: { name: 'Daga', category: 'weapon', slot: 'weapon', weaponType: 'dagger', symbol: GiDaggers, baseStats: { attack: 2, critChance: 10 } },
   bow: { name: 'Arco', category: 'weapon', slot: 'weapon', weaponType: 'bow', symbol: GiPocketBow, baseStats: { attack: 3 } },
   staff: { name: 'Bastón', category: 'weapon', slot: 'weapon', weaponType: 'staff', symbol: GiWizardStaff, baseStats: { magicAttack: 5 } },
@@ -85,8 +111,15 @@ export const ITEM_TEMPLATES = {
   earring: { name: 'Pendiente', category: 'accessory', slot: 'earring', symbol: GiEarrings, baseStats: { evasion: 2, critChance: 2 } },
 };
 
+export interface RarityInfo {
+  name: string;
+  color: string;
+  multiplier: number;
+  weight: number;
+}
+
 // Rarezas y Multiplicadores de Stats
-export const RARITY_CONFIG = {
+export const RARITY_CONFIG: Record<string, RarityInfo> = {
   common: { name: 'Común', color: '#a1a1aa', multiplier: 1, weight: 50 },     // Blanco
   uncommon: { name: 'Poco Común', color: '#4ade80', multiplier: 1.3, weight: 30 }, // Verde
   rare: { name: 'Raro', color: '#3b82f6', multiplier: 1.6, weight: 15 },      // Azul

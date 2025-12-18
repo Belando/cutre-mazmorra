@@ -29,6 +29,8 @@ export function useTurnSystem() {
     }
 
     // 2. IA Enemiga
+    if (!dungeon || !dungeon.enemies) return;
+
     // Creamos una copia nueva para asegurar reactividad y no mutar el estado directamente durante el loop
     const newEnemies = dungeon.enemies.map(e => ({ ...e }));
     let playerHit = false;

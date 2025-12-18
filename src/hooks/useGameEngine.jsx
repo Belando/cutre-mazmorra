@@ -46,17 +46,18 @@ export function useGameEngine() {
   const [rangedTargets, setRangedTargets] = useState([]);
 
   // 2. SINCRONIZAR HASH CUANDO CAMBIA EL NIVEL O SE CARGA JUEGO
+  // 2. SINCRONIZAR HASH CUANDO CAMBIA EL NIVEL O SE CARGA JUEGO
   useEffect(() => {
-    if (dungeon.map.length > 0) {
+    if (dungeon && dungeon.map && dungeon.map.length > 0) {
       spatialHash.current.rebuild({
         player,
-        enemies: dungeon.enemies,
-        chests: dungeon.chests,
-        npcs: dungeon.npcs,
-        items: dungeon.items
+        enemies: dungeon.enemies || [],
+        chests: dungeon.chests || [],
+        npcs: dungeon.npcs || [],
+        items: dungeon.items || []
       });
     }
-  }, [dungeon.level, dungeon.map, gameStarted]); 
+  }, [dungeon?.level, dungeon?.map, gameStarted]); 
 
   // 3. GESTIÓN DE AMBIENTE SONORO (NUEVO)
   useEffect(() => {
@@ -128,8 +129,14 @@ export function useGameEngine() {
 
     const pLevel = existingPlayer?.level || 1; 
     const newDungeon = generateLevel(level, pLevel);
-    updatePlayer({ x: newDungeon.playerStart.x, y: newDungeon.playerStart.y, floor: level });
-    updateMapFOV(newDungeon.playerStart.x, newDungeon.playerStart.y);
+    
+    if (newDungeon) {
+        updatePlayer({ x: newDungeon.playerStart.x, y: newDungeon.playerStart.y, floor: level });
+        updateMapFOV(newDungeon.playerStart.x, newDungeon.playerStart.y);
+    } else {
+        console.error("Failed to init game level", level);
+        return;
+    }
 
     if (level === 1 && !existingPlayer) addMessage(`¡Bienvenido, ${playerName || 'Héroe'}!`, 'info');
     else addMessage(`Piso ${level}`, 'info');

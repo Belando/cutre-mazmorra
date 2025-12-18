@@ -1,7 +1,18 @@
 import { ITEM_TEMPLATES, WEAPON_TYPES, ARMOR_TYPES, RARITY_CONFIG } from '@/data/items';
+import { Item, Entity, Stats } from '@/types';
 
 // --- NUEVO: SISTEMA DE PREFIJOS (AFIJOS) ---
-const PREFIXES = {
+
+interface Prefix {
+  name: string;
+  type: string[];
+  stat: string;
+  mult?: number;
+  add?: number;
+  speed?: number;
+}
+
+const PREFIXES: Record<string, Prefix> = {
   // Armas (Ofensivos)
   sharp: { name: "Afilado/a", type: ['weapon'], stat: "attack", mult: 1.2 },
   deadly: { name: "Mortal", type: ['weapon'], stat: "critChance", add: 5 },
@@ -24,26 +35,26 @@ const PREFIXES = {
 // --- GENERACIÓN DE OBJETOS ---
 
 // Determinar el nivel del objeto (escalado de 5 en 5: 1, 5, 10, 15...)
-function getItemLevelTier(dungeonLevel) {
+function getItemLevelTier(dungeonLevel: number): number {
   return Math.max(1, Math.floor(dungeonLevel / 5) * 5);
 }
 
-function generateRarity() {
-  const totalWeight = Object.values(RARITY_CONFIG).reduce((sum, r) => sum + r.weight, 0);
+function generateRarity(): 'common' | 'rare' | 'epic' | 'legendary' {
+  const totalWeight = Object.values(RARITY_CONFIG).reduce((sum: number, r: any) => sum + r.weight, 0);
   let random = Math.random() * totalWeight;
-  
+
   for (const [key, config] of Object.entries(RARITY_CONFIG)) {
-    random -= config.weight;
-    if (random <= 0) return key;
+    random -= (config as any).weight;
+    if (random <= 0) return key as 'common' | 'rare' | 'epic' | 'legendary';
   }
   return 'common';
 }
 
 // Función auxiliar para aplicar un prefijo
-function applyPrefix(itemData, rarity) {
+function applyPrefix(itemData: Item, rarity: string): Item {
   // Solo items Raros o superiores tienen prefijos
   if (!['rare', 'epic', 'legendary'].includes(rarity)) return itemData;
-  
+
   // 40% de probabilidad en Raro, 70% en Épico, 100% en Legendario
   const chance = rarity === 'legendary' ? 1.0 : (rarity === 'epic' ? 0.7 : 0.4);
   if (Math.random() > chance) return itemData;
@@ -58,7 +69,7 @@ function applyPrefix(itemData, rarity) {
     if (itemData.category === 'accessory' && p.type.includes('accessory')) return true;
     // Comprobación específica por slot (ej. botas)
     if (itemData.slot && p.type.includes(itemData.slot)) return true;
-    
+
     return false;
   });
 
@@ -72,17 +83,17 @@ function applyPrefix(itemData, rarity) {
   // Para simplificar en español, añadimos el adjetivo al final.
   const suffixName = prefix.name.split('/')[0]; // Tomamos la forma masculina/neutra por defecto
   itemData.name = `${itemData.name} ${suffixName}`;
-  
+
   // 2. Stats
   if (!itemData.stats) itemData.stats = {};
-  
+
   if (prefix.mult) {
     const currentVal = itemData.stats[prefix.stat] || 0;
     // Si la stat no existía (ej. Magic Atk en una espada física), le damos un valor base pequeño antes de multiplicar
-    const base = currentVal > 0 ? currentVal : 2; 
+    const base = currentVal > 0 ? currentVal : 2;
     itemData.stats[prefix.stat] = Math.floor(base * prefix.mult);
   }
-  
+
   if (prefix.add) {
     itemData.stats[prefix.stat] = (itemData.stats[prefix.stat] || 0) + prefix.add;
   }
@@ -93,35 +104,36 @@ function applyPrefix(itemData, rarity) {
   return itemData;
 }
 
-export function generateItem(dungeonLevel, forceType = null) {
+export function generateItem(dungeonLevel: number, forceType: string | null = null): Item | null {
   const rarityKey = generateRarity();
   const rarityInfo = RARITY_CONFIG[rarityKey];
   const itemLevel = getItemLevelTier(dungeonLevel);
-  
+
   // Selección de plantilla
   let templateKey = forceType;
   if (!templateKey) {
     const keys = Object.keys(ITEM_TEMPLATES);
     templateKey = keys[Math.floor(Math.random() * keys.length)];
   }
-  const template = ITEM_TEMPLATES[templateKey];
+  const template = ITEM_TEMPLATES[templateKey!];
   if (!template) return null;
 
   // --- CÁLCULO DE ESTADÍSTICAS BASE ---
   const levelMult = 1 + (itemLevel - 1) * 0.2;
   const finalMult = levelMult * rarityInfo.multiplier;
 
-  const finalStats = {};
+  const finalStats: Stats = {};
   if (template.baseStats) {
     for (const [key, val] of Object.entries(template.baseStats)) {
-      finalStats[key] = Math.max(val > 0 ? 1 : 0, Math.floor(val * finalMult));
+      // @ts-ignore
+      finalStats[key] = Math.max((val as number) > 0 ? 1 : 0, Math.floor((val as number) * finalMult));
     }
   }
 
   // Construcción inicial del objeto
-  let item = {
+  let item: Item = {
     id: `${templateKey}_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`,
-    templateKey,
+    templateKey: templateKey!,
     name: `${template.name}`, // Nombre base, la rareza se indicará por color
     levelRequirement: itemLevel,
     rarity: rarityKey,
@@ -146,9 +158,9 @@ export function generateItem(dungeonLevel, forceType = null) {
 // --- GESTIÓN DE INVENTARIO Y EQUIPO ---
 
 // Comprobar restricciones de CLASE y NIVEL
-export function canClassEquip(item, playerClass, playerLevel) {
+export function canClassEquip(item: Item, playerClass: string, playerLevel: number): boolean {
   if (!item) return false;
-  
+
   // 1. Restricción de Nivel
   if (item.levelRequirement && playerLevel < item.levelRequirement) return false;
 
@@ -168,7 +180,7 @@ export function canClassEquip(item, playerClass, playerLevel) {
 }
 
 // Cálculo de Stats Totales (Base + Equipo)
-export function calculatePlayerStats(player) {
+export function calculatePlayerStats(player: Entity): Stats {
   return {
     attack: (player.baseAttack || 0) + (player.equipAttack || 0),
     magicAttack: (player.baseMagicAttack || 0) + (player.equipMagicAttack || 0),
@@ -182,7 +194,7 @@ export function calculatePlayerStats(player) {
 }
 
 // Funciones auxiliares de equipo
-function addStatsToPlayer(player, item) {
+function addStatsToPlayer(player: Entity, item: Item): Entity {
   const p = { ...player };
   if (item.stats) {
     if (item.stats.attack) p.equipAttack = (p.equipAttack || 0) + item.stats.attack;
@@ -191,11 +203,11 @@ function addStatsToPlayer(player, item) {
     if (item.stats.magicDefense) p.equipMagicDefense = (p.equipMagicDefense || 0) + item.stats.magicDefense;
     if (item.stats.critChance) p.equipCrit = (p.equipCrit || 0) + item.stats.critChance;
     if (item.stats.evasion) p.equipEvasion = (p.equipEvasion || 0) + item.stats.evasion;
-    
-    if (item.stats.maxHp) { 
-      p.equipMaxHp = (p.equipMaxHp || 0) + item.stats.maxHp; 
-      p.maxHp = (p.maxHp || 0) + item.stats.maxHp; 
-      p.hp += item.stats.maxHp; 
+
+    if (item.stats.maxHp) {
+      p.equipMaxHp = (p.equipMaxHp || 0) + item.stats.maxHp;
+      p.maxHp = (p.maxHp || 0) + item.stats.maxHp;
+      p.hp = (p.hp || 0) + item.stats.maxHp;
     }
     if (item.stats.maxMp) {
       p.equipMaxMp = (p.equipMaxMp || 0) + item.stats.maxMp;
@@ -205,7 +217,7 @@ function addStatsToPlayer(player, item) {
   return p;
 }
 
-function removeStatsFromPlayer(player, item) {
+function removeStatsFromPlayer(player: Entity, item: Item): Entity {
   const p = { ...player };
   if (item.stats) {
     if (item.stats.attack) p.equipAttack = (p.equipAttack || 0) - item.stats.attack;
@@ -214,11 +226,11 @@ function removeStatsFromPlayer(player, item) {
     if (item.stats.magicDefense) p.equipMagicDefense = (p.equipMagicDefense || 0) - item.stats.magicDefense;
     if (item.stats.critChance) p.equipCrit = (p.equipCrit || 0) - item.stats.critChance;
     if (item.stats.evasion) p.equipEvasion = (p.equipEvasion || 0) - item.stats.evasion;
-    
-    if (item.stats.maxHp) { 
-      p.equipMaxHp = (p.equipMaxHp || 0) - item.stats.maxHp; 
-      p.maxHp = (p.maxHp || 0) - item.stats.maxHp; 
-      p.hp = Math.min(p.hp, p.maxHp); 
+
+    if (item.stats.maxHp) {
+      p.equipMaxHp = (p.equipMaxHp || 0) - item.stats.maxHp;
+      p.maxHp = (p.maxHp || 0) - item.stats.maxHp;
+      p.hp = Math.min(p.hp || 0, p.maxHp);
     }
     if (item.stats.maxMp) {
       p.equipMaxMp = (p.equipMaxMp || 0) - item.stats.maxMp;
@@ -231,23 +243,31 @@ function removeStatsFromPlayer(player, item) {
 
 // --- EXPORTAR FUNCIONES DE INVENTARIO ---
 
-export function equipItem(inventory, index, equipment, player) {
+export interface EquipResult {
+  success: boolean;
+  message?: string;
+  newInventory?: Item[];
+  newEquipment?: any; // Define Equipment type later if needed
+  newPlayer?: Entity;
+}
+
+export function equipItem(inventory: Item[], index: number, equipment: any, player: Entity): EquipResult {
   const item = inventory[index];
   if (!item || !item.slot) return { success: false, message: 'No equipable' };
-  
-  if (!canClassEquip(item, player.class, player.level)) {
-      if (item.levelRequirement && player.level < item.levelRequirement) {
-          return { success: false, message: `Requiere Nivel ${item.levelRequirement}` };
-      }
-      return { success: false, message: 'Clase incorrecta' };
+
+  if (!canClassEquip(item, player.class || 'warrior', player.level || 1)) {
+    if (item.levelRequirement && (player.level || 1) < item.levelRequirement) {
+      return { success: false, message: `Requiere Nivel ${item.levelRequirement}` };
+    }
+    return { success: false, message: 'Clase incorrecta' };
   }
-  
+
   const newInventory = [...inventory];
   const newEquipment = { ...equipment };
   let newPlayer = { ...player };
   const slot = item.slot;
   const [itemToEquip] = newInventory.splice(index, 1);
-  
+
   if (newEquipment[slot]) {
     const oldItem = newEquipment[slot];
     newPlayer = removeStatsFromPlayer(newPlayer, oldItem);
@@ -255,77 +275,89 @@ export function equipItem(inventory, index, equipment, player) {
   }
   newEquipment[slot] = itemToEquip;
   newPlayer = addStatsToPlayer(newPlayer, itemToEquip);
-  
+
   return { success: true, message: `Equipado: ${itemToEquip.name}`, newInventory, newEquipment, newPlayer };
 }
 
-export function unequipItem(equipment, slot, inventory, player, maxSlots = 64) {
+export function unequipItem(equipment: any, slot: string, inventory: Item[], player: Entity, maxSlots = 64): EquipResult {
   const item = equipment[slot];
   if (!item) return { success: false, message: 'Nada' };
   if (inventory.length >= maxSlots) return { success: false, message: 'Lleno' };
-  
+
   const newEquipment = { ...equipment };
   const newInventory = [...inventory];
   let newPlayer = { ...player };
-  
+
   newPlayer = removeStatsFromPlayer(newPlayer, item);
   newInventory.push(item);
   newEquipment[slot] = null;
-  
+
   return { success: true, message: `Desequipado`, newInventory, newEquipment, newPlayer };
 }
 
-export function addToInventory(inventory, item, maxSlots = 64) {
+export interface AddResult {
+  success: boolean;
+  reason?: string;
+  stacked?: boolean;
+}
+
+export function addToInventory(inventory: Item[], item: Item, maxSlots = 64): AddResult {
   if (!item) return { success: false, reason: 'Error' };
-  
+
   // Si es apilable, buscamos el MISMO tipo y rareza
   if (item.stackable) {
-    const existingIndex = inventory.findIndex(i => 
-        i.templateKey === item.templateKey && 
-        i.rarity === item.rarity &&
-        i.name === item.name // Importante por si tiene prefijos distintos
+    const existingIndex = inventory.findIndex(i =>
+      i.templateKey === item.templateKey &&
+      i.rarity === item.rarity &&
+      i.name === item.name // Importante por si tiene prefijos distintos
     );
     if (existingIndex !== -1) {
       inventory[existingIndex].quantity = (inventory[existingIndex].quantity || 1) + (item.quantity || 1);
       return { success: true, stacked: true };
     }
   }
-  
+
   if (inventory.length >= maxSlots) return { success: false, reason: 'Lleno' };
   inventory.push({ ...item });
   return { success: true, stacked: false };
 }
 
-export function useItem(inventory, index, player) {
-    const item = inventory[index];
-    if (!item) return { success: false, message: 'Error' };
-    
-    const result = { success: true, effects: [] };
-    if (item.category === 'potion') {
-        if (item.stats?.health) {
-            const heal = Math.min(item.stats.health, player.maxHp - player.hp);
-            player.hp += heal;
-            result.effects.push(`+${heal} HP`);
-        }
-        if (item.stats?.mana) {
-            const mana = Math.min(item.stats.mana, player.maxMp - player.mp);
-            player.mp += mana;
-            result.effects.push(`+${mana} MP`);
-        }
+export interface UseResult {
+  success: boolean;
+  message?: string;
+  effects?: string[];
+}
+
+export function useItem(inventory: Item[], index: number, player: Entity): UseResult {
+  const item = inventory[index];
+  if (!item) return { success: false, message: 'Error' };
+
+  const result: UseResult = { success: true, effects: [] };
+  if (item.category === 'potion') {
+    if (item.stats?.health && player.maxHp) {
+      const heal = Math.min(item.stats.health, player.maxHp - (player.hp || 0));
+      player.hp = (player.hp || 0) + heal;
+      result.effects?.push(`+${heal} HP`);
     }
-    
-    if (item.quantity > 1) inventory[index].quantity--;
-    else inventory.splice(index, 1);
-    
-    return result;
+    if (item.stats?.mana && player.maxMp) {
+      const mana = Math.min(item.stats.mana, player.maxMp - (player.mp || 0));
+      player.mp = (player.mp || 0) + mana;
+      result.effects?.push(`+${mana} MP`);
+    }
+  }
+
+  if (item.quantity && item.quantity > 1) inventory[index].quantity = item.quantity - 1;
+  else inventory.splice(index, 1);
+
+  return result;
 }
 
-export function canAssignToQuickSlot(item) {
-    return item && ['potion', 'food'].includes(item.category);
+export function canAssignToQuickSlot(item: Item): boolean {
+  return !!item && ['potion', 'food'].includes(item.category);
 }
 
-export function generateLevelItems(dungeonLevel, rooms, map, excludeRoomIndices = []) {
-  const items = [];
+export function generateLevelItems(dungeonLevel: number, rooms: any[], map: number[][], excludeRoomIndices: number[] = []): Item[] {
+  const items: Item[] = [];
   const itemCount = 2 + Math.floor(Math.random() * 3);
   let placed = 0;
   let attempts = 0;
@@ -334,13 +366,13 @@ export function generateLevelItems(dungeonLevel, rooms, map, excludeRoomIndices 
     const room = rooms[Math.floor(Math.random() * rooms.length)];
     const x = room.x + 1 + Math.floor(Math.random() * (room.width - 2));
     const y = room.y + 1 + Math.floor(Math.random() * (room.height - 2));
-    if (map[y]?.[x] === 1) { 
-        const item = generateItem(dungeonLevel);
-        if (item) {
-            item.x = x; item.y = y;
-            items.push(item);
-            placed++;
-        }
+    if (map[y]?.[x] === 1) {
+      const item = generateItem(dungeonLevel);
+      if (item) {
+        item.x = x; item.y = y;
+        items.push(item);
+        placed++;
+      }
     }
   }
   return items;
