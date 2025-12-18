@@ -1,0 +1,525 @@
+import { TILE } from '@/data/constants';
+import { GameState, Item } from '@/types';
+
+// NPC System - Merchants and Quest Givers
+
+export const NPC_TYPES = {
+    MERCHANT: 'merchant',
+    QUEST_GIVER: 'quest_giver',
+    SAGE: 'sage',
+    BLACKSMITH: 'blacksmith',
+} as const;
+
+export type NpcType = typeof NPC_TYPES[keyof typeof NPC_TYPES];
+
+export interface NpcDialog {
+    greeting: string;
+    noGold?: string;
+    thanks?: string;
+    farewell: string;
+    questActive?: string;
+    questComplete?: string;
+    lore?: string;
+}
+
+export interface NpcTemplate {
+    name: string;
+    type: NpcType;
+    symbol: string;
+    color: string;
+    dialogue: NpcDialog;
+    inventory?: Item[];
+}
+
+export const NPCS: Record<string, NpcTemplate> = {
+    merchant: {
+        name: 'Garrick el Proveedor',
+        type: NPC_TYPES.MERCHANT,
+        symbol: '$',
+        color: '#fbbf24',
+        dialogue: {
+            greeting: '¡Saludos, viajero! Tengo mercancías de tierras lejanas.',
+            noGold: 'Me temo que tus bolsillos están demasiado ligeros para eso.',
+            thanks: '¡Un placer hacer negocios contigo!',
+            farewell: 'Que el oro guíe tu camino.',
+        },
+        inventory: [
+            { id: 'health_potion', name: 'Poción de Vida', price: 25, stats: { health: 30 }, category: 'potion', rarity: 'uncommon' },
+            { id: 'strength_elixir', name: 'Elixir de Fuerza', price: 50, stats: { attackBoost: 2 }, category: 'potion', rarity: 'rare' },
+            { id: 'iron_sword', name: 'Espada de Hierro', price: 80, stats: { attack: 5 }, category: 'weapon', slot: 'weapon', weaponType: 'sword', rarity: 'uncommon' },
+            { id: 'chain_mail', name: 'Cota de Malla', price: 100, stats: { defense: 4, maxHp: 10 }, category: 'armor', slot: 'chest', armorType: 'heavy', rarity: 'uncommon' },
+            { id: 'lucky_ring', name: 'Anillo de la Suerte', price: 150, stats: { attack: 2, defense: 2 }, category: 'accessory', slot: 'ring', rarity: 'rare' },
+        ],
+    },
+    quest_elder: {
+        name: 'Eldric el Sabio',
+        type: NPC_TYPES.QUEST_GIVER,
+        symbol: '?',
+        color: '#60a5fa',
+        dialogue: {
+            greeting: 'Ah, un alma valiente... La oscuridad avanza y necesito ayuda.',
+            questActive: 'Aún no has completado lo que te pedí. Ten cuidado.',
+            questComplete: '¡Magnífico! Sabía que podía confiar en ti.',
+            farewell: 'Que la luz ilumine tus pasos en la mazmorra.',
+        },
+    },
+    sage: {
+        name: 'Valerius el Arcano',
+        type: NPC_TYPES.SAGE,
+        symbol: '✦',
+        color: '#a855f7',
+        dialogue: {
+            greeting: 'Las líneas ley convergen en este lugar maldito...',
+            lore: 'El Dragón Ancestral duerme bajo nosotros, pero su sueño es inquieto.',
+            farewell: 'El conocimiento es la única arma que no se desafila.',
+        },
+    },
+    blacksmith: {
+        name: 'Brokk Martillo-Negro',
+        type: NPC_TYPES.BLACKSMITH,
+        symbol: '⚒',
+        color: '#f97316',
+        dialogue: {
+            greeting: '¡El acero nunca miente! ¿Vienes a mejorar tu equipo?',
+            farewell: 'Mantén tu hoja afilada y tu escudo en alto.',
+        }
+    },
+};
+
+export interface QuestReward {
+    gold?: number;
+    exp?: number;
+    item?: Partial<Item>; // Often simplified item
+}
+
+export type QuestTargetType = 'kill' | 'multi_kill' | 'collect' | 'floor' | 'boss' | 'craft' | 'gold';
+
+export interface MultiTarget {
+    target: string;
+    count: number;
+}
+
+export interface Quest {
+    id: string;
+    name: string;
+    type: 'main' | 'side';
+    description: string;
+    targetType: QuestTargetType;
+    target?: string | number; // ID or amount
+    targetCount?: number;
+    targets?: MultiTarget[]; // For multi_kill
+    floor?: number;
+    reward: QuestReward;
+    nextQuest?: string;
+    requires?: string;
+}
+
+// Quest definitions with better tracking
+export const QUESTS: Record<string, Quest> = {
+    // Main story quests
+    main_1: {
+        id: 'main_1',
+        name: 'El Despertar',
+        type: 'main',
+        description: 'Desciende al piso 3 y derrota al Señor de la Guerra Orco.',
+        target: 'BOSS_ORC_WARLORD',
+        targetType: 'boss',
+        floor: 3,
+        reward: { gold: 150, exp: 100 },
+        nextQuest: 'main_2',
+    },
+    main_2: {
+        id: 'main_2',
+        name: 'El Sello Debilitado',
+        type: 'main',
+        description: 'Derrota al Liche en el piso 5 para obtener el Fragmento del Sello.',
+        target: 'BOSS_LICH',
+        targetType: 'boss',
+        floor: 5,
+        reward: { gold: 250, exp: 180, item: { name: 'Fragmento del Sello', symbol: '✧', rarity: 'legendary' } },
+        nextQuest: 'main_3',
+        requires: 'main_1',
+    },
+    main_3: {
+        id: 'main_3',
+        name: 'La Batalla Final',
+        type: 'main',
+        description: 'Enfrenta al Dragón Ancestral en las profundidades.',
+        target: 'BOSS_ANCIENT_DRAGON',
+        targetType: 'boss',
+        floor: 7,
+        reward: { gold: 500, exp: 350 },
+        requires: 'main_2',
+    },
+
+    // Side quests - Kill type
+    kill_rats: {
+        id: 'kill_rats',
+        name: 'Plaga de Ratas',
+        type: 'side',
+        description: 'Elimina 5 ratas para el Anciano.',
+        target: 'ENEMY_RAT',
+        targetType: 'kill',
+        targetCount: 5,
+        reward: { gold: 30, exp: 20 },
+    },
+    kill_skeletons: {
+        id: 'kill_skeletons',
+        name: 'Huesos Inquietos',
+        type: 'side',
+        description: 'Destruye 4 esqueletos.',
+        target: 'ENEMY_SKELETON',
+        targetType: 'kill',
+        targetCount: 4,
+        reward: { gold: 50, exp: 35 },
+    },
+    clear_spiders: {
+        id: 'clear_spiders',
+        name: 'Nido de Arañas',
+        type: 'side',
+        description: 'Elimina 5 arañas gigantes.',
+        target: 'ENEMY_SPIDER',
+        targetType: 'kill',
+        targetCount: 5,
+        reward: { gold: 60, exp: 40 },
+    },
+    undead_purge: {
+        id: 'undead_purge',
+        name: 'Purga de No-Muertos',
+        type: 'side',
+        description: 'Destruye 3 zombis y 3 esqueletos.',
+        targetType: 'multi_kill',
+        targets: [ // Fixed from JS: targets was present but implicitly any
+            { target: 'ENEMY_ZOMBIE', count: 3 },
+            { target: 'ENEMY_SKELETON', count: 3 },
+        ],
+        // JS used 'targetCount' unused here? No 'targetCount' in JS for this.
+        reward: { gold: 80, exp: 60 },
+    },
+    demon_hunt: {
+        id: 'demon_hunt',
+        name: 'Cazador de Demonios',
+        type: 'side',
+        description: 'Elimina 2 demonios.',
+        target: 'ENEMY_DEMON',
+        targetType: 'kill',
+        targetCount: 2,
+        reward: { gold: 150, exp: 100 },
+    },
+    beast_slayer: {
+        id: 'beast_slayer',
+        name: 'Matador de Bestias',
+        type: 'side',
+        description: 'Elimina 3 lobos y 2 troles.',
+        targetType: 'multi_kill',
+        targets: [
+            { target: 'ENEMY_WOLF', count: 3 },
+            { target: 'ENEMY_TROLL', count: 2 },
+        ],
+        reward: { gold: 120, exp: 80 },
+    },
+    crafting_master: {
+        id: 'crafting_master',
+        name: 'Maestro Artesano',
+        type: 'side',
+        description: 'Crea 3 items de rareza rara o superior.',
+        targetType: 'craft',
+        targetCount: 3,
+        reward: { gold: 200, exp: 120 },
+    },
+    treasure_hunter: {
+        id: 'treasure_hunter',
+        name: 'Cazador de Tesoros',
+        type: 'side',
+        description: 'Acumula 500 de oro.',
+        targetType: 'gold',
+        target: 500,
+        reward: { exp: 150 },
+    },
+
+    // Collection quests
+    gather_iron: {
+        id: 'gather_iron',
+        name: 'Suministros de Hierro',
+        type: 'side',
+        description: 'Recolecta 5 minerales de hierro.',
+        target: 'iron_ore',
+        targetType: 'collect',
+        targetCount: 5,
+        reward: { gold: 40, exp: 25 },
+    },
+    gather_crystals: {
+        id: 'gather_crystals',
+        name: 'Cristales Mágicos',
+        type: 'side',
+        description: 'Recolecta 3 cristales mágicos.',
+        target: 'crystal',
+        targetType: 'collect',
+        targetCount: 3,
+        reward: { gold: 100, exp: 50 },
+    },
+
+    // Exploration quests
+    explore_deep: {
+        id: 'explore_deep',
+        name: 'Explorador Profundo',
+        type: 'side',
+        description: 'Desciende hasta el piso 5.',
+        target: 5,
+        targetType: 'floor',
+        reward: { gold: 120, exp: 80 },
+    },
+
+    // Boss hunting
+    slay_goblin_king: {
+        id: 'slay_goblin_king',
+        name: 'Regicidio Goblin',
+        type: 'side',
+        description: 'Derrota al Rey Goblin.',
+        target: 'BOSS_GOBLIN_KING',
+        targetType: 'boss',
+        floor: 1,
+        reward: { gold: 75, exp: 50 },
+    },
+};
+
+// Get available quests for a floor
+export function getAvailableQuests(floor: number, completedQuests: string[] = [], activeQuests: string[] = []): Quest[] {
+    const available: Quest[] = [];
+
+    Object.values(QUESTS).forEach(quest => {
+        // Skip completed or active quests
+        if (completedQuests.includes(quest.id)) return;
+        if (activeQuests.includes(quest.id)) return;
+
+        // Check requirements
+        if (quest.requires && !completedQuests.includes(quest.requires)) return;
+
+        if (quest.type === 'main') {
+            // Main quests available when requirements met
+            if (!quest.requires || completedQuests.includes(quest.requires)) {
+                available.push(quest);
+            }
+        } else if (quest.type === 'side') {
+            // Side quests available based on floor
+            if (quest.id === 'kill_rats' && floor >= 1) available.push(quest);
+            if (quest.id === 'kill_skeletons' && floor >= 2) available.push(quest);
+            if (quest.id === 'clear_spiders' && floor >= 3) available.push(quest);
+            if (quest.id === 'undead_purge' && floor >= 3) available.push(quest);
+            if (quest.id === 'demon_hunt' && floor >= 6) available.push(quest);
+            if (quest.id === 'beast_slayer' && floor >= 4) available.push(quest);
+            if (quest.id === 'gather_iron' && floor >= 1) available.push(quest);
+            if (quest.id === 'gather_crystals' && floor >= 4) available.push(quest);
+            if (quest.id === 'explore_deep' && floor >= 2) available.push(quest);
+            if (quest.id === 'slay_goblin_king' && floor >= 1) available.push(quest);
+            if (quest.id === 'crafting_master' && floor >= 2) available.push(quest);
+            if (quest.id === 'treasure_hunter' && floor >= 1) available.push(quest);
+        }
+    });
+
+    return available;
+}
+
+export interface QuestProgressResult {
+    complete: boolean;
+    progress: number | string;
+    target?: number | string;
+    type?: QuestTargetType;
+}
+
+// Check quest progress
+export function checkQuestProgress(quest: Quest, gameState: GameState): QuestProgressResult {
+    if (!quest) return { complete: false, progress: 0 };
+
+    const progress = gameState.questProgress?.[quest.id] || 0;
+
+    switch (quest.targetType) {
+        case 'kill':
+            return {
+                complete: typeof progress === 'number' && progress >= (quest.targetCount || 0),
+                progress: progress,
+                target: quest.targetCount,
+                type: 'kill',
+            };
+
+        case 'multi_kill':
+            const multiProgress = gameState.questProgress?.[quest.id] || {};
+            let allComplete = true;
+            let progressStr = '';
+            quest.targets?.forEach(t => {
+                const count = multiProgress[t.target] || 0;
+                if (count < t.count) allComplete = false;
+                progressStr += `${count}/${t.count} `;
+            });
+            return {
+                complete: allComplete,
+                progress: progressStr.trim(),
+                target: quest.targets?.map(t => t.count).join('/') || '',
+                type: 'multi_kill',
+            };
+
+        case 'collect':
+            const materials = gameState.materials || {};
+            const collected = materials[quest.target as string] || 0;
+            return {
+                complete: collected >= (quest.targetCount || 0),
+                progress: collected,
+                target: quest.targetCount,
+                type: 'collect',
+            };
+
+        case 'floor':
+            const currentFloor = gameState.level || 1;
+            return {
+                complete: currentFloor >= (quest.target as number),
+                progress: currentFloor,
+                target: quest.target as number,
+                type: 'floor',
+            };
+
+        case 'boss':
+            const bossKilled = gameState.questProgress?.[quest.id] || 0;
+            return {
+                complete: typeof bossKilled === 'number' && bossKilled >= 1,
+                progress: bossKilled,
+                target: 1,
+                type: 'boss',
+            };
+
+        case 'craft':
+            const crafted = gameState.questProgress?.[quest.id] || 0;
+            return {
+                complete: typeof crafted === 'number' && crafted >= (quest.targetCount || 0),
+                progress: crafted,
+                target: quest.targetCount,
+                type: 'craft',
+            };
+
+        case 'gold':
+            const totalGold = gameState.player?.gold || 0;
+            return {
+                complete: totalGold >= (quest.target as number),
+                progress: totalGold,
+                target: quest.target as number,
+                type: 'gold',
+            };
+
+        default:
+            return { complete: false, progress: 0 };
+    }
+}
+
+interface Room {
+    x: number;
+    y: number;
+    width: number;
+    height: number;
+}
+
+export interface NpcEntity extends NpcTemplate {
+    x: number;
+    y: number;
+    id: string;
+}
+
+// --- LÓGICA DE GENERACIÓN DE NPCs (ACTUALIZADA Y ESTRICTA) ---
+export function generateNPCs(floor: number, rooms: Room[], map: number[][], excludeRoomIndices: number[] = [], enemies: { x: number, y: number }[] = []): NpcEntity[] {
+    const npcs: NpcEntity[] = [];
+
+    // Helper: Comprobar si la habitación tiene una puerta (TILE.DOOR = 3)
+    const roomHasDoor = (room: Room) => {
+        // Revisar perímetro superior e inferior
+        for (let x = room.x; x < room.x + room.width; x++) {
+            if (map[room.y - 1]?.[x] === TILE.DOOR || map[room.y + room.height]?.[x] === TILE.DOOR) return true;
+        }
+        // Revisar perímetro lateral
+        for (let y = room.y; y < room.y + room.height; y++) {
+            if (map[y]?.[room.x - 1] === TILE.DOOR || map[y]?.[room.x + room.width] === TILE.DOOR) return true;
+        }
+        return false;
+    };
+
+    // Helper: Comprobar si hay algún enemigo DENTRO de la habitación
+    const roomHasEnemies = (room: Room) => {
+        return enemies.some(e =>
+            e.x >= room.x && e.x < room.x + room.width &&
+            e.y >= room.y && e.y < room.y + room.height
+        );
+    };
+
+    // Helper: Comprobar si hay otro NPC en la habitación (para que estén separados)
+    const roomHasNPC = (room: Room) => {
+        return npcs.some(n =>
+            n.x >= room.x && n.x < room.x + room.width &&
+            n.y >= room.y && n.y < room.y + room.height
+        );
+    };
+
+    // Función para colocar un NPC buscando en la lista de habitaciones candidatas
+    const placeNPC = (npcTemplate: NpcTemplate, candidateRooms: Room[], idPrefix: string) => {
+        for (const room of candidateRooms) {
+
+            // REGLA 1: La habitación debe tener puerta (estar cerrada)
+            if (!roomHasDoor(room)) continue;
+
+            // REGLA 2: No puede haber enemigos en la habitación
+            if (roomHasEnemies(room)) continue;
+
+            // REGLA 3: No puede haber otro NPC en la habitación
+            if (roomHasNPC(room)) continue;
+
+            // Si pasa los filtros, colocamos el NPC en el centro
+            const x = room.x + Math.floor(room.width / 2);
+            const y = room.y + Math.floor(room.height / 2);
+
+            // VERIFICACIÓN EXTRA PARA HERRERO (Necesita 2 casillas: x y x+1)
+            if (npcTemplate.type === NPC_TYPES.BLACKSMITH) {
+                if (map[y]?.[x] === TILE.FLOOR && map[y]?.[x + 1] === TILE.FLOOR) {
+                    npcs.push({ ...npcTemplate, x, y, id: `${idPrefix}_${floor}` });
+                    return true;
+                }
+            }
+            // NPC NORMAL (1 casilla)
+            else if (map[y]?.[x] === TILE.FLOOR) {
+                npcs.push({ ...npcTemplate, x, y, id: `${idPrefix}_${floor}` });
+                return true;
+            }
+        }
+        return false; // No se encontró sitio válido
+    };
+
+    // 1. Merchant (Pisos Impares)
+    if (floor % 2 === 1) {
+        // Candidatos: Todas menos la inicial
+        const candidates = rooms.filter((r, i) => !excludeRoomIndices.includes(i) && i !== 0);
+        placeNPC(NPCS.merchant, candidates, 'merchant');
+    }
+
+    // 2. Quest Giver (Pisos 1, 3, 5)
+    if ([1, 3, 5].includes(floor)) {
+        const candidates = rooms.filter((r, i) => !excludeRoomIndices.includes(i) && i !== 0);
+        placeNPC(NPCS.quest_elder, candidates, 'quest_elder');
+    }
+
+    // 3. Sage (Pisos 1, 6)
+    if ([1, 6].includes(floor)) {
+        // Preferencia inicial: habitaciones tempranas (ej. índice 1) pero flexibles
+        const candidates = rooms.filter((r, i) => !excludeRoomIndices.includes(i) && i !== 0);
+        // Ordenamos para dar preferencia a la habitación 1 si es posible, sino cualquiera
+        candidates.sort((a, b) => (a === rooms[1] ? -1 : 1));
+
+        placeNPC(NPCS.sage, candidates, 'sage');
+    }
+
+    // 4. Herrero (Piso 1 y Pisos Pares)
+    if (floor === 1 || floor % 2 === 0) {
+        // Candidatos: Preferiblemente habitaciones más profundas (i > 1) para variar
+        const candidates = rooms.filter((r, i) => !excludeRoomIndices.includes(i) && i !== 0);
+        // Ordenamos para intentar ponerlo en habitaciones finales si es posible
+        candidates.sort((a, b) => rooms.indexOf(b) - rooms.indexOf(a));
+
+        placeNPC(NPCS.blacksmith, candidates, 'blacksmith');
+    }
+
+    return npcs;
+}

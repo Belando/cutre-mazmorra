@@ -30,10 +30,14 @@ export interface Buff {
 }
 
 export interface SkillState {
+    class?: string;
+    evolvedClass?: string | null;
+    learned: string[];
+    skillLevels: Record<string, number>;
+    skillPoints: number;
     cooldowns: Record<string, number>;
-    active: Record<string, any>;
     buffs: Buff[];
-    skillLevels?: Record<string, number>;
+    active?: Record<string, any>; // Deprecated? Keeping for safety
 }
 
 export interface SpriteComponent {
@@ -44,6 +48,9 @@ export interface SpriteComponent {
     frameTimer: number;
     currentFrameIndex: number;
     frameDuration: number;
+    // Multi-file support
+    isMultiFile?: boolean;
+    textureKeys?: Record<string, string[]>;
 }
 
 export interface Entity extends Point {
@@ -53,7 +60,10 @@ export interface Entity extends Point {
     level?: number;
     lastAction?: string;
     lastAttackTime?: number;
+    lastAttackDir?: Point;
     lastMoveTime?: number;
+    lastSkillTime?: number;
+    lastSkillId?: string | null;
     isBoss?: boolean;
     class?: string; // 'warrior', 'mage', 'rogue', etc.
 
@@ -76,6 +86,13 @@ export interface Entity extends Point {
     // State
     stats?: Stats; // Calculated total stats
     skills?: SkillState;
+    exp?: number;
+
+    // Status Effects
+    stunned?: number;
+    slowed?: number;
+    slowedTurn?: boolean;
+    poisoned?: number;
 
     // Equipment stats additions (Player)
     equipAttack?: number;
@@ -98,16 +115,17 @@ export interface Entity extends Point {
     // NPC specific
     ref?: any;
 
-    // Enemy Specific
-    stunned?: number | boolean;
-    slowed?: number | boolean;
+    // Visual Appearance
+    appearance?: any;
 }
+
+export type Rarity = 'common' | 'uncommon' | 'rare' | 'epic' | 'legendary';
 
 export interface Item {
     id: string;
     name: string;
-    category: 'weapon' | 'armor' | 'accessory' | 'potion' | 'material' | 'currency' | 'food';
-    rarity: 'common' | 'rare' | 'epic' | 'legendary';
+    category: 'weapon' | 'armor' | 'accessory' | 'potion' | 'material' | 'currency' | 'food' | 'ammo';
+    rarity: Rarity;
     levelRequirement?: number;
     description?: string;
     value?: number;
@@ -116,12 +134,13 @@ export interface Item {
     symbol?: string;
 
     // Equipment
-    slot?: 'weapon' | 'offhand' | 'helmet' | 'chest' | 'legs' | 'boots' | 'gloves' | 'ring' | 'necklace' | 'earring';
+    slot?: 'weapon' | 'offhand' | 'helmet' | 'chest' | 'legs' | 'boots' | 'gloves' | 'ring' | 'necklace' | 'earring' | 'armor' | 'accessory';
     weaponType?: string;
     armorType?: string;
     stats?: Stats;
     templateKey?: string;
     prefix?: string;
+    upgradeLevel?: number;
 
     // Location (if on ground)
     x?: number;
@@ -140,4 +159,5 @@ export interface GameState {
     visible: boolean[][];
     explored: boolean[][];
     bossDefeated: boolean;
+    effectsManager?: any;
 }
