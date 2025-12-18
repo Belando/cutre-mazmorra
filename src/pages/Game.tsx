@@ -38,10 +38,11 @@ export default function Game() {
 
     const { resetTimer } = useAutoTurn(
         actions,
-        TURN_DURATION,
-        triggerVisualUpdate,
         gameStarted,
-        modals as any
+        gameOver,
+        modals as any,
+        TURN_DURATION,
+        triggerVisualUpdate
     );
 
     const handleAction = () => {
@@ -103,9 +104,10 @@ export default function Game() {
         );
     }
 
-    const isInteractable = gameState && !activeNPC && gameState.player && (
-        gameState.npcs?.some((n: any) => Math.abs(n.x - gameState.player.x) + Math.abs(n.y - gameState.player.y) <= 1) ||
-        gameState.chests?.some((c: any) => Math.abs(c.x - gameState.player.x) + Math.abs(c.y - gameState.player.y) <= 1 && !c.isOpen)
+    const player = gameState?.player;
+    const isInteractable = gameState && !activeNPC && player && (
+        gameState.npcs?.some((n: any) => Math.abs(n.x - player.x) + Math.abs(n.y - player.y) <= 1) ||
+        gameState.chests?.some((c: any) => Math.abs(c.x - player.x) + Math.abs(c.y - player.y) <= 1 && !c.isOpen)
     );
 
     return (
@@ -162,7 +164,7 @@ export default function Game() {
                 </div>
             </div>
 
-            <GameOverlays gameState={gameState} uiState={uiState} actions={actions} modals={modals as any} stats={stats} gameOver={gameOver} onRestart={actions.restart} />
+            <GameOverlays gameState={gameState} uiState={uiState} actions={actions} modals={modals as any} playerInfo={playerInfo} stats={stats} gameOver={gameOver} onRestart={actions.restart} />
         </div>
     );
 }

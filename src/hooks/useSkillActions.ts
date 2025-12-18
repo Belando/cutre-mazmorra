@@ -4,7 +4,7 @@ import {
     upgradeSkill as upgradeSkillLogic,
     evolveClass as evolveClassLogic
 } from '@/engine/systems/SkillSystem';
-import { Player } from './usePlayer';
+import { Player } from '@/types';
 
 export interface SkillActionsContext {
     player: Player;

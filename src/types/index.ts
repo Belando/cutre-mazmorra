@@ -19,30 +19,30 @@ export interface Stats {
 }
 
 export interface Buff {
-    id?: string;
-    name?: string;
-    duration?: number;
+    id: string;
+    name: string;
+    duration: number;
     stats?: Stats;
     invisible?: boolean;
     breaksOnAction?: boolean;
-    // Add specific buff properties if needed
-    [key: string]: any;
+    type?: string;
+    value?: number;
+    icon?: any;
 }
 
 export interface SkillState {
-    class?: string;
+    class: string;
     evolvedClass?: string | null;
     learned: string[];
     skillLevels: Record<string, number>;
     skillPoints: number;
     cooldowns: Record<string, number>;
     buffs: Buff[];
-    active?: Record<string, any>; // Deprecated? Keeping for safety
 }
 
 export interface SpriteComponent {
     texture: string;
-    frameSize: Point; // { w: 32, h: 32 }
+    frameSize: Point; // { x: 32, y: 32 }
     anims: Record<string, number[]>; // "idle": [0,1], "run": [2,3]
     currentAnim: string;
     frameTimer: number;
@@ -53,71 +53,72 @@ export interface SpriteComponent {
     textureKeys?: Record<string, string[]>;
 }
 
-export interface Entity extends Point {
-    id?: number | string;
-    type: string | number; // Enemy type ID or string for player/npc
-    name?: string;
-    level?: number;
-    lastAction?: string;
+export interface BaseEntity extends Point {
+    id: string | number;
+    type: string | number;
+    name: string;
+    level: number;
+    hp: number;
+    maxHp: number;
+    mp: number;
+    maxMp: number;
+    stats: Stats; // Calculated total stats
+    sprite?: SpriteComponent;
     lastAttackTime?: number;
     lastAttackDir?: Point;
     lastMoveTime?: number;
-    lastSkillTime?: number;
-    lastSkillId?: string | null;
-    isBoss?: boolean;
-    class?: string; // 'warrior', 'mage', 'rogue', etc.
-
-    // Base Stats (merged from Stats interface conceptually, but explicit here to avoid index signature conflict)
-    hp?: number;
-    maxHp?: number;
-    mp?: number;
-    maxMp?: number;
-    attack?: number;
-    defense?: number;
-    magicAttack?: number;
-    magicDefense?: number;
-    critChance?: number;
-    evasion?: number;
-    speed?: number;
-
-    // Visuals
-    sprite?: SpriteComponent;
-
-    // State
-    stats?: Stats; // Calculated total stats
-    skills?: SkillState;
-    exp?: number;
-
-    // Status Effects
     stunned?: number;
     slowed?: number;
-    slowedTurn?: boolean;
     poisoned?: number;
-
-    // Equipment stats additions (Player)
-    equipAttack?: number;
-    equipDefense?: number;
-    equipMagicAttack?: number;
-    equipMagicDefense?: number;
-    equipCrit?: number;
-    equipEvasion?: number;
-    equipMaxHp?: number;
-    equipMaxMp?: number;
-
-    // Base stats (Player)
-    baseAttack?: number;
-    baseDefense?: number;
-    baseMagicAttack?: number;
-    baseMagicDefense?: number;
-    baseCrit?: number;
-    baseEvasion?: number;
-
-    // NPC specific
-    ref?: any;
-
-    // Visual Appearance
-    appearance?: any;
+    poisonDamage?: number;
+    marked?: boolean;
+    lastAction?: string;
 }
+
+export interface Player extends BaseEntity {
+    type: 'player';
+    class: string;
+    exp: number;
+    gold: number;
+    skills: SkillState;
+    appearance: any;
+
+    // Base stats (for leveling/progression)
+    baseAttack: number;
+    baseDefense: number;
+    baseMagicAttack: number;
+    baseMagicDefense: number;
+    baseCrit: number;
+    baseEvasion: number;
+
+    // Equipment bonuses
+    equipAttack: number;
+    equipDefense: number;
+    equipMagicAttack: number;
+    equipMagicDefense: number;
+    equipCrit: number;
+    equipEvasion: number;
+    equipMaxHp: number;
+    equipMaxMp: number;
+
+    lastSkillTime?: number;
+    lastSkillId?: string | null;
+}
+
+
+export interface Enemy extends BaseEntity {
+    type: string | number; // Enemy template ID
+    isBoss?: boolean;
+    slowedTurn?: boolean;
+}
+
+export interface NPC extends BaseEntity {
+    type: string; // 'shopkeeper', 'questgiver', etc.
+    ref?: any; // Reference to logic or template
+}
+
+// Re-export Entity as a union for backward compatibility where generic handling is needed
+export type Entity = Player | Enemy | NPC;
 
 export type Rarity = 'common' | 'uncommon' | 'rare' | 'epic' | 'legendary';
 
@@ -131,15 +132,8 @@ export interface Item {
     value?: number;
     quantity?: number;
     stackable?: boolean;
-    symbol?: string;
+    symbol?: any; // React Component or string
 
-    // Equipment
-    slot?: 'weapon' | 'offhand' | 'helmet' | 'chest' | 'legs' | 'boots' | 'gloves' | 'ring' | 'necklace' | 'earring' | 'armor' | 'accessory';
-    weaponType?: string;
-    armorType?: string;
-    stats?: Stats;
-    templateKey?: string;
-    prefix?: string;
     upgradeLevel?: number;
 
     // Location (if on ground)
@@ -147,17 +141,48 @@ export interface Item {
     y?: number;
 }
 
+export interface EquipmentState {
+    weapon: Item | null;
+    offhand: Item | null;
+    helmet: Item | null;
+    chest: Item | null;
+    legs: Item | null;
+    boots: Item | null;
+    gloves: Item | null;
+    ring: Item | null;
+    earring: Item | null;
+    necklace: Item | null;
+}
+
+export interface QuickSlotData {
+    itemId: string;
+}
+
+export interface Chest extends Point {
+    isOpen: boolean;
+    rarity: Rarity;
+    item?: Item;
+}
+
 export interface GameState {
-    player: Entity;
+    player: Player | null;
     map: number[][];
-    enemies: Entity[];
+    enemies: Enemy[];
     torches: Point[];
     level: number;
     items: Item[];
-    chests: any[]; // Define properly if needed
-    npcs: Entity[];
+    chests: Chest[];
+    npcs: NPC[];
     visible: boolean[][];
     explored: boolean[][];
     bossDefeated: boolean;
+    stairs?: Point;
+    stairsUp?: Point | null;
+    playerStart?: Point;
+    inventory: Item[];
+    equipment: EquipmentState;
+    questProgress: Record<string, any>;
+    materials: Record<string, number>;
     effectsManager?: any;
+    spatialHash?: any;
 }

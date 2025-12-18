@@ -1,11 +1,11 @@
 // Generador procedimental de mazmorras para roguelike
 import { generateLevelItems } from './ItemSystem';
 import { TILE, ENTITY } from '@/data/constants';
-import { ENEMY_STATS } from '@/data/enemies';
-import { Entity, SpriteComponent, Stats, Point } from '@/types';
+import { ENEMY_STATS, EnemyStats } from '@/data/enemies';
+import { Entity, SpriteComponent, Stats, Point, Item, Chest, Enemy } from '@/types';
 
 // Tipos locales
-interface Room {
+export interface Room {
   x: number;
   y: number;
   width: number;
@@ -37,7 +37,8 @@ function getBossForLevel(level: number): number {
 function getEnemiesForLevel(level: number): number[] {
   const available: number[] = [];
   for (const [entityId, stats] of Object.entries(ENEMY_STATS)) {
-    if (!(stats as any).isBoss && (stats as any).minLevel <= level) {
+    const s = stats as EnemyStats;
+    if (!s.isBoss && s.minLevel <= level) {
       available.push(parseInt(entityId));
     }
   }
@@ -52,13 +53,33 @@ function getSpriteForEnemy(type: number | string): SpriteComponent | null {
 
   switch (t) {
     case ENTITY.ENEMY_RAT: texture = 'rat_sheet'; break;
+    case ENTITY.ENEMY_BAT: texture = 'rat_sheet'; break; // Reusar rat o añadir bat_sheet
     case ENTITY.ENEMY_GOBLIN: texture = 'goblin_sheet'; break;
+    case ENTITY.ENEMY_ORC: texture = 'goblin_sheet'; break; // Reusar goblin
     case ENTITY.ENEMY_SKELETON: texture = 'skeleton_sheet'; break;
-    case ENTITY.ENEMY_ZOMBIE:
-    case ENTITY.BOSS_SKELETON_LORD:
-      texture = 'skeleton_sheet'; // Reusamos por ahora
-      break;
-    default: return null; // Sin sprite -> Render por defecto (formas)
+    case ENTITY.ENEMY_ZOMBIE: texture = 'skeleton_sheet'; break; // Reusar skeleton
+    case ENTITY.ENEMY_SPIDER: texture = 'rat_sheet'; break; // Placeholder
+    case ENTITY.ENEMY_TROLL: texture = 'goblin_sheet'; break; // Placeholder
+    case ENTITY.ENEMY_WRAITH: texture = 'skeleton_sheet'; break; // Placeholder
+    case ENTITY.ENEMY_DEMON: texture = 'goblin_sheet'; break; // Placeholder
+    case ENTITY.ENEMY_DRAGON: texture = 'rat_sheet'; break; // Placeholder
+    case ENTITY.ENEMY_SLIME: texture = 'rat_sheet'; break; // Placeholder
+    case ENTITY.ENEMY_WOLF: texture = 'rat_sheet'; break; // Placeholder
+    case ENTITY.ENEMY_CULTIST: texture = 'skeleton_sheet'; break; // Placeholder
+    case ENTITY.ENEMY_GOLEM: texture = 'goblin_sheet'; break; // Placeholder
+    case ENTITY.ENEMY_VAMPIRE: texture = 'skeleton_sheet'; break; // Placeholder
+    case ENTITY.ENEMY_MIMIC: texture = 'chest_open'; break; // Especial?
+
+    // Bosses
+    case ENTITY.BOSS_GOBLIN_KING: texture = 'goblin_sheet'; break;
+    case ENTITY.BOSS_SKELETON_LORD: texture = 'skeleton_sheet'; break;
+    case ENTITY.BOSS_ORC_WARLORD: texture = 'goblin_sheet'; break;
+    case ENTITY.BOSS_SPIDER_QUEEN: texture = 'rat_sheet'; break;
+    case ENTITY.BOSS_LICH: texture = 'skeleton_sheet'; break;
+    case ENTITY.BOSS_DEMON_LORD: texture = 'goblin_sheet'; break;
+    case ENTITY.BOSS_ANCIENT_DRAGON: texture = 'rat_sheet'; break;
+
+    default: return null;
   }
 
   if (!texture) return null;
@@ -79,7 +100,12 @@ function getSpriteForEnemy(type: number | string): SpriteComponent | null {
   };
 }
 
-// Escalar estadísticas de enemigos según nivel del jugador y mazmorra (Curva de Dificultad)
+/**
+ * Scales enemy stats based on current difficulty curve.
+ * @param baseStats The base stats from the enemy template
+ * @param playerLevel Current player level
+ * @param dungeonLevel Current dungeon floor depth
+ */
 export function scaleEnemyStats(baseStats: Stats, playerLevel: number, dungeonLevel: number): Stats {
   const scaleFactor = 1 + (playerLevel * 0.08) + (dungeonLevel * 0.05);
   const hp = baseStats.hp || 10;
@@ -97,18 +123,25 @@ export function scaleEnemyStats(baseStats: Stats, playerLevel: number, dungeonLe
 
 export interface DungeonResult {
   map: number[][];
-  entities: number[][]; // Grid of entity IDs (for spawning) or references? The code treats it as IDs initially.
+  entities: number[][];
   enemies: Entity[];
   rooms: Room[];
   playerStart: Point;
   stairs: Point;
   stairsUp: Point | null;
-  items: any[]; // Ideally 'Item[]'
-  chests: any[];
+  items: Item[];
+  chests: Chest[];
   torches: Point[];
 }
 
-// Función principal de generación de mazmorra
+/**
+ * Generates a complete dungeon layout including map, entities, and items.
+ * Uses a BSP-like room generation algorithm with corridor connections.
+ * @param width Map width
+ * @param height Map height
+ * @param level Difficulty/Floor level
+ * @param playerLevel Current player level for scaling
+ */
 export function generateDungeon(width: number, height: number, level: number, playerLevel = 1): DungeonResult {
   const map: number[][] = Array(height).fill(null).map(() => Array(width).fill(TILE.WALL));
   const entitiesGrid: number[][] = Array(height).fill(null).map(() => Array(width).fill(ENTITY.NONE));
@@ -213,19 +246,19 @@ export function generateDungeon(width: number, height: number, level: number, pl
 
   // 8. Generar Botín
   const generatedItems = generateLevelItems(level, rooms, map, [0]);
-  const chests: any[] = [];
-  const items: any[] = [];
+  const chests: Chest[] = [];
+  const items: Item[] = [];
 
-  generatedItems.forEach((item: any) => {
+  generatedItems.forEach((item: Item) => {
     if (item.category === 'currency') {
       items.push(item);
     } else {
       chests.push({
-        x: item.x,
-        y: item.y,
+        x: item.x ?? 0,
+        y: item.y ?? 0,
         item: item,
         rarity: item.rarity,
-        opened: false,
+        isOpen: false,
       });
     }
   });
@@ -266,14 +299,21 @@ export function generateDungeon(width: number, height: number, level: number, pl
           const sprite: SpriteComponent | undefined = getSpriteForEnemy(entity) || undefined;
 
           enemies.push({
+            id: `enemy-${x}-${y}-${level}`,
+            name: (baseStats as any).name || 'Enemigo',
+            level: level,
             x, y,
             type: entity,
-            ...scaled,
-            isBoss: baseStats.isBoss || false,
+            hp: scaled.hp || 10,
+            maxHp: scaled.maxHp || 10,
+            mp: scaled.mp || 0,
+            maxMp: scaled.maxMp || 0,
+            stats: scaled,
+            isBoss: (baseStats as any).isBoss || false,
             stunned: 0,
             slowed: 0,
-            sprite // Asignación dinámica
-          });
+            sprite
+          } as Enemy);
         }
       }
     }
@@ -310,7 +350,10 @@ function carveVerticalCorridor(map: number[][], y1: number, y2: number, x: numbe
   }
 }
 
-// --- FUNCIÓN AUXILIAR PARA COLOCAR PUERTAS (MEJORADA) ---
+/**
+ * Scans room walls to place doors intelligently.
+ * Avoids placing doors in corners, adjacent to other doors, or in wide openings.
+ */
 function placeDoors(map: number[][], rooms: Room[]) {
   // Barajamos las habitaciones para que el orden no siempre sea el mismo
   const shuffledRooms = [...rooms].sort(() => Math.random() - 0.5);

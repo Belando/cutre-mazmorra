@@ -6,10 +6,8 @@ import {
 } from '@/engine/systems/ItemSystem';
 import { craftItem as craftItemLogic, upgradeItem as upgradeLogic } from '@/engine/systems/CraftingSystem';
 import { useQuickSlot as processQuickSlot, assignToQuickSlot as assignQuickSlotLogic } from '@/components/ui/QuickSlots';
-import { Player } from './usePlayer';
+import { Item, Player, QuickSlotData, EquipmentState } from '@/types';
 import { DungeonState } from './useDungeon';
-import { Item } from '@/types';
-import { EquipmentState } from './useInventory';
 
 export interface InventoryActionsContext {
     player: Player;
@@ -22,8 +20,8 @@ export interface InventoryActionsContext {
     setDungeon: React.Dispatch<React.SetStateAction<DungeonState>>;
     addMessage: (msg: string, type?: string) => void;
     showFloatingText?: (x: number, y: number, text: string, color: string) => void;
-    quickSlots: (Item | null)[];
-    setQuickSlots: React.Dispatch<React.SetStateAction<(Item | null)[]>>;
+    quickSlots: (QuickSlotData | null)[];
+    setQuickSlots: React.Dispatch<React.SetStateAction<(QuickSlotData | null)[]>>;
     reorderInventory?: (from: number, to: number) => void;
 }
 
@@ -39,13 +37,14 @@ export function useInventoryActions(context: InventoryActionsContext) {
 
     const useItem = (index: number) => {
         const newInv = [...inventory];
-        // @ts-ignore - Player vs Entity mismatch in ItemSystem likely
+        // @ts-ignore - resolve after conversion
         const res = useItemLogic(newInv, index, player);
         if (res.success) {
             setInventory(newInv);
             setPlayer({ ...player });
-            // @ts-ignore
-            res.effects.forEach(m => addMessage(m, 'heal'));
+            if (res.effects) {
+                res.effects.forEach((m: string) => addMessage(m, 'heal'));
+            }
             if (showFloatingText) showFloatingText(player.x, player.y, "Used", '#fff');
             soundManager.play('heal');
         } else {
@@ -54,40 +53,37 @@ export function useInventoryActions(context: InventoryActionsContext) {
     };
 
     const equipItem = (idx: number) => {
-        // @ts-ignore - equipItemLogic likely expects EquipmentState which is Record<string, Item> but here we have specific interface
-        // We will assume it's compatible or cast
-        const res = equipItemLogic(inventory, idx, equipment, player as any);
+        // @ts-ignore
+        const res = equipItemLogic(inventory, idx, equipment, player);
         if (res.success) {
-            setInventory(res.newInventory);
-            // @ts-ignore
-            setEquipment(res.newEquipment);
-            // @ts-ignore
-            setPlayer(res.newPlayer);
-            addMessage(res.message, 'pickup');
+            if (res.newInventory) setInventory(res.newInventory);
+            if (res.newEquipment) setEquipment(res.newEquipment);
+            if (res.newPlayer) setPlayer(res.newPlayer as Player);
+            addMessage(res.message || "Equipado", 'pickup');
             soundManager.play('equip');
         } else {
-            addMessage(res.message, 'info');
+            addMessage(res.message || "No se puede equipar", 'info');
         }
     };
 
     const unequipItem = (slot: string) => {
-        const res = unequipItemLogic(equipment, slot, inventory, player as any);
+        // @ts-ignore
+        const res = unequipItemLogic(equipment, slot, inventory, player);
         if (res.success) {
-            soundManager.play('equip');
-            setInventory(res.newInventory);
-            // @ts-ignore
-            setEquipment(res.newEquipment);
-            // @ts-ignore
-            setPlayer(res.newPlayer);
-            addMessage(res.message, 'info');
+            soundManager.play('stairs'); // Fallback sound if equip not available or similar
+            if (res.newInventory) setInventory(res.newInventory);
+            if (res.newEquipment) setEquipment(res.newEquipment);
+            if (res.newPlayer) setPlayer(res.newPlayer as Player);
+            addMessage(res.message || "Desequipado", 'info');
         } else {
-            addMessage(res.message, 'info');
+            addMessage(res.message || "No se puede desequipar", 'info');
         }
     };
 
     const dropItem = (idx: number) => {
         const newInv = [...inventory];
         const item = newInv[idx];
+        if (!item) return;
         newInv.splice(idx, 1);
         setInventory(newInv);
         setDungeon(prev => ({
@@ -99,7 +95,6 @@ export function useInventoryActions(context: InventoryActionsContext) {
 
     const craftItem = (key: string) => {
         const newInv = [...inventory];
-        // @ts-ignore
         const res = craftItemLogic(key, newInv);
         if (res.success) {
             setInventory(newInv);
@@ -110,8 +105,7 @@ export function useInventoryActions(context: InventoryActionsContext) {
 
     const upgradeItem = (slot: string) => {
         const newEq = { ...equipment };
-        // @ts-ignore
-        const item = newEq[slot] as Item | undefined;
+        const item = (newEq as any)[slot] as Item | undefined;
         if (!item) return;
 
         const newInv = [...inventory];
@@ -119,7 +113,6 @@ export function useInventoryActions(context: InventoryActionsContext) {
 
         if (res.success) {
             setInventory(newInv);
-            // @ts-ignore
             setEquipment(newEq);
             updatePlayer({ gold: player.gold - (res.goldCost || 0) });
             addMessage(res.message, 'levelup');
@@ -128,18 +121,17 @@ export function useInventoryActions(context: InventoryActionsContext) {
     };
 
     const assignQuickSlot = (idx: number, itemId: string) => {
-        // @ts-ignore
         setQuickSlots(prev => assignQuickSlotLogic(prev, idx, itemId));
     };
 
     const useQuickSlot = (idx: number) => {
         const newInv = [...inventory];
-        // @ts-ignore
         const res = processQuickSlot(quickSlots, idx, newInv);
         if (res.success) {
             const useRes = useItemLogic(newInv, res.itemIndex, player);
             if (useRes.success) {
-                setInventory(newInv); setPlayer({ ...player });
+                setInventory(newInv);
+                setPlayer({ ...player });
                 addMessage("Objeto rápido usado", 'heal');
                 soundManager.play('heal');
             }
@@ -148,6 +140,7 @@ export function useInventoryActions(context: InventoryActionsContext) {
 
     const reorderInventory = context.reorderInventory || ((startIndex: number, endIndex: number) => {
         const result = Array.from(inventory);
+        if (startIndex < 0 || startIndex >= result.length || endIndex < 0 || endIndex >= result.length) return;
         const [removed] = result.splice(startIndex, 1);
         result.splice(endIndex, 0, removed);
         setInventory(result);

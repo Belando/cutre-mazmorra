@@ -1,10 +1,8 @@
 import { soundManager } from "@/engine/systems/SoundSystem";
 import { saveGame as saveSystem, loadGame as loadSystem } from '@/engine/systems/SaveSystem';
-import { Player } from './usePlayer';
+import { Item, Player, QuickSlotData, EquipmentState } from '@/types';
 import { DungeonState } from './useDungeon';
-import { Item } from '@/types';
-import { EquipmentState } from './useInventory';
-import { PlayerAppearance } from "@/data/player"; // Assuming exported or similar
+import { PLAYER_APPEARANCES } from "@/data/player";
 
 export interface MetaActionsContext {
     player: Player | null;
@@ -15,7 +13,7 @@ export interface MetaActionsContext {
     setEquipment: React.Dispatch<React.SetStateAction<EquipmentState>>;
     dungeon: DungeonState;
     setDungeon: React.Dispatch<React.SetStateAction<DungeonState>>;
-    stats: any; // Define strict stats type if possible
+    stats: any;
     setStats: React.Dispatch<React.SetStateAction<any>>;
     activeQuests: string[];
     setActiveQuests: React.Dispatch<React.SetStateAction<string[]>>;
@@ -23,8 +21,8 @@ export interface MetaActionsContext {
     setCompletedQuests: React.Dispatch<React.SetStateAction<string[]>>;
     materials: Record<string, number>;
     setMaterials: React.Dispatch<React.SetStateAction<Record<string, number>>>;
-    quickSlots: (Item | null)[];
-    setQuickSlots: React.Dispatch<React.SetStateAction<(Item | null)[]>>;
+    quickSlots: (QuickSlotData | null)[];
+    setQuickSlots: React.Dispatch<React.SetStateAction<(QuickSlotData | null)[]>>;
     addMessage: (msg: string, type?: string) => void;
     setMessages: React.Dispatch<React.SetStateAction<any[]>>;
     setGameStarted: React.Dispatch<React.SetStateAction<boolean>>;
@@ -62,10 +60,8 @@ export function useMetaActions(context: MetaActionsContext) {
             inventory,
             equipment,
             ...dungeon
-        } as any; // Cast as SaveSystem might expect simpler object or stricter
-        // Checked SaveSystem earlier, saveGame(gameState, stats, activeQuests, completedQuests, questProgress, materials, quickSlots)
-        // defined in SaveSystem.ts.
-        saveSystem(gameStateToSave, stats, activeQuests, completedQuests, context.questProgress, materials, quickSlots);
+        };
+        saveSystem(gameStateToSave as any, stats, activeQuests, completedQuests, context.questProgress, materials, quickSlots);
         addMessage("Juego guardado", 'info');
     };
 
@@ -73,27 +69,30 @@ export function useMetaActions(context: MetaActionsContext) {
         const d = loadSystem();
         if (d) {
             const { gameState: savedGS, stats: sStats, activeQuests: sAQ, completedQuests: sCQ, questProgress: sQP, materials: sMat, quickSlots: sQS } = d;
-            // @ts-ignore - savedGS types
-            setPlayer(savedGS.player);
-            // @ts-ignore
+
+            if (savedGS && savedGS.player) {
+                setPlayer(savedGS.player as Player);
+                updateMapFOV(savedGS.player.x, savedGS.player.y);
+            }
+
             setDungeon({
                 ...savedGS,
-                // @ts-ignore
-                visible: Array(35).fill(null).map(() => Array(50).fill(false)),
-                // @ts-ignore
+                visible: savedGS.visible || Array(35).fill(null).map(() => Array(50).fill(false)),
                 explored: savedGS.explored || Array(35).fill(null).map(() => Array(50).fill(false)),
-            });
-            // @ts-ignore
-            setInventory(savedGS.inventory);
-            // @ts-ignore
-            setEquipment(savedGS.equipment);
-            setStats(sStats); setActiveQuests(sAQ); setCompletedQuests(sCQ);
-            if (context.setQuestProgress) context.setQuestProgress(sQP);
-            setMaterials(sMat); setQuickSlots(sQS);
+            } as any);
+
+            if (savedGS.inventory) setInventory(savedGS.inventory);
+            if (savedGS.equipment) setEquipment(savedGS.equipment);
+
+            if (sStats) setStats(sStats);
+            if (sAQ) setActiveQuests(sAQ);
+            if (sCQ) setCompletedQuests(sCQ);
+            if (sQP && context.setQuestProgress) context.setQuestProgress(sQP);
+            if (sMat) setMaterials(sMat);
+            if (sQS) setQuickSlots(sQS);
+
             setGameStarted(true);
             addMessage("Juego cargado", 'info');
-            // @ts-ignore
-            updateMapFOV(savedGS.player.x, savedGS.player.y);
         }
     };
 
@@ -119,11 +118,12 @@ export function useMetaActions(context: MetaActionsContext) {
         if (context.setQuestProgress) context.setQuestProgress({});
     };
 
-    const selectCharacter = (k: string, a: PlayerAppearance) => {
+    const selectCharacter = (k: string, appearanceKey: any) => {
         soundManager.play('start_adventure');
+        const appearance = (PLAYER_APPEARANCES as any)[appearanceKey] || PLAYER_APPEARANCES.warrior;
         setPlayerName(playerName || 'Héroe');
         setSelectedAppearance(k);
-        setPlayerClass(a.class as 'warrior' | 'mage' | 'rogue');
+        setPlayerClass(appearance.class as 'warrior' | 'mage' | 'rogue');
         setGameStarted(true);
     };
 

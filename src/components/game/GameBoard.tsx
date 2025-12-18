@@ -151,7 +151,7 @@ export default function GameBoard({ gameState, viewportWidth = 21, viewportHeigh
                 }
             });
 
-            const renderList: any[] = [];
+            const renderList: { y: number, type: string, draw: () => void }[] = [];
 
             enemies.forEach(enemy => {
                 if (visible[enemy.y]?.[enemy.x]) {
@@ -165,7 +165,7 @@ export default function GameBoard({ gameState, viewportWidth = 21, viewportHeigh
                             if (isOnScreen(sx, sy, dynamicCanvas.width, dynamicCanvas.height)) {
                                 if (isLargeEnemy(String(enemy.type))) {
                                     drawLargeEnemy(ctx, String(enemy.type), sx, sy, SIZE * 2, frameRef.current, (enemy.stunned ?? 0) > 0, enemy.lastAttackTime || 0);
-                                    drawHealthBar(ctx, sx, sy, SIZE * 2, enemy.hp || 0, enemy.maxHp || 1);
+                                    drawHealthBar(ctx, sx, sy, SIZE * 2, enemy.hp, enemy.maxHp);
                                 } else {
                                     const sizeInfo = getEnemySize(String(enemy.type));
                                     const scale = sizeInfo.scale || 1;
@@ -186,7 +186,7 @@ export default function GameBoard({ gameState, viewportWidth = 21, viewportHeigh
                                         enemy.sprite
                                     );
 
-                                    drawHealthBar(ctx, sx - offsetDraw, sy - offsetDraw, drawSize, enemy.hp || 0, enemy.maxHp || 1);
+                                    drawHealthBar(ctx, sx - offsetDraw, sy - offsetDraw, drawSize, enemy.hp, enemy.maxHp);
                                 }
                             }
                         }
@@ -194,7 +194,7 @@ export default function GameBoard({ gameState, viewportWidth = 21, viewportHeigh
                 }
             });
 
-            const isInvisible = player.skills?.buffs?.some((b: any) => b.invisible) || false;
+            const isInvisible = player.skills.buffs.some(b => b.invisible) || false;
             renderList.push({
                 y: player.y,
                 type: 'player',

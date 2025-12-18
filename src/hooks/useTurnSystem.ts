@@ -1,5 +1,6 @@
 import { useCallback } from 'react';
-import { processEnemyTurn, calculateEnemyDamage, EnemyAction } from "@/engine/systems/EnemyAI";
+import { processEnemyTurn, EnemyAction } from "@/engine/systems/EnemyAI";
+import { calculateEnemyDamage } from "@/engine/systems/CombatSystem";
 import { calculatePlayerStats } from "@/engine/systems/ItemSystem";
 import { ENEMY_STATS, EnemyType } from '@/data/enemies';
 import { soundManager } from "@/engine/systems/SoundSystem";
@@ -61,7 +62,6 @@ export function useTurnSystem() {
                 newEnemies,
                 dungeon.map,
                 dungeon.visible,
-                addMessage,
                 spatialHash
             );
 
@@ -77,7 +77,6 @@ export function useTurnSystem() {
 
                 const combatResult = calculateEnemyDamage(
                     enemyStats,
-                    player,
                     pStats,
                     // @ts-ignore
                     player.skills?.buffs || []

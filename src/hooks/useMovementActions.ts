@@ -2,9 +2,8 @@ import { TILE } from '@/data/constants';
 import { SKILLS } from '@/data/skills';
 import { canUseSkill } from '@/engine/systems/SkillSystem';
 import { soundManager } from "@/engine/systems/SoundSystem";
-import { Entity, Item } from '@/types';
+import { Entity, Item, Player, Enemy } from '@/types';
 import { DungeonState } from './useDungeon';
-import { Player } from './usePlayer';
 import { SpatialHash } from '@/engine/core/SpatialHash';
 
 // Context interface required by this hook
@@ -17,7 +16,7 @@ export interface MovementActionsContext {
     updateMapFOV: (x: number, y: number) => void;
     spatialHash: SpatialHash;
     addItem: (item: Item) => boolean;
-    effectsManager: any; // Using any for now as useGameEffects is JS
+    effectsManager: any;
     selectedSkill: string | null;
     inventory: Item[];
     setInventory: React.Dispatch<React.SetStateAction<Item[]>>;
@@ -37,7 +36,6 @@ export function useMovementActions(
         spatialHash,
         addItem, effectsManager,
         selectedSkill,
-        inventory, setInventory // For gold pickup
     } = context;
 
     const move = (dx: number, dy: number) => {
@@ -59,23 +57,22 @@ export function useMovementActions(
             return;
         }
 
-        // Consultar Hash
         const entitiesAtTarget = spatialHash.get(nx, ny);
 
         // Bloqueos
         if (entitiesAtTarget.some(e => e.type === 'chest')) {
             addMessage("Un cofre bloquea el camino (Usa 'E')", 'info');
-            soundManager.play('error'); // Sonido
+            soundManager.play('error');
             return;
         }
         if (entitiesAtTarget.some(e => e.type === 'npc')) {
             addMessage("Un NPC bloquea el camino (Usa 'E')", 'info');
-            soundManager.play('error'); // Sonido
+            soundManager.play('error');
             return;
         }
 
         const entitiesLeft = spatialHash.get(nx - 1, ny);
-        const blacksmithLeft = entitiesLeft.find(e => e.type === 'npc');
+        const blacksmithLeft = entitiesLeft.find(e => e.type === 'npc') as any;
         if (blacksmithLeft && blacksmithLeft.ref && blacksmithLeft.ref.type === 'blacksmith') {
             addMessage("El horno está muy caliente, mejor no tocarlo.", 'info');
             return;
@@ -87,7 +84,6 @@ export function useMovementActions(
             const enemyIdx = dungeon.enemies.findIndex(e => e.x === nx && e.y === ny);
             if (enemyIdx !== -1) {
                 const enemy = dungeon.enemies[enemyIdx];
-                // Assuming SKILLS is strictly typed or has index signature
                 if (selectedSkill && SKILLS[selectedSkill] && SKILLS[selectedSkill].type === 'melee') {
                     const cooldowns = player.skills?.cooldowns || {};
                     if (canUseSkill(selectedSkill, cooldowns)) {
@@ -103,7 +99,6 @@ export function useMovementActions(
 
         // --- MOVIMIENTO VÁLIDO ---
         spatialHash.move(player.x, player.y, nx, ny, { ...player, type: 'player' });
-        // Casting to Partial<Player> implicitly via object literal
         updatePlayer({ x: nx, y: ny, lastMoveTime: Date.now() });
 
         soundManager.play('step');
@@ -151,7 +146,7 @@ export function useMovementActions(
             }
             else addMessage("No puedes salir aún", 'info');
         } else if (!goUp && dungeon.stairs && player.x === dungeon.stairs.x && player.y === dungeon.stairs.y) {
-            if (dungeon.enemies.some(e => e.isBoss)) addMessage("¡Mata al jefe primero!", 'info');
+            if (dungeon.enemies.some(e => (e as Enemy).isBoss)) addMessage("¡Mata al jefe primero!", 'info');
             else {
                 soundManager.play('stairs');
                 context.initGame(dungeon.level + 1, player);

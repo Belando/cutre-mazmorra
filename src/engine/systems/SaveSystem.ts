@@ -1,5 +1,5 @@
 import LZString from 'lz-string';
-import { GameState, Stats, Item } from '@/types';
+import { GameState, Stats, QuickSlotData } from '@/types';
 
 const SAVE_KEY = 'dungeon_crawler_save';
 
@@ -12,7 +12,7 @@ export interface SaveData {
     completedQuests: string[];
     questProgress: Record<string, any>;
     materials: Record<string, number>;
-    quickSlots: (Item | null)[];
+    quickSlots: (QuickSlotData | null)[];
 }
 
 export function saveGame(
@@ -22,7 +22,7 @@ export function saveGame(
     completedQuests: string[],
     questProgress: Record<string, any>,
     materials: Record<string, number>,
-    quickSlots: (Item | null)[]
+    quickSlots: (QuickSlotData | null)[]
 ): { success: boolean; message: string } {
 
     // Construimos el objeto completo para que al cargar el mundo sea idéntico
@@ -35,6 +35,8 @@ export function saveGame(
             equipment: gameState.equipment,
             level: gameState.level,
             bossDefeated: gameState.bossDefeated,
+            stairs: gameState.stairs,
+            stairsUp: gameState.stairsUp,
 
             // --- CRÍTICO: Persistencia del entorno ---
             // Sin esto, al cargar apareces en el vacío o en un mapa nuevo
@@ -44,8 +46,6 @@ export function saveGame(
             items: gameState.items,       // Para que los items recogidos no reaparezcan
             chests: gameState.chests,
             npcs: gameState.npcs,
-            stairs: gameState.stairs,
-            stairsUp: gameState.stairsUp,
             torches: gameState.torches,
         },
         stats,

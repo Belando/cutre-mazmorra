@@ -1,46 +1,12 @@
 import { useState, useCallback } from 'react';
 import { initializeSkills, updateCooldowns, updateBuffs } from "@/engine/systems/SkillSystem";
 import { PLAYER_APPEARANCES, PlayerAppearance } from '@/data/player';
-import { Entity, SkillState, Stats, SpriteComponent } from '@/types';
-
-// Extended Player Interface
-export interface Player extends Entity {
-    // Ensuring specific fields are present for player logic
-    x: number;
-    y: number;
-    hp: number;
-    maxHp: number;
-    mp: number;
-    maxMp: number;
-
-    baseAttack: number;
-    baseMagicAttack: number;
-    baseDefense: number;
-    baseMagicDefense: number;
-
-    equipAttack: number;
-    equipMagicAttack: number;
-    equipDefense: number;
-    equipMagicDefense: number;
-    equipMaxHp: number;
-    equipMaxMp: number;
-
-    exp: number;
-    level: number;
-    gold: number;
-    name: string;
-    class: 'warrior' | 'mage' | 'rogue';
-    appearance: PlayerAppearance;
-    skills: SkillState;
-
-    // Derived or UI flags
-    leveledUp?: boolean;
-}
+import { Player, SkillState, Stats, SpriteComponent } from '@/types';
 
 export interface UsePlayerResult {
     player: Player | null;
     setPlayer: React.Dispatch<React.SetStateAction<Player | null>>;
-    initPlayer: (savedPlayer?: Player | null, classType?: 'warrior' | 'mage' | 'rogue', name?: string, startPos?: { x: number, y: number }) => void;
+    initPlayer: (savedPlayer?: Player | null, classType?: string, name?: string, startPos?: { x: number, y: number }) => void;
     updatePlayer: (updates: Partial<Player>) => void;
     gainExp: (amount: number) => void;
     regenerate: () => void;
@@ -49,13 +15,13 @@ export interface UsePlayerResult {
 export function usePlayer(): UsePlayerResult {
     const [player, setPlayer] = useState<Player | null>(null);
 
-    const initPlayer = useCallback((savedPlayer: Player | null = null, classType: 'warrior' | 'mage' | 'rogue' = 'warrior', name = 'Héroe', startPos = { x: 1, y: 1 }) => {
+    const initPlayer = useCallback((savedPlayer: Player | null = null, classType: string = 'warrior', name = 'Héroe', startPos = { x: 1, y: 1 }) => {
         if (savedPlayer) {
             setPlayer(savedPlayer);
             return;
         }
 
-        const appearance = PLAYER_APPEARANCES[classType] || PLAYER_APPEARANCES.warrior;
+        const appearance = PLAYER_APPEARANCES[classType as keyof typeof PLAYER_APPEARANCES] || PLAYER_APPEARANCES.warrior;
 
         // Stats Base según clase
         let baseStats = { attack: 5, magicAttack: 0, defense: 2, magicDefense: 1 };
@@ -63,19 +29,8 @@ export function usePlayer(): UsePlayerResult {
         if (classType === 'rogue') baseStats = { attack: 6, magicAttack: 1, defense: 2, magicDefense: 2 };
 
         const initialSprite: SpriteComponent = {
-            texture: `player_${classType}`, // Used as fallback or base identifier
-            frameSize: { x: 32, y: 32 }, // Correcting interface matching to Point {x,y}
-            isMultiFile: true, // Custom property not in current SpriteComponent interface? 
-            // Note: Entity interface defined SpriteComponent. 
-            // Checking src/types/index.ts viewed earlier:
-            // interface SpriteComponent { texture: string; frameSize: Point; anims: Record<string, number[]>; ... }
-            // It does not have isMultiFile or textureKeys. 
-            // I should probably update the interface or cast it.
-            // For now, I'll validly construct it or extend strictness later.
-            // Actually, the JS code used `isMultiFile` and `textureKeys`. I will add them to the interface in types if needed, or assume Any for now to avoid compilation block.
-            // Let's use `as any` for the sprite object to bypass strict check for new fields, or better, update types.
-            // I will update types in next step. For now, strict cast.
-            // @ts-ignore
+            texture: `player_${classType}`,
+            frameSize: { x: 32, y: 32 },
             isMultiFile: true,
             textureKeys: {
                 idle: [`${classType}_idle_1`, `${classType}_idle_2`, `${classType}_idle_3`],
@@ -106,7 +61,8 @@ export function usePlayer(): UsePlayerResult {
         };
 
         setPlayer({
-            type: 'player', // Entity requirement
+            id: 'player',
+            type: 'player',
             x: startPos.x, y: startPos.y,
             hp: 50, maxHp: 50, mp: 30, maxMp: 30,
 
@@ -115,10 +71,13 @@ export function usePlayer(): UsePlayerResult {
             baseMagicAttack: baseStats.magicAttack,
             baseDefense: baseStats.defense,
             baseMagicDefense: baseStats.magicDefense,
+            baseCrit: 5,
+            baseEvasion: 5,
 
             // Bonificadores de Equipo
             equipAttack: 0, equipMagicAttack: 0,
             equipDefense: 0, equipMagicDefense: 0,
+            equipCrit: 0, equipEvasion: 0,
             equipMaxHp: 0, equipMaxMp: 0,
 
             exp: 0, level: 1, gold: 0,
@@ -126,7 +85,7 @@ export function usePlayer(): UsePlayerResult {
             class: classType,
             appearance,
             skills: initializeSkills(classType),
-
+            stats: { ...baseStats, hp: 50, maxHp: 50, mp: 30, maxMp: 30 },
             sprite: initialSprite
         });
     }, []);

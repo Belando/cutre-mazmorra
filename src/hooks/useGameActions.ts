@@ -5,6 +5,8 @@ import { useInventoryActions, InventoryActionsContext } from './useInventoryActi
 import { useMetaActions, MetaActionsContext } from './useMetaActions';
 import { useSkillActions, SkillActionsContext } from './useSkillActions';
 
+import { Entity, Player, Item } from '@/types';
+
 export type GameActionsContext = MovementActionsContext &
     InteractionActionsContext &
     CombatActionsContext &
@@ -14,31 +16,33 @@ export type GameActionsContext = MovementActionsContext &
         setPlayerName: (name: string) => void;
         setSelectedSkill: (skillId: string | null) => void;
         setRangedMode: (mode: boolean) => void;
-        setRangedTargets: (targets: any[]) => void;
-        executeTurn: (player?: any, enemies?: any) => void;
-        executeSkillAction: (skillId: string, target?: any) => boolean;
+        setRangedTargets: (targets: Entity[]) => void;
+        executeTurn: (playerState?: Player, enemiesOverride?: Entity[] | null) => void;
+        executeSkillAction: (skillId: string, target: Entity) => boolean;
+        handleEnemyDeath: (enemy: Entity, index: number) => void;
     };
 
 export interface GameActions {
-    executeTurn: (player?: any, enemies?: any) => void;
-    executeSkillAction: (skillId: string, target?: any) => boolean;
+    executeTurn: (playerState?: Player, enemiesOverride?: Entity[] | null) => void;
+    executeSkillAction: (skillId: string, target: Entity) => boolean;
+    handleEnemyDeath: (enemy: Entity, index: number) => void;
     move: (dx: number, dy: number) => void;
-    descend: (isShift?: boolean) => void;
-    interact: () => any;
-    buyItem: (item: any) => void;
+    descend: (goUp: boolean) => void;
+    interact: () => { type: 'chest' | 'npc', data?: any } | null;
+    buyItem: (item: Item) => void;
     sellItem: (index: number, price: number) => void;
     acceptQuest: (quest: any) => void;
     completeQuest: (quest: any) => void;
 
-    useItem: (item: any) => void;
-    dropItem: (item: any) => void;
-    equipItem: (item: any) => void;
-    unequipItem: (item: any) => void;
+    useItem: (index: number) => void;
+    dropItem: (index: number) => void;
+    equipItem: (index: number) => void;
+    unequipItem: (slot: string) => void;
     useQuickSlot: (index: number) => void;
-    assignToQuickSlot: (item: any, index: number) => void;
+    assignQuickSlot: (index: number, itemId: string) => void;
     craftItem: (recipeKey: string) => void;
-    upgradeItem: (item: any) => void;
-    reorderInventory: (items: any[]) => void;
+    upgradeItem: (slot: string) => void;
+    reorderInventory: (from: number, to: number) => void;
 
     learnSkill: (skillId: string) => void;
     upgradeSkill: (skillId: string) => void;
@@ -47,17 +51,17 @@ export interface GameActions {
     saveGame: () => void;
     loadGame: () => void;
     restart: () => void;
-    selectCharacter: (k: string, a: any) => void;
+    selectCharacter: (k: string, appearanceKey: any) => void;
 
     setPlayerName: (name: string) => void;
     setSelectedSkill: (skillId: string | null) => void;
     setRangedMode: (mode: boolean) => void;
-    setRangedTargets: (targets: any[]) => void;
+    setRangedTargets: (targets: Entity[]) => void;
 }
 
 export function useGameActions(context: GameActionsContext): GameActions {
     const {
-        executeTurn,
+        executeTurn, handleEnemyDeath,
         setPlayerName, setSelectedSkill, setRangedMode, setRangedTargets
     } = context;
 
@@ -71,6 +75,7 @@ export function useGameActions(context: GameActionsContext): GameActions {
     return {
         executeTurn,
         executeSkillAction,
+        handleEnemyDeath,
         move,
         descend,
         interact,

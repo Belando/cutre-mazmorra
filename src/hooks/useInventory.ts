@@ -1,26 +1,13 @@
 import { useState, useCallback } from 'react';
 import { addToInventory as addItemLogic } from "@/engine/systems/ItemSystem";
-import { Item, Entity } from '@/types';
-
-// Assuming equipment map structure
-export interface EquipmentState {
-    weapon: Item | null;
-    offhand: Item | null;
-    helmet: Item | null;
-    chest: Item | null;
-    legs: Item | null;
-    boots: Item | null;
-    gloves: Item | null;
-    ring: Item | null;
-    earring: Item | null;
-    necklace: Item | null;
-}
+import { Item, EquipmentState } from '@/types';
+import { QuickSlotData } from '@/components/ui/QuickSlots';
 
 export interface InventorySaveData {
     inventory: Item[];
     equipment: EquipmentState;
     materials: Record<string, number>;
-    quickSlots: (Item | null)[];
+    quickSlots: (QuickSlotData | null)[];
 }
 
 export interface UseInventoryResult {
@@ -30,8 +17,8 @@ export interface UseInventoryResult {
     setEquipment: React.Dispatch<React.SetStateAction<EquipmentState>>;
     materials: Record<string, number>;
     setMaterials: React.Dispatch<React.SetStateAction<Record<string, number>>>;
-    quickSlots: (Item | null)[];
-    setQuickSlots: React.Dispatch<React.SetStateAction<(Item | null)[]>>;
+    quickSlots: (QuickSlotData | null)[];
+    setQuickSlots: React.Dispatch<React.SetStateAction<(QuickSlotData | null)[]>>;
     initInventory: (savedData: InventorySaveData | null) => void;
     resetInventory: () => void;
     addItem: (item: Item) => boolean;
@@ -47,7 +34,7 @@ export function useInventory(): UseInventoryResult {
         earring: null, necklace: null
     });
     const [materials, setMaterials] = useState<Record<string, number>>({});
-    const [quickSlots, setQuickSlots] = useState<(Item | null)[]>([null, null, null]);
+    const [quickSlots, setQuickSlots] = useState<(QuickSlotData | null)[]>([null, null, null]);
 
     // Cargar datos guardados
     const initInventory = useCallback((savedData: InventorySaveData | null) => {
@@ -93,62 +80,11 @@ export function useInventory(): UseInventoryResult {
     // -------------------------------------------------------------
 
     const addItem = useCallback((item: Item) => {
-        // We need to modify state, but addItemLogic modifies the array in place and returns success.
-        // It is better to use functional update to ensure latest state if called rapidly, 
-        // BUT addItemLogic might not be pure?
-        // Checking previous code: it copies array inside callback: const newInv = [...inventory];
-        // So it depends on `inventory` closure.
-        // This is consistent with existing React logic, though functional update is safer for batching.
-        // I'll keep it as is to match logic strictness.
-
-        // Actually, I can't look inside `addItemLogic` right now but I trust it.
-        let success = false;
-        setInventory(prev => {
-            const newInv = [...prev];
-            const res = addItemLogic(newInv, item);
-            if (res.success) {
-                success = true;
-                return newInv;
-            }
-            return prev;
-        });
-        // However, `success` variable here won't be returned by the outer function correctly due to closure.
-        // The original code was:
-        /*
-          const addItem = useCallback((item) => {
-            const newInv = [...inventory];
-            const res = addItemLogic(newInv, item);
-            if (res.success) setInventory(newInv);
-            return res.success;
-          }, [inventory]);
-        */
-        // I should strictly reuse that pattern if I want to return the boolean.
-        // Since `useCallback` has `[inventory]`, it's safeish.
-
-        // Wait, I can implement it exactly as before.
-        // I need `inventory` in dependency array.
-
-        // But to make it TS compatible, explicit types:
-        /*
-         const addItem = useCallback((item: Item) => {
-            const newInv = [...inventory];
-            const res = addItemLogic(newInv, item);
-            if (res.success) setInventory(newInv);
-            return res.success;
-          }, [inventory]);
-        */
-        // TypeScript might follow `addItemLogic` signature which I suspect expects `Item[]` and `Item`.
-
-        return false; // Placeholder, I will implement correctly below.
-    }, []);
-
-    // Correct implementation based on review
-    const addItemReal = useCallback((item: Item) => {
-        // Note: this relies on `inventory` from closure
         const newInv = [...inventory];
-        // @ts-ignore - type inference for imported function
         const res = addItemLogic(newInv, item);
-        if (res.success) setInventory(newInv);
+        if (res.success) {
+            setInventory(newInv);
+        }
         return res.success;
     }, [inventory]);
 
@@ -164,7 +100,7 @@ export function useInventory(): UseInventoryResult {
         quickSlots, setQuickSlots,
         initInventory,
         resetInventory,
-        addItem: addItemReal,
+        addItem,
         addMaterial,
         reorderInventory
     };

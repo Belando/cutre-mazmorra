@@ -8,12 +8,18 @@ import {
   hasLineOfSight,
   getProjectilePath
 } from '@/engine/core/utils';
-import { Entity, Stats, Buff } from '@/types';
+import { Entity, Stats, Buff, Player, Enemy } from '@/types';
 
 // --- COMBATE DEL JUGADOR ---
 
-// Obtener enemigos válidos para atacar a distancia
-export function getRangedTargets(player: Entity, enemies: Entity[], map: number[][], equipment: any): Entity[] {
+/**
+ * Filters enemies to find those within range and line of sight.
+ * @param player The player entity acting as the source
+ * @param enemies List of potential targets
+ * @param map Terrain map for Line of Sight checks
+ * @param equipment Current equipment to determine weapon range
+ */
+export function getRangedTargets(player: Player, enemies: Enemy[], map: number[][], equipment: any): Enemy[] {
   const range = getWeaponRange(equipment);
   if (range === 0) return [];
 
@@ -36,8 +42,16 @@ export interface AttackResult {
   color?: string;
 }
 
-// Ejecutar ataque a distancia
-export function executeRangedAttack(player: Entity, target: Entity, equipment: any, playerStats: Stats, map: number[][]): AttackResult {
+/**
+ * Executes a ranged attack against a specific target.
+ * Calculates hit chance, damage, and crit chance based on stats and distance.
+ * @param player The attacker
+ * @param target The victim
+ * @param equipment Equipment for range calculations
+ * @param playerStats Aggregated player stats
+ * @param map Map for LoS verification
+ */
+export function executeRangedAttack(player: Player, target: Enemy, equipment: any, playerStats: Stats, map: number[][]): AttackResult {
   const range = getWeaponRange(equipment);
   const dist = getDistance(player, target);
 
@@ -60,6 +74,8 @@ export function executeRangedAttack(player: Entity, target: Entity, equipment: a
   const isCrit = Math.random() < critChance;
   const finalDamage = isCrit ? Math.floor(damage * 1.5) : damage;
 
+  const targetEnemy = target as Enemy; // Explicit cast for properties existing on BaseEntity or extending interfaces
+
   return {
     success: true,
     hit: true,
@@ -71,9 +87,15 @@ export function executeRangedAttack(player: Entity, target: Entity, equipment: a
 }
 
 // Calcular daño cuerpo a cuerpo (Genérico)
+/**
+ * Calculates damage for a generic melee hit (either Player -> Enemy or Enemy -> Player).
+ * @param attacker The entity attacking
+ * @param defender The entity defending
+ * @param attackerStats Attacker's stats
+ */
 export function calculateMeleeDamage(attacker: Entity, defender: Entity, attackerStats: Stats): { damage: number, isCrit: boolean } {
-  const baseDamage = attackerStats.attack || attacker.attack || 5;
-  const defense = defender.defense || 0;
+  const baseDamage = attackerStats.attack || (attacker as any).attack || 5;
+  const defense = (defender as any).defense || 0;
 
   const variance = Math.floor(Math.random() * 3) - 1;
   const damage = Math.max(1, baseDamage - defense + variance);
@@ -87,8 +109,12 @@ export function calculateMeleeDamage(attacker: Entity, defender: Entity, attacke
   };
 }
 
-// NUEVO: Calcular daño del jugador al golpear
-export function calculatePlayerHit(player: Entity, targetEnemy: Entity): { damage: number, isCrit: boolean, type: string } {
+/**
+ * Calculates damage for a player's melee hit, considering stats, buffs, and class bonuses.
+ * @param player The attacking player
+ * @param targetEnemy The target enemy
+ */
+export function calculatePlayerHit(player: Player, targetEnemy: Enemy): { damage: number, isCrit: boolean, type: string } {
   const stats = calculatePlayerStats(player);
   const buffs = calculateBuffBonuses(player.skills?.buffs || [], stats);
 
@@ -149,14 +175,23 @@ export function processEnemyRangedAttack(enemy: Entity, player: Entity, map: num
   return { type: 'ranged', attackType: info.type, damage, color: info.color };
 }
 
-export function calculateEnemyDamage(enemy: Entity, player: Entity, playerStats: Stats, playerBuffs: Buff[]): AttackResult {
+/**
+ * Calculates damage dealt by an enemy to the player.
+ * Supports physical and magical damage (based on `magicDef`).
+ * Handles evasion and absorption buffs on the player.
+ * @param enemy The attacking enemy
+ * @param player The player victim
+ * @param playerStats Player stats for defense calculation
+ * @param playerBuffs Active buffs that might mitigate damage
+ */
+export function calculateEnemyDamage(enemy: Enemy, playerStats: Stats, playerBuffs: Buff[]): AttackResult {
   const physDef = playerStats.defense || 0;
   const magicDef = playerStats.magicDefense || 0;
 
   const isMagicEnemy = [10, 11, 12, 15, 104, 105].includes(Number(enemy.type));
   const defense = isMagicEnemy ? magicDef : physDef;
 
-  const enemyAtk = enemy.attack || 0;
+  const enemyAtk = enemy.stats?.attack || enemy.stats?.magicAttack || 5;
   let baseDamage = Math.max(1, enemyAtk - defense);
   baseDamage += Math.floor(Math.random() * 3);
 

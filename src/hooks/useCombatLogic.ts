@@ -1,12 +1,11 @@
-import { ENEMY_STATS, EnemyType } from '@/data/enemies';
+import { ENEMY_STATS, EnemyType, EnemyStats } from '@/data/enemies';
 import { SKILLS, SKILL_COLORS } from '@/data/skills';
 import { generateMaterialDrop, generateBossDrop } from "@/engine/systems/CraftingSystem";
 import { calculatePlayerStats, generateItem } from '@/engine/systems/ItemSystem';
 import { calculateBuffBonuses, getSkillEffectiveStats, useSkill, canUseSkill } from "@/engine/systems/SkillSystem";
 import { soundManager } from '@/engine/systems/SoundSystem';
-import { Player } from './usePlayer';
+import { Item, Entity, Player, Enemy, Stats, SkillState } from '@/types';
 import { DungeonState } from './useDungeon';
-import { Item, Entity } from '@/types';
 
 export interface CombatLogicContext {
     dungeon: DungeonState;
@@ -44,11 +43,13 @@ export function useCombatLogic({
         gainExp(info.exp);
         addMessage(`${info.name} derrotado! +${info.exp} XP`, 'death');
 
+        const isBoss = (enemy as Enemy).isBoss || false;
+
         // 1. Drops
-        const drops = enemy.isBoss ? generateBossDrop(enemy.type as any, dungeon.level) : generateMaterialDrop(enemy.type as EnemyType, dungeon.level);
+        const drops = isBoss ? generateBossDrop(enemy.type as any, dungeon.level) : generateMaterialDrop(enemy.type as EnemyType, dungeon.level);
 
         // 2. Drop de Equipo (Probabilidad)
-        if (Math.random() < 0.15 || enemy.isBoss) {
+        if (Math.random() < 0.15 || isBoss) {
             const lootItem = generateItem(dungeon.level) as Item | null;
             if (lootItem) drops.push(lootItem);
         }
@@ -63,7 +64,7 @@ export function useCombatLogic({
             }
         });
 
-        if (enemy.isBoss) {
+        if (isBoss) {
             setDungeon(prev => ({ ...prev, bossDefeated: true }));
             addMessage("¡Jefe de piso eliminado!", 'levelup');
         }
@@ -77,24 +78,21 @@ export function useCombatLogic({
         if (!skill) return false;
 
         // --- 1. Validaciones ---
-
-        // A) COOLDOWN (NUEVO: Feedback Visual y Sonoro)
         if (!canUseSkill(skillId, player.skills?.cooldowns || {})) {
             addMessage(`¡${skill.name} no está lista!`, 'info');
             soundManager.play('error');
             if (effectsManager.current) {
-                effectsManager.current.addText(player.x, player.y, "CD", '#94a3b8', false, true); // isSmall = true
+                effectsManager.current.addText(player.x, player.y, "CD", '#94a3b8', false, true);
             }
             return false;
         }
 
-        // B) MANÁ
         const level = player.skills?.skillLevels?.[skillId] || 1;
         const { manaCost } = getSkillEffectiveStats(skill, level);
 
         if (manaCost > 0 && player.mp < manaCost) {
             addMessage(`¡Falta Maná! (Req: ${manaCost})`, 'info');
-            soundManager.play('error'); // Sonido de error
+            soundManager.play('error');
             if (effectsManager.current) {
                 effectsManager.current.addText(player.x, player.y, "No MP", '#60a5fa', false, true);
             }
@@ -102,19 +100,17 @@ export function useCombatLogic({
         }
 
         // --- 2. Cálculos de Combate ---
-        // @ts-ignore
         const pStats = calculatePlayerStats(player);
         const buffBonuses = calculateBuffBonuses(player.skills?.buffs || [], pStats);
-        const effectiveStats = {
+        const effectiveStats: Stats = {
             ...pStats,
             attack: (pStats.attack || 0) + buffBonuses.attackBonus,
             defense: (pStats.defense || 0) + buffBonuses.defenseBonus
         };
 
-        const res = useSkill(skillId, player as any, effectiveStats, targetEnemy, dungeon.enemies, dungeon.visible, dungeon.map);
+        const res = useSkill(skillId, player, effectiveStats, targetEnemy, dungeon.enemies, dungeon.visible, dungeon.map);
 
         if (res.success) {
-            // Efecto de proyectil
             if (skill.type === 'ranged' && targetEnemy) {
                 let projColor = '#fff';
                 let projStyle = 'circle';
@@ -122,18 +118,11 @@ export function useCombatLogic({
                 if (skillId === 'fireball') { projColor = '#f97316'; projStyle = 'circle'; }
                 else if (skillId === 'ice_shard') { projColor = '#06b6d4'; projStyle = 'circle'; }
                 else if (skillId === 'throwing_knife' || skillId === 'multishot') { projColor = '#cbd5e1'; projStyle = 'arrow'; }
-                // @ts-ignore
-                else if (skill.tree === 'mage' || skill.tree === 'arcane') { projColor = '#a855f7'; projStyle = 'circle'; }
-                // @ts-ignore
-                else if (skill.tree === 'archer') { projColor = '#f59e0b'; projStyle = 'arrow'; }
+                else if ((skill as any).tree === 'mage' || (skill as any).tree === 'arcane') { projColor = '#a855f7'; projStyle = 'circle'; }
+                else if ((skill as any).tree === 'archer') { projColor = '#f59e0b'; projStyle = 'arrow'; }
 
                 if (effectsManager.current) {
-                    effectsManager.current.addProjectile(
-                        player.x, player.y,
-                        targetEnemy.x, targetEnemy.y,
-                        projColor,
-                        projStyle
-                    );
+                    effectsManager.current.addProjectile(player.x, player.y, targetEnemy.x, targetEnemy.y, projColor, projStyle);
                 }
             }
 
@@ -142,7 +131,6 @@ export function useCombatLogic({
             else soundManager.play('magic');
 
             let currentBuffs = player.skills?.buffs || [];
-
             if (['melee', 'ranged', 'aoe', 'ultimate'].includes(skill.type)) {
                 currentBuffs = currentBuffs.filter(b => !b.invisible && !b.breaksOnAction);
             }
@@ -156,31 +144,21 @@ export function useCombatLogic({
             }
 
             const updates: Partial<Player> = {};
-
-            if (skill.manaCost) {
-                updates.mp = player.mp - skill.manaCost;
-            }
+            if (skill.manaCost) updates.mp = player.mp - skill.manaCost;
 
             if (skill.type === 'melee' && targetEnemy) {
                 updates.lastAttackTime = Date.now();
-                // @ts-ignore
-                updates.lastSkillId = skillId;
-                updates.lastAttackDir = { x: targetEnemy.x - player.x, y: targetEnemy.y - player.y }; // Cast to Point
-            } else {
-                // @ts-ignore
-                updates.lastSkillTime = Date.now();
-                // @ts-ignore
-                updates.lastSkillId = skillId;
-                if (targetEnemy) {
-                    updates.lastAttackDir = { x: targetEnemy.x - player.x, y: targetEnemy.y - player.y };
-                }
+                updates.lastAttackDir = { x: targetEnemy.x - player.x, y: targetEnemy.y - player.y };
             }
 
-            // @ts-ignore
-            const newSkills = { ...player.skills, buffs: currentBuffs };
-            // @ts-ignore
-            newSkills.cooldowns = { ...newSkills.cooldowns, [skillId]: res.cooldown };
+            const newSkills: SkillState = {
+                ...player.skills,
+                buffs: currentBuffs,
+                cooldowns: { ...player.skills.cooldowns, [skillId]: res.cooldown }
+            };
             updates.skills = newSkills;
+            updates.lastSkillId = skillId;
+            updates.lastSkillTime = Date.now();
 
             if (res.heal) {
                 updates.hp = Math.min(player.maxHp, player.hp + res.heal);
@@ -195,10 +173,7 @@ export function useCombatLogic({
             let currentEnemiesList = [...dungeon.enemies];
             if (res.damages && res.damages.length > 0) {
                 let damageColor = SKILL_COLORS[skillId] || SKILL_COLORS.default;
-
-                if (skillId === 'power_strike') {
-                    damageColor = '#ffffff';
-                }
+                if (skillId === 'power_strike') damageColor = '#ffffff';
 
                 res.damages.forEach(dmgInfo => {
                     const idx = currentEnemiesList.indexOf(dmgInfo.target as any);
@@ -214,23 +189,13 @@ export function useCombatLogic({
                             const finalColor = isCritical ? '#fef9c3' : damageColor;
                             const textToShow = isCritical ? `${dmgInfo.damage}!` : dmgInfo.damage.toString();
 
-                            effectsManager.current.addText(
-                                enemy.x, enemy.y,
-                                textToShow,
-                                finalColor,
-                                isCritical,
-                                false,
-                                true
-                            );
-
+                            effectsManager.current.addText(enemy.x, enemy.y, textToShow, finalColor, isCritical, false, true);
                             if (isCritical) effectsManager.current.addShake(5);
                         }
 
                         if (dmgInfo.stun) {
                             enemy.stunned = dmgInfo.stun;
-                            if (effectsManager.current) {
-                                effectsManager.current.addStunEffect(enemy.x, enemy.y);
-                            }
+                            if (effectsManager.current) effectsManager.current.addStunEffect(enemy.x, enemy.y);
                         }
 
                         if (dmgInfo.slow) enemy.slowed = dmgInfo.slow;

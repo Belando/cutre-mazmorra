@@ -1,8 +1,7 @@
 import { soundManager } from "@/engine/systems/SoundSystem";
-import { Player } from './usePlayer';
-import { DungeonState } from './useDungeon';
-import { Item } from '@/types';
+import { Item, Player, NPC } from '@/types';
 import { SpatialHash } from '@/engine/core/SpatialHash';
+import { DungeonState } from './useDungeon';
 
 export interface InteractionActionsContext {
     player: Player;
@@ -18,7 +17,7 @@ export interface InteractionActionsContext {
     setCompletedQuests: React.Dispatch<React.SetStateAction<string[]>>;
     gainExp: (amount: number) => void;
     addMessage: (msg: string, type?: string) => void;
-    effectsManager: any; // Using any for GameEffects as it's JS
+    effectsManager: any;
     spatialHash: SpatialHash;
 }
 
@@ -44,7 +43,6 @@ export function useInteractionActions(context: InteractionActionsContext) {
             const tx = player.x + dx;
             const ty = player.y + dy;
 
-            // --- OPTIMIZACIÓN SPATIAL HASH ---
             const entities = spatialHash.get(tx, ty);
 
             // 1. Interactuar con Cofre
@@ -53,19 +51,7 @@ export function useInteractionActions(context: InteractionActionsContext) {
                 const chestIdx = dungeon.chests.findIndex(c => c.x === tx && c.y === ty);
 
                 if (chestIdx !== -1) {
-                    // Assuming dungeon.chests are of type Point or object with isOpen/item
-                    // DungeonState defined chests as Point[] early on but here it implies stateful chests.
-                    // I should probably check DungeonState in useDungeon.ts.
-                    // It was: chests: Point[];
-                    // But here it accesses `chest.isOpen` and `chest.item`.
-                    // This means `DungeonState` definition in `useDungeon.ts` might be too simple or checking wrong type.
-                    // JavaScript doesn't care, but TS does.
-                    // I'll cast `dungeon.chests[chestIdx]` to `any` or define `Chest` interface.
-                    // Given "chests" in `generateDungeon` logic creates objects with `x, y, item, isOpen`.
-                    // So `DungeonState` interface should ideally use `Chest` type not `Point`.
-                    // For now, I'll cast to `any` to unblock, or define local Chest interface.
-
-                    const chest = dungeon.chests[chestIdx] as any; // Temporary cast
+                    const chest = dungeon.chests[chestIdx];
 
                     if (chest.isOpen) {
                         addMessage("Este cofre ya está vacío.", 'info');
@@ -73,7 +59,7 @@ export function useInteractionActions(context: InteractionActionsContext) {
                     }
                     soundManager.play('chest');
                     if (effectsManager.current) effectsManager.current.addSparkles(tx, ty, '#fbbf24');
-                    const item = chest.item as Item;
+                    const item = chest.item;
 
                     if (item) {
                         const added = addItem(item);
@@ -91,8 +77,7 @@ export function useInteractionActions(context: InteractionActionsContext) {
                             if (effectsManager.current) effectsManager.current.addText(tx, ty, floatText, '#fff');
                             setDungeon(prev => ({
                                 ...prev,
-                                // Changing isOpen property on chest
-                                chests: prev.chests.map((c: any, i) => i === chestIdx ? { ...c, isOpen: true } : c)
+                                chests: prev.chests.map((c, i) => i === chestIdx ? { ...c, isOpen: true } : c)
                             }));
                         } else {
                             addMessage("Inventario lleno.", 'info');
@@ -102,7 +87,7 @@ export function useInteractionActions(context: InteractionActionsContext) {
                         addMessage("El cofre estaba vacío...", 'info');
                         setDungeon(prev => ({
                             ...prev,
-                            chests: prev.chests.map((c: any, i) => i === chestIdx ? { ...c, isOpen: true } : c)
+                            chests: prev.chests.map((c, i) => i === chestIdx ? { ...c, isOpen: true } : c)
                         }));
                     }
                     return { type: 'chest' };
@@ -110,7 +95,7 @@ export function useInteractionActions(context: InteractionActionsContext) {
             }
 
             // 2. Interactuar con NPC
-            const npcRef = entities.find(e => e.type === 'npc');
+            const npcRef = entities.find(e => e.type === 'npc') as NPC | undefined;
             if (npcRef) {
                 soundManager.play('speech');
                 return { type: 'npc', data: npcRef.ref };
@@ -121,12 +106,6 @@ export function useInteractionActions(context: InteractionActionsContext) {
     };
 
     const buyItem = (item: Item) => {
-        // @ts-ignore - item has price? Item interface definition usually has value. Use value as price?
-        // In JS code it used `item.price`.
-        // I'll check Item interface. It has `value`.
-        // I'll assume price == value or add price to Item interface.
-        // JS used `item.price`.
-        // I'll cast for now.
         const price = (item as any).price || item.value || 0;
 
         if (player.gold >= price) {
@@ -154,7 +133,6 @@ export function useInteractionActions(context: InteractionActionsContext) {
         soundManager.play('pickup');
     };
 
-    // Defining Quest interface minimally based on usage
     interface Quest {
         id: string;
         name: string;

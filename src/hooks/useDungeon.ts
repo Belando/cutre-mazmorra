@@ -1,18 +1,18 @@
 import { useState, useCallback } from 'react';
 import { generateDungeon, DungeonResult, Room } from "@/engine/systems/DungeonGenerator";
 import { TILE, MAP_WIDTH, MAP_HEIGHT } from "@/data/constants";
-import { generateNPCs, NpcEntity } from "@/engine/systems/NPCSystem";
-import { Entity, Item, Point } from '@/types';
+import { generateNPCs } from "@/engine/systems/NPCSystem";
+import { Entity, Item, Point, NPC, Chest } from '@/types';
 
 export interface DungeonState extends DungeonResult {
-    npcs: NpcEntity[];
+    npcs: NPC[];
     visible: boolean[][];
     explored: boolean[][];
     level: number;
     bossDefeated: boolean;
-    stairs: Point | null;
+    stairs: Point;
     stairsUp: Point | null;
-    chests: Point[];
+    chests: Chest[];
 }
 
 export interface UseDungeonResult {
@@ -25,14 +25,15 @@ export interface UseDungeonResult {
 export function useDungeon(): UseDungeonResult {
     const [dungeon, setDungeon] = useState<DungeonState>({
         map: [],
-        rooms: [], // Add missing prop for DungeonResult compatibility
+        rooms: [],
         entities: [],
         enemies: [],
         items: [],
         chests: [],
         torches: [],
         npcs: [],
-        stairs: null,
+        playerStart: { x: 0, y: 0 },
+        stairs: { x: 0, y: 0 },
         stairsUp: null,
         visible: [],
         explored: [],
@@ -85,7 +86,7 @@ export function useDungeon(): UseDungeonResult {
         }
 
         // CORRECCIÓN: Pasamos newDungeon.enemies como último argumento
-        const npcs = generateNPCs(level, newDungeon.rooms, newDungeon.map, [0, newDungeon.rooms.length - 1], newDungeon.enemies || []);
+        const npcs = generateNPCs(level, newDungeon.rooms, newDungeon.map, [0, newDungeon.rooms.length - 1], newDungeon.enemies || []) as unknown as NPC[];
 
         const cleanChests = (newDungeon.chests || []).filter(c => !npcs.some(n => n.x === c.x && n.y === c.y));
 

@@ -1,9 +1,8 @@
-// src/engine/systems/EnemyAI.ts
 import { findPath } from '@/engine/core/pathfinding';
 import { ENEMY_RANGED_INFO } from '@/data/enemies';
 import { hasLineOfSight } from '@/engine/core/utils';
 import { TILE } from '@/data/constants';
-import { Entity, Stats, Buff, Point } from '@/types';
+import { Entity, Enemy, Player, Point } from '@/types';
 
 // --- CONSTANTES DE OPTIMIZACIÓN ---
 const ACTIVATION_DISTANCE = 25; // Distancia máxima: Si está más lejos, el enemigo "duerme"
@@ -88,7 +87,11 @@ function isTileFree(x: number, y: number, map: number[][], spatialHash: SpatialH
 }
 
 // Calcular posición de flanqueo
-function getFlankingPosition(player: Entity, allies: Entity[], enemy: Entity, map: number[][], spatialHash: SpatialHash): Point | null {
+/**
+ * Calculates a flanking position for pack enemies.
+ * Tries to find a spot opposite to an existing ally relative to the player.
+ */
+function getFlankingPosition(player: Player, allies: Enemy[], map: number[][], spatialHash: SpatialHash): Point | null {
     const directions = [
         { dx: 1, dy: 0 }, { dx: -1, dy: 0 },
         { dx: 0, dy: 1 }, { dx: 0, dy: -1 },
@@ -169,7 +172,7 @@ function moveRandomly(enemy: Entity, map: number[][], spatialHash: SpatialHash, 
 }
 
 // Mover hacia el objetivo usando lógica Híbrida (A* o Directa)
-function moveToward(enemy: Entity, targetX: number, targetY: number, map: number[][], spatialHash: SpatialHash, player: Entity): Point | null {
+function moveToward(enemy: Entity, targetX: number, targetY: number, map: number[][], spatialHash: SpatialHash): Point | null {
     const dist = Math.abs(enemy.x - targetX) + Math.abs(enemy.y - targetY);
 
     // OPTIMIZACIÓN 1: INTELIGENTE (Solo si está cerca)
@@ -229,9 +232,17 @@ function moveToward(enemy: Entity, targetX: number, targetY: number, map: number
     return null; // No se puede mover
 }
 
-// PROCESO PRINCIPAL: Turno del Enemigo
-// Ahora recibe spatialHash en lugar de las listas sueltas
-export function processEnemyTurn(enemy: Entity, player: Entity, enemies: Entity[], map: number[][], visible: boolean[][], log: any, spatialHash: SpatialHash): EnemyAction {
+/**
+ * Core AI Logic: Determines what the enemy does this turn.
+ * Handled status effects (stun/slow/poison), cooldowns, and movement behavior.
+ * @param enemy The enemy entity
+ * @param player The player entity
+ * @param enemies List of all enemies (for pack behaviors)
+ * @param map Terrain map
+ * @param visible Visibility map (FoV)
+ * @param spatialHash Spatial hash for optimizing collision checks
+ */
+export function processEnemyTurn(enemy: Enemy, player: Player, enemies: Enemy[], map: number[][], visible: boolean[][], spatialHash: SpatialHash): EnemyAction {
 
     // OPTIMIZACIÓN 3: CULLING (IA DORMIDA)
     // Si el enemigo está muy lejos, retornamos inmediatamente.
@@ -260,7 +271,7 @@ export function processEnemyTurn(enemy: Entity, player: Entity, enemies: Entity[
     }
 
     if ((enemy.poisoned || 0) > 0) {
-        const poisonDmg = (enemy as any).poisonDamage || 3;
+        const poisonDmg = enemy.poisonDamage || 3;
         enemy.hp = (enemy.hp || 10) - poisonDmg;
         enemy.poisoned = (enemy.poisoned || 0) - 1;
         if ((enemy.hp || 0) <= 0) return { action: 'died_poison', damage: poisonDmg };
@@ -279,7 +290,7 @@ export function processEnemyTurn(enemy: Entity, player: Entity, enemies: Entity[
             spatialHash.move(enemy.x, enemy.y, newPos.x, newPos.y, { ...enemy, type: 'enemy' });
             enemy.x = newPos.x;
             enemy.y = newPos.y;
-            (enemy as any).lastMoveTime = Date.now();
+            enemy.lastMoveTime = Date.now();
             return { action: 'wander', x: newPos.x, y: newPos.y };
         }
         return { action: 'wait_confused' };
@@ -304,7 +315,7 @@ export function processEnemyTurn(enemy: Entity, player: Entity, enemies: Entity[
     switch (behavior) {
         case AI_BEHAVIORS.AGGRESSIVE:
             if (canSee || dist <= 12) {
-                newPos = moveToward(enemy, player.x, player.y, map, spatialHash, player);
+                newPos = moveToward(enemy, player.x, player.y, map, spatialHash);
             }
             break;
 
@@ -317,7 +328,7 @@ export function processEnemyTurn(enemy: Entity, player: Entity, enemies: Entity[
             } else if (dist < optimalRange && canSee) {
                 if (Math.random() < 0.6) newPos = moveAway(enemy, player, map, spatialHash);
             } else if (dist > optimalRange + 2 && canSee) {
-                newPos = moveToward(enemy, player.x, player.y, map, spatialHash, player);
+                newPos = moveToward(enemy, player.x, player.y, map, spatialHash);
             } else if (canSee && Math.random() < 0.2) {
                 const lateralMove = getLateralMove(enemy, player, map, spatialHash);
                 if (lateralMove) newPos = lateralMove;
@@ -333,21 +344,21 @@ export function processEnemyTurn(enemy: Entity, player: Entity, enemies: Entity[
                 );
 
                 if (allies.length > 0) {
-                    const flankPos = getFlankingPosition(player, allies, enemy, map, spatialHash);
+                    const flankPos = getFlankingPosition(player, allies, map, spatialHash);
                     if (flankPos) {
-                        newPos = moveToward(enemy, flankPos.x, flankPos.y, map, spatialHash, player);
+                        newPos = moveToward(enemy, flankPos.x, flankPos.y, map, spatialHash);
                     } else {
-                        newPos = moveToward(enemy, player.x, player.y, map, spatialHash, player);
+                        newPos = moveToward(enemy, player.x, player.y, map, spatialHash);
                     }
                 } else {
-                    newPos = moveToward(enemy, player.x, player.y, map, spatialHash, player);
+                    newPos = moveToward(enemy, player.x, player.y, map, spatialHash);
                 }
             }
             break;
 
         case AI_BEHAVIORS.AMBUSH:
             if (dist <= 4) { // Rango reducido de emboscada
-                newPos = moveToward(enemy, player.x, player.y, map, spatialHash, player);
+                newPos = moveToward(enemy, player.x, player.y, map, spatialHash);
             }
             break;
 
@@ -356,7 +367,7 @@ export function processEnemyTurn(enemy: Entity, player: Entity, enemies: Entity[
                 if (dist <= 2 && Math.random() < 0.3) {
                     newPos = moveAway(enemy, player, map, spatialHash);
                 } else {
-                    newPos = moveToward(enemy, player.x, player.y, map, spatialHash, player);
+                    newPos = moveToward(enemy, player.x, player.y, map, spatialHash);
                 }
             }
             break;
@@ -368,32 +379,10 @@ export function processEnemyTurn(enemy: Entity, player: Entity, enemies: Entity[
 
         enemy.x = newPos.x;
         enemy.y = newPos.y;
-        (enemy as any).lastMoveTime = Date.now();
+        enemy.lastMoveTime = Date.now();
         return { action: 'move', x: newPos.x, y: newPos.y };
     }
 
     return { action: 'wait' };
 }
 
-export function calculateEnemyDamage(enemy: Entity, player: Entity, playerStats: Stats, playerBuffs: Buff[]): { damage: number, evaded: boolean } {
-    const enemyAtk = enemy.attack || 5;
-    const playerDef = playerStats.defense || 0;
-
-    let baseDamage = enemyAtk - playerDef + Math.floor(Math.random() * 3);
-
-    const evasionBonus = playerBuffs.reduce((sum, b) => sum + (b.evasion || 0), 0);
-    if (evasionBonus > 0 && Math.random() < evasionBonus * 0.5) {
-        return { damage: 0, evaded: true };
-    }
-
-    const absorbPercent = playerBuffs.reduce((sum, b) => sum + ((b as any).absorb || 0), 0);
-    if (absorbPercent > 0) {
-        baseDamage = Math.floor(baseDamage * (1 - absorbPercent));
-    }
-
-    if ((enemy as any).marked) {
-        baseDamage = Math.floor(baseDamage * 0.75);
-    }
-
-    return { damage: Math.max(1, baseDamage), evaded: false };
-}

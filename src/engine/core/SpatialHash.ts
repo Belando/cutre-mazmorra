@@ -71,15 +71,19 @@ export class SpatialHash {
     // Reconstrucción total (útil al cambiar de nivel o cargar partida)
     rebuild(gameState: GameState): void {
         this.grid.clear();
-        const { enemies, chests, npcs, items, player } = gameState as any; // Cast to any to access chests/npcs/items if not in GameState interface yet
+        const { enemies, chests, npcs, items, player } = gameState;
 
         // Registramos todo con una propiedad 'type' auxiliar para identificarlo rápido
         if (player) this.add(player.x, player.y, { ...player, type: 'player', ref: player });
 
         // Safety checks for arrays
-        if (enemies) enemies.forEach((e: any) => this.add(e.x, e.y, { ...e, type: 'enemy', ref: e }));
-        if (chests) chests.forEach((c: any) => this.add(c.x, c.y, { ...c, type: 'chest', ref: c }));
-        if (npcs) npcs.forEach((n: any) => this.add(n.x, n.y, { ...n, type: 'npc', ref: n }));
-        if (items) items.forEach((i: any) => this.add(i.x, i.y, { ...i, type: 'item', ref: i }));
+        if (enemies) enemies.forEach(e => this.add(e.x, e.y, { ...e, type: 'enemy', ref: e }));
+        if (chests) chests.forEach(c => this.add(c.x, c.y, { ...c, type: 'chest', ref: c }));
+        if (npcs) npcs.forEach(n => this.add(n.x, n.y, { ...n, type: 'npc', ref: n }));
+        if (items) items.forEach(i => {
+            const ix = i.x ?? 0;
+            const iy = i.y ?? 0;
+            this.add(ix, iy, { ...i, x: ix, y: iy, type: 'item', ref: i });
+        });
     }
 }

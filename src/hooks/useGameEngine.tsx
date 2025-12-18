@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect, useRef } from 'react';
+import { useState, useCallback, useEffect, useRef, useMemo } from 'react';
 import { usePlayer } from './usePlayer';
 import { useDungeon } from './useDungeon';
 import { useInventory } from './useInventory';
@@ -10,8 +10,7 @@ import { useGameActions } from '@/hooks/useGameActions';
 import { SpatialHash } from '@/engine/core/SpatialHash';
 import { loadPlaceholders } from '@/engine/core/PlaceholderGenerator';
 import { spriteManager } from '@/engine/core/SpriteManager';
-import { Entity } from '@/types';
-import { Player } from './usePlayer';
+import { Entity, Player, Enemy, NPC, Item } from '@/types';
 
 export function useGameEngine() {
     const { player, setPlayer, initPlayer, updatePlayer, gainExp, regenerate: regenPlayer } = usePlayer();
@@ -51,12 +50,23 @@ export function useGameEngine() {
     useEffect(() => {
         if (dungeon && dungeon.map && dungeon.map.length > 0) {
             spatialHash.current.rebuild({
-                // @ts-ignore - Player vs Entity mismatch probably
-                player: player || undefined,
+                player: player || null,
                 enemies: dungeon.enemies || [],
                 chests: dungeon.chests || [],
                 npcs: dungeon.npcs || [],
-                items: dungeon.items || []
+                items: dungeon.items || [],
+                torches: dungeon.torches || [],
+                map: dungeon.map,
+                visible: dungeon.visible,
+                explored: dungeon.explored,
+                level: dungeon.level,
+                bossDefeated: dungeon.bossDefeated,
+                inventory,
+                equipment,
+                questProgress,
+                materials,
+                effectsManager: effectsManager.current,
+                spatialHash: spatialHash.current
             });
         }
     }, [dungeon?.level, dungeon?.map, gameStarted, player]);
@@ -106,7 +116,6 @@ export function useGameEngine() {
         regenPlayer();
         const dungeonState = enemiesOverride ? { ...dungeon, enemies: enemiesOverride } : dungeon;
 
-        // @ts-ignore - Player null check
         if (!currentPlayerState) return;
 
         processTurn({
@@ -132,14 +141,11 @@ export function useGameEngine() {
         if (!existingPlayer && !player) initPlayer(null, playerClass, playerName);
         else if (existingPlayer) setPlayer({ ...existingPlayer, x: 0, y: 0 });
 
-        // @ts-ignore
-        const pLevel = existingPlayer?.level || 1;
+        const pLevel = existingPlayer?.level || player?.level || 1;
         const newDungeon = generateLevel(level, pLevel);
 
         if (newDungeon) {
-            // @ts-ignore
-            updatePlayer({ x: newDungeon.playerStart.x, y: newDungeon.playerStart.y, floor: level });
-            // @ts-ignore
+            updatePlayer({ x: newDungeon.playerStart.x, y: newDungeon.playerStart.y });
             updateMapFOV(newDungeon.playerStart.x, newDungeon.playerStart.y);
         } else {
             console.error("Failed to init game level", level);
@@ -151,7 +157,7 @@ export function useGameEngine() {
     }, [playerClass, playerName, generateLevel, initPlayer, updatePlayer, updateMapFOV, addMessage, player]);
 
     // --- ACTIONS CONTEXT ---
-    const actionsContext = {
+    const actionsContext = useMemo(() => ({
         player, setPlayer, updatePlayer, gainExp,
         dungeon, setDungeon,
         inventory, setInventory, addItem,
@@ -168,8 +174,14 @@ export function useGameEngine() {
         setGameStarted, setGameOver, setPlayerName, setSelectedSkill, setRangedMode, setRangedTargets, setMessages, updateMapFOV,
         playerName, selectedAppearance, setSelectedAppearance, setPlayerClass,
         handleEnemyDeath, executeSkillAction, selectedSkill,
-        spatialHash: spatialHash.current // Pasar Hash a Acciones
-    };
+        spatialHash: spatialHash.current
+    }), [
+        player, dungeon, inventory, equipment, materials, quickSlots, stats, activeQuests, completedQuests, questProgress,
+        initGame, executeTurn, addMessage, showFloatingText,
+        setGameStarted, setGameOver, setPlayerName, setSelectedSkill, setRangedMode, setRangedTargets, setMessages, updateMapFOV,
+        playerName, selectedAppearance, setPlayerClass,
+        handleEnemyDeath, executeSkillAction, selectedSkill
+    ]);
 
     const actions = useGameActions(actionsContext as any);
 
@@ -178,24 +190,26 @@ export function useGameEngine() {
     useEffect(() => {
         if (player && player.level > 1 && gameStarted) {
             soundManager.play('levelUp');
-            // @ts-ignore
             effectsManager.current.addSparkles(player.x, player.y, '#ffff00');
             addMessage(`¡Nivel ${player.level} alcanzado!`, 'levelup');
         }
     }, [player?.level]);
 
-    const gameState = {
+    const gameState = useMemo(() => ({
         player, map: dungeon.map, enemies: dungeon.enemies, items: dungeon.items, chests: dungeon.chests,
         torches: dungeon.torches, npcs: dungeon.npcs, stairs: dungeon.stairs, stairsUp: dungeon.stairsUp,
         visible: dungeon.visible, explored: dungeon.explored, level: dungeon.level, bossDefeated: dungeon.bossDefeated,
         inventory, equipment, questProgress, materials, effectsManager: effectsManager.current,
-        spatialHash: spatialHash.current // Exportar Hash en Estado
-    };
+        spatialHash: spatialHash.current
+    }), [player, dungeon, inventory, equipment, questProgress, materials]);
+
+    const playerInfo = useMemo(() => ({ name: playerName, class: playerClass, appearance: selectedAppearance }), [playerName, playerClass, selectedAppearance]);
+    const uiState = useMemo(() => ({ activeQuests, completedQuests, questProgress, materials, quickSlots, selectedSkill, rangedMode, rangedTargets }), [activeQuests, completedQuests, questProgress, materials, quickSlots, selectedSkill, rangedMode, rangedTargets]);
 
     return {
         gameState, gameStarted, gameOver, messages, stats,
-        playerInfo: { name: playerName, class: playerClass, appearance: selectedAppearance },
-        uiState: { activeQuests, completedQuests, questProgress, materials, quickSlots, selectedSkill, rangedMode, rangedTargets },
+        playerInfo,
+        uiState,
         actions
     };
 }
