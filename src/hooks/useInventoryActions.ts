@@ -23,6 +23,7 @@ export interface InventoryActionsContext {
     quickSlots: (QuickSlotData | null)[];
     setQuickSlots: React.Dispatch<React.SetStateAction<(QuickSlotData | null)[]>>;
     reorderInventory?: (from: number, to: number) => void;
+    resetInventory: () => void;
 }
 
 export function useInventoryActions(context: InventoryActionsContext) {
@@ -37,7 +38,6 @@ export function useInventoryActions(context: InventoryActionsContext) {
 
     const useItem = (index: number) => {
         const newInv = [...inventory];
-        // @ts-ignore - resolve after conversion
         const res = useItemLogic(newInv, index, player);
         if (res.success) {
             setInventory(newInv);
@@ -53,7 +53,6 @@ export function useInventoryActions(context: InventoryActionsContext) {
     };
 
     const equipItem = (idx: number) => {
-        // @ts-ignore
         const res = equipItemLogic(inventory, idx, equipment, player);
         if (res.success) {
             if (res.newInventory) setInventory(res.newInventory);
@@ -67,7 +66,6 @@ export function useInventoryActions(context: InventoryActionsContext) {
     };
 
     const unequipItem = (slot: string) => {
-        // @ts-ignore
         const res = unequipItemLogic(equipment, slot, inventory, player);
         if (res.success) {
             soundManager.play('stairs'); // Fallback sound if equip not available or similar
@@ -155,6 +153,8 @@ export function useInventoryActions(context: InventoryActionsContext) {
         upgradeItem,
         assignQuickSlot,
         useQuickSlot,
-        reorderInventory
+        useQuickSlot,
+        reorderInventory,
+        resetInventory: context.resetInventory
     };
 }

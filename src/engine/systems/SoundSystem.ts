@@ -1,6 +1,5 @@
 // src/engine/systems/SoundSystem.ts
-
-type OscillatorType = 'sine' | 'square' | 'sawtooth' | 'triangle' | 'custom';
+import { SoundEffectName, SOUND_ASSETS, SOUND_SETTINGS } from '@/data/sounds';
 
 interface FireAmbience {
     node: AudioBufferSourceNode | null;
@@ -12,17 +11,18 @@ interface Ambience {
     timer: NodeJS.Timeout | null;
 }
 
-export type SoundEffectName =
-    | 'step' | 'chest' | 'door' | 'stairs' | 'pickup' | 'equip' | 'error' | 'levelUp'
-    | 'attack' | 'hit' | 'enemy_hit' | 'critical' | 'kill' | 'anvil'
-    | 'fireball' | 'ice' | 'heal' | 'buff' | 'magic'
-    | 'start_adventure' | 'gameOver' | 'speech';
+export type { SoundEffectName };
 
 export class SoundSystem {
     ctx: AudioContext | null;
     enabled: boolean;
     masterVolume: number;
     ambience: Ambience;
+    buffers: Map<string, AudioBuffer> = new Map();
+
+    private activeAmbienceNodes: AudioNode[] = [];
+    private ambienceSource: AudioBufferSourceNode | null = null;
+    currentAmbiencePath: string | null = null;
 
     constructor() {
         this.ctx = null;
@@ -46,55 +46,47 @@ export class SoundSystem {
     }
 
     // ==========================================
-    // 1. SINTETIZADOR FM (16-BIT RETRO)
-    // ==========================================
-    playFM(carrierFreq: number, modFreq: number, modIndex: number, duration: number, type: OscillatorType = 'sine', vol: number = 0.1): void {
-        if (!this.enabled) return;
-        this.init();
-        if (!this.ctx) return;
-
-        const t = this.ctx.currentTime;
-
-        const carrier = this.ctx.createOscillator();
-        carrier.type = type;
-        carrier.frequency.setValueAtTime(carrierFreq, t);
-
-        const modulator = this.ctx.createOscillator();
-        modulator.frequency.setValueAtTime(modFreq, t);
-
-        const modGain = this.ctx.createGain();
-        modGain.gain.setValueAtTime(modIndex, t);
-        modGain.gain.exponentialRampToValueAtTime(1, t + duration);
-
-        const masterGain = this.ctx.createGain();
-        masterGain.gain.setValueAtTime(0, t);
-        masterGain.gain.linearRampToValueAtTime(vol * this.masterVolume, t + 0.02);
-        masterGain.gain.exponentialRampToValueAtTime(0.001, t + duration);
-
-        modulator.connect(modGain);
-        modGain.connect(carrier.frequency);
-        carrier.connect(masterGain);
-        masterGain.connect(this.ctx.destination);
-
-        carrier.start();
-        modulator.start();
-        carrier.stop(t + duration);
-        modulator.stop(t + duration);
-    }
-
-    // ==========================================
     // 2. AMBIENTE
     // ==========================================
 
     initAmbience(): void {
         if (!this.enabled) return;
         this.init();
-        if (!this.ambience.fire.node) this.ambience.fire = this.createFireLoop();
+        if (!this.ambience.fire.node) {
+            this.createFireLoop(); // Async, fire & forget
+        }
+    }
+
+    async createFireLoop(): Promise<void> {
+        if (!this.ctx) return;
+
+        // 1. Intentar cargar sample de fuego
+        const fireBuffer = await this.loadAsset('/sounds/ambience/torch_loop.wav');
+
+        // Si ya hay nodo (race condition), pararlo
+        if (this.ambience.fire.node) {
+            try { this.ambience.fire.node.stop(); } catch (e) { }
+        }
+
+        if (fireBuffer) {
+            const gain = this.ctx.createGain();
+            gain.gain.value = 0;
+
+            const source = this.ctx.createBufferSource();
+            source.buffer = fireBuffer;
+            source.loop = true;
+            source.connect(gain);
+            gain.connect(this.ctx.destination);
+            source.start();
+
+            this.ambience.fire = { node: source, gain: gain };
+        }
+        // Si no carga, silencio total (sin fallback sintético)
     }
 
     stopAmbience(): void {
         if (this.ambience.fire.node) {
-            this.ambience.fire.node.stop();
+            try { this.ambience.fire.node.stop(); } catch (e) { }
             this.ambience.fire.node = null;
         }
         if (this.ambience.timer) {
@@ -105,178 +97,161 @@ export class SoundSystem {
 
     updateFireAmbience(distance: number): void {
         if (!this.ambience.fire.gain || !this.ctx) return;
-        const maxDist = 5;
+        const maxDist = 8; // Aumentado radio de escucha
         let vol = 0;
         if (distance < maxDist) {
+            // Caída lineal para que se escuche mejor a media distancia (3-4 tiles)
             const factor = 1 - (distance / maxDist);
-            vol = factor * factor * 0.08;
+            vol = factor * 0.3;
         }
         this.ambience.fire.gain.gain.setTargetAtTime(vol, this.ctx.currentTime, 0.5);
     }
 
-    createFireLoop(): FireAmbience {
-        if (!this.ctx) return { node: null, gain: null };
 
-        const bufferSize = this.ctx.sampleRate * 5;
-        const buffer = this.ctx.createBuffer(1, bufferSize, this.ctx.sampleRate);
-        const data = buffer.getChannelData(0);
-        let lastOut = 0;
+    // ==========================================
+    // SYSTEMA DE AUDIO BASADO EN SAMPLES
+    // ==========================================
 
-        for (let i = 0; i < bufferSize; i++) {
-            const white = Math.random() * 2 - 1;
-            lastOut = (lastOut + (0.02 * white)) / 1.002;
-            const flicker = 0.8 + 0.2 * Math.sin(i * 0.0005) * Math.sin(i * 0.003);
-            data[i] = lastOut * flicker * 0.5;
+    // Preload opcional
+    async loadAsset(name: SoundEffectName | string): Promise<AudioBuffer | null> {
+        const path = (SOUND_ASSETS as any)[name] || name;
+        if (!path) return null;
 
-            if (Math.random() < 0.0008) {
-                const snapStrength = 0.5 + Math.random() * 0.5;
-                const snapLength = Math.floor(10 + Math.random() * 30);
-                for (let j = 0; j < snapLength; j++) {
-                    if (i + j < bufferSize) {
-                        const snapNoise = (Math.random() * 2 - 1) * snapStrength;
-                        const envelope = 1 - (j / snapLength);
-                        data[i + j] += snapNoise * envelope;
-                    }
-                }
-            }
+        if (this.buffers.has(name)) return this.buffers.get(name)!;
+
+        try {
+            const response = await fetch(path);
+            if (!response.ok) throw new Error(`HTTP ${response.status}`);
+            const arrayBuffer = await response.arrayBuffer();
+            const audioBuffer = await this.ctx!.decodeAudioData(arrayBuffer);
+            this.buffers.set(name, audioBuffer);
+            return audioBuffer;
+        } catch (e) {
+            // console.warn(`Failed to load audio: ${name}`, e);
+            return null;
         }
-        const noise = this.ctx.createBufferSource();
-        noise.buffer = buffer;
-        noise.loop = true;
-        const filter = this.ctx.createBiquadFilter();
-        filter.type = 'lowshelf';
-        filter.frequency.value = 200;
-        filter.gain.value = 10;
-        const gain = this.ctx.createGain();
-        gain.gain.value = 0;
-
-        noise.connect(filter);
-        filter.connect(gain);
-        gain.connect(this.ctx.destination);
-        noise.start();
-        return { node: noise, gain: gain };
     }
 
-    // --- 3. GENERADOR DE RUIDO ---
-    playNoise(duration: number, vol: number = 0.1, filterFreq: number = 500): void {
+    playSample(name: SoundEffectName, vol: number = 1.0, pitch: number = 1.0): boolean {
+        // Intenta cargar si no está, pero no bloquea (fire & forget para la próxima)
+        if (!this.buffers.has(name)) {
+            this.loadAsset(name).then(buffer => {
+                if (buffer) this.playSample(name, vol, pitch);
+            });
+            return false;
+        }
+
+        const buffer = this.buffers.get(name);
+        if (!buffer || !this.ctx) return false;
+
+        const source = this.ctx.createBufferSource();
+        source.buffer = buffer;
+        source.playbackRate.value = pitch;
+
+        const gain = this.ctx.createGain();
+        // Ajuste de volumen para samples (suelen sonar fuerte)
+        gain.gain.value = vol * this.masterVolume * 0.8;
+
+        source.connect(gain).connect(this.ctx.destination);
+        source.start();
+        return true;
+    }
+
+    // ==========================================
+    // 4. MÚSICA & AMBIENTE (MEJORADO)
+    // ==========================================
+
+    async playDungeonAmbience(): Promise<void> {
         if (!this.enabled) return;
         this.init();
-        if (!this.ctx) return;
+        this.stopAmbienceMusic();
 
-        const bufferSize = this.ctx.sampleRate * duration;
-        const buffer = this.ctx.createBuffer(1, bufferSize, this.ctx.sampleRate);
-        const data = buffer.getChannelData(0);
-        for (let i = 0; i < bufferSize; i++) data[i] = Math.random() * 2 - 1;
-        const noise = this.ctx.createBufferSource();
-        noise.buffer = buffer;
-        const filter = this.ctx.createBiquadFilter();
-        filter.type = 'lowpass';
-        filter.frequency.setValueAtTime(filterFreq, this.ctx.currentTime);
-        filter.frequency.linearRampToValueAtTime(50, this.ctx.currentTime + duration);
-        const gain = this.ctx.createGain();
-        gain.gain.setValueAtTime(vol * this.masterVolume, this.ctx.currentTime);
-        gain.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + duration);
-        noise.connect(filter);
-        filter.connect(gain);
-        gain.connect(this.ctx.destination);
-        noise.start();
+        // A. Intentar cargar sample loop real
+        const path = '/sounds/ambience/dungeon_loop.mp3';
+        try {
+            const response = await fetch(path);
+            if (response.ok) {
+                const arrayBuffer = await response.arrayBuffer();
+                const audioBuffer = await this.ctx!.decodeAudioData(arrayBuffer);
+
+                const source = this.ctx!.createBufferSource();
+                source.buffer = audioBuffer;
+                source.loop = true;
+                const gain = this.ctx!.createGain();
+                gain.gain.value = 0.4 * this.masterVolume;
+
+                source.connect(gain).connect(this.ctx!.destination);
+                source.start();
+                this.ambienceSource = source;
+                this.activeAmbienceNodes.push(source, gain);
+                this.currentAmbiencePath = path;
+                return; // Éxito
+            }
+        } catch (e) { }
+
+        // B. Si falla, silencio.
     }
 
-    // --- 4. CATÁLOGO DE EFECTOS ---
+    stopAmbienceMusic(): void {
+        if (this.ambienceSource) {
+            try { this.ambienceSource.stop(); } catch (e) { }
+            this.ambienceSource = null;
+        }
+        this.activeAmbienceNodes.forEach(node => {
+            try {
+                if (node instanceof AudioBufferSourceNode || node instanceof OscillatorNode) {
+                    node.stop();
+                    node.disconnect();
+                } else {
+                    node.disconnect();
+                }
+            } catch (e) { }
+        });
+        this.activeAmbienceNodes = [];
+    }
+
+    async playVictoryTheme(): Promise<void> {
+        if (!this.enabled) return;
+        this.init();
+        this.stopAmbienceMusic();
+
+        // A. Intentar cargar sample
+        const path = '/sounds/music/victory.mp3';
+        try {
+            const response = await fetch(path);
+            if (response.ok) {
+                const arrayBuffer = await response.arrayBuffer();
+                const audioBuffer = await this.ctx!.decodeAudioData(arrayBuffer);
+                const source = this.ctx!.createBufferSource();
+                source.buffer = audioBuffer;
+                const gain = this.ctx!.createGain();
+                gain.gain.value = 0.5 * this.masterVolume;
+                source.connect(gain).connect(this.ctx!.destination);
+                source.start();
+                this.activeAmbienceNodes.push(source, gain);
+            }
+        } catch (e) { }
+        // B. Si falla, silencio.
+    }
+
+    // ==========================================
+    // 5. CATÁLOGO DE EFECTOS
+    // ==========================================
     play(effectName: SoundEffectName): void {
         try {
             this.init();
-            switch (effectName) {
 
-                // INTERACCIÓN
-                case 'step':
-                    this.playNoise(0.06, 0.2, 150 + Math.random() * 200);
-                    break;
-                case 'chest':
-                    this.playFM(600, 1200, 500, 0.5, 'sine', 0.2);
-                    this.playNoise(0.3, 0.2, 300);
-                    break;
-                case 'door':
-                    this.playFM(60, 30, 80, 0.4, 'sawtooth', 0.3);
-                    setTimeout(() => this.playNoise(0.15, 0.5, 200), 250);
-                    break;
-                case 'stairs':
-                    this.playNoise(0.25, 0.8, 200);
-                    setTimeout(() => this.playNoise(0.3, 0.6, 150), 300);
-                    break;
-                case 'pickup':
-                    this.playFM(1500, 3000, 200, 0.1, 'sine', 0.15);
-                    setTimeout(() => this.playFM(2000, 4000, 200, 0.2, 'sine', 0.15), 50);
-                    break;
-                case 'equip':
-                    this.playNoise(0.1, 0.2, 800);
-                    break;
-                case 'error': // NUEVO SONIDO
-                    this.playFM(150, 50, 100, 0.3, 'sawtooth', 0.2);
-                    break;
-                case 'levelUp':
-                    const base = 440;
-                    [1, 1.25, 1.5, 2].forEach((r, i) => {
-                        setTimeout(() => this.playFM(base * r, base * r * 2, 300, 0.4, 'triangle', 0.2), i * 100);
-                    });
-                    break;
+            // 1. CARGAR SETTINGS DESDE DATA (Refactorizado)
+            const settings = SOUND_SETTINGS[effectName] || SOUND_SETTINGS['default'];
+            const vol = settings.volume;
+            const pitch = settings.pitch;
 
-                // COMBATE
-                case 'attack':
-                    this.playNoise(0.15, 0.2, 1500);
-                    this.playFM(800, 1200, 200, 0.15, 'triangle', 0.1);
-                    break;
-                case 'hit':
-                    this.playNoise(0.12, 0.4, 300);
-                    break;
-                case 'enemy_hit':
-                    this.playFM(120, 40, 20, 0.25, 'triangle', 0.5);
-                    this.playNoise(0.2, 0.6, 300);
-                    break;
-                case 'critical':
-                    this.playFM(800, 150, 1000, 0.2, 'square', 0.2);
-                    this.playNoise(0.2, 0.5, 800);
-                    break;
-                case 'kill':
-                    this.playFM(100, 50, 100, 0.4, 'sine', 0.3);
-                    break;
-                case 'anvil':
-                    this.playFM(700, 1200, 1500, 0.4, 'sine', 0.3);
-                    setTimeout(() => { this.playFM(1800, 0, 0, 0.8, 'sine', 0.1); }, 10);
-                    this.playNoise(0.05, 0.3, 1000);
-                    break;
-
-                // MAGIA
-                case 'fireball':
-                    this.playNoise(0.5, 0.4, 400);
-                    this.playFM(150, 600, 500, 0.3, 'sawtooth', 0.2);
-                    break;
-                case 'ice':
-                    this.playFM(1200, 434, 1000, 0.2, 'sine', 0.2);
-                    setTimeout(() => this.playFM(1800, 567, 800, 0.2, 'sine', 0.1), 50);
-                    break;
-                case 'heal':
-                    this.playFM(400, 800, 200, 0.6, 'sine', 0.15);
-                    setTimeout(() => this.playFM(600, 1200, 200, 0.6, 'sine', 0.15), 150);
-                    break;
-                case 'buff':
-                    this.playFM(300, 600, 800, 0.4, 'square', 0.15);
-                    break;
-                case 'magic':
-                    this.playFM(1200, 434, 1000, 0.2, 'sine', 0.2);
-                    break;
-
-                case 'start_adventure':
-                    this.playFM(220, 440, 200, 0.5, 'triangle', 0.2);
-                    setTimeout(() => this.playFM(330, 660, 200, 0.5, 'triangle', 0.2), 150);
-                    break;
-                case 'gameOver':
-                    this.playFM(100, 50, 300, 1.5, 'sawtooth', 0.4);
-                    break;
-                case 'speech':
-                    this.playFM(300 + Math.random() * 100, 50, 100, 0.05, 'square', 0.1);
-                    break;
+            // 2. REPRODUCIR SAMPLE
+            const played = this.playSample(effectName, vol, pitch);
+            if (!played) {
+                // Silently failed or loading
             }
+
         } catch (e) {
             console.warn("Audio error:", e);
         }

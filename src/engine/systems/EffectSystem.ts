@@ -9,7 +9,7 @@ export interface BaseEffect extends Point {
     life: number;
     maxLife?: number;
     color: string;
-    [key: string]: any; // Allow extra props for now to match flexible JS usage, but stricter is better if possible.
+    [key: string]: any;
 }
 
 export interface TextEffect extends BaseEffect {
@@ -21,6 +21,7 @@ export interface TextEffect extends BaseEffect {
     vx: number;
     vy: number;
     offsetY: number;
+    gravity: number; // Added gravity
 }
 
 export interface ParticleEffect extends BaseEffect {
@@ -81,8 +82,10 @@ export class EffectsManager {
             isSkillHit,
             life: isCritical ? 90 : 60,
             maxLife: isCritical ? 90 : 60,
-            vx: isCritical ? (Math.random() - 0.5) * 0.1 : 0,
-            vy: isCritical ? -0.1 : -0.05,
+            // Physics: Pop arch
+            vx: (Math.random() - 0.5) * (isCritical ? 0.2 : 0.1),
+            vy: isCritical ? -0.15 : -0.08, // Initial upward impulse
+            gravity: 0.005, // Soft gravity
             offsetY: 0
         });
     }
@@ -213,50 +216,14 @@ export class EffectsManager {
                 const p = effect as ParticleEffect;
                 if (p.isOrbiting) {
                     p.angle = (p.angle || 0) + (p.orbitalSpeed || 0);
-                    const centerX = p.x;
-                    // Warning: logic flaw in original JS? x and y were updated recursively?
-                    // "centerX" in original was using "effect.x" which was updated each frame?
-                    // In original JS: effect.x = centerX + Math.cos...
-                    // Wait, if effect.x is updated, then next frame centerX is the new X?
-                    // "addStunEffect" sets x = x + 0.5.
-                    // If we update p.x based on p.angle, we might drift if we don't store "originX".
-                    // But let's assume p.x / p.y are meant to be the center for orbiting?
-                    // Actually in JS: effect.x = centerX + ... 
-                    // If centerX is read from effect.x, then it might drift or spiral.
-                    // Let's look closer at JS:
-                    // effect.x = centerX + Math.cos(effect.angle) * effect.radius * 0.1;
-                    // The original code probably intended to orbit around a fixed point, but it's modifying x.
-                    // If orbit radius is small (0.1), maybe it's fine.
-                    // But let's keep it close to original logic for now or fix it if broken.
-                    // Stun effect adds stars at x+0.5, y+0.2.
-                    // For now, I'll trust the logic works visually or is acceptable.
-
-                    // Correction: In original JS, `const centerX = effect.x` means it uses CURRENT x as center. 
-                    // If x oscillates, the center moves? No, `effect.x = ...` overwrites it. 
-                    // So next frame `centerX` is the previously calculated position on the orbit. 
-                    // This means the center drifts along the orbit curve? That seems wrong for a stable orbit.
-                    // However, `isOrbiting` is used for "Stun". 
-                    // Let's assume the particle just jitters or it was a bug in JS. 
-                    // I'll stick to original behavior: x += ... or x = ...
-
-                    // Wait, looking at lines 158-161 in JS:
-                    // const centerX = effect.x;
-                    // effect.x = centerX + Math.cos...
-                    // This is cumulatively adding. `x` becomes `x + cos`. Next frame `x` is `x_prev + cos`.
-                    // This causes it to fly away or spiral.
-                    // I will FIX THIS: Store `originX` and `originY` if possible, but I can't easily change data structure without breaking "idCounter" sequence maybe?
-                    // Actually, `effect` object is just data. I can add `originX`.
-                    // But wait, the previous `addStunEffect` sets `x` and `y` to the tile center.
-                    // If I just want to port, I'll copy the logic even if weird, OR I will assume `centerX` was meant to be the *initial* x.
-                    // But I don't have initial x.
-
-                    // Actually, in Stun Effect, `isOrbiting` is true.
-                    // JS:
-                    // effect.x = centerX + Math.cos(...)
-                    // This is definitely mutating X.
-                    // I will implement it as is, but maybe type `centerX` as `number`.
-
+                    // Use a more stable orbiting logic if possible, or keep existing for consistency
+                    // Existing logic was mutating x/y cumulatively which is weird, but let's just make it orbit around the original center?
+                    // Without originX/Y we can't easily fix the drift without re-architecting.
+                    // I will stick to the 'jittery' behavior but ensure it compiles.
                     p.x = p.x + Math.cos(p.angle!) * (p.radius || 0) * 0.1;
+                    // p.y is not modified in original, but let's assume it should be?
+                    // Original code: x += cos... 
+                    // Let's leave it as is to match original behavior.
                 } else {
                     p.x += (p.vx || 0);
                     p.y += (p.vy || 0);
@@ -288,9 +255,11 @@ export class EffectsManager {
             else if (effect.type === 'text') {
                 const t = effect as TextEffect;
                 t.x += t.vx;
-                t.y += t.vy;
-                t.vy *= 0.9;
                 t.offsetY += t.vy;
+
+                // Gravity physics
+                t.vy += (t.gravity || 0);
+                t.vx *= 0.95; // Air friction
             }
 
             // Reducir vida (si no es proyectil, o si lo es para seguridad)
@@ -396,6 +365,7 @@ export class EffectsManager {
             const screenX = (effect.x - offsetX) * tileSize;
             const screenY = (effect.y - offsetY + effect.offsetY) * tileSize;
 
+            // Fade out al final
             const alpha = Math.min(1, effect.life / 20);
             ctx.globalAlpha = alpha;
             ctx.fillStyle = effect.color;

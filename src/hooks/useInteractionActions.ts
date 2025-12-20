@@ -38,6 +38,7 @@ export function useInteractionActions(context: InteractionActionsContext) {
     } = context;
 
     const interact = (): InteractionResult | null => {
+        if (!player) return null; // Safety check
         const dirs = [[0, 1], [0, -1], [1, 0], [-1, 0]];
         for (const [dx, dy] of dirs) {
             const tx = player.x + dx;

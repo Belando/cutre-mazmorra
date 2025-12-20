@@ -29,7 +29,7 @@ describe('useTurnSystem', () => {
     const mockSetPlayer = vi.fn();
     const mockAddMessage = vi.fn();
     const mockSetGameOver = vi.fn();
-    const mockSpatialHash = { rebuild: vi.fn() };
+    const mockSpatialHash = { rebuild: vi.fn(), updatePlayer: vi.fn() };
 
     beforeEach(() => {
         vi.clearAllMocks();

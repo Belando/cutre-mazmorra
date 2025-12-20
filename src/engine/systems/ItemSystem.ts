@@ -1,5 +1,5 @@
-import { ITEM_TEMPLATES, WEAPON_TYPES, ARMOR_TYPES, RARITY_CONFIG } from '@/data/items';
-import { Item, Entity, Stats } from '@/types';
+import { ITEM_TEMPLATES, WEAPON_TYPES, ARMOR_TYPES, RARITY_CONFIG, RarityInfo } from '@/data/items';
+import { Item, Entity, Stats, EquipmentState } from '@/types';
 
 // --- NUEVO: SISTEMA DE PREFIJOS (AFIJOS) ---
 
@@ -40,11 +40,11 @@ function getItemLevelTier(dungeonLevel: number): number {
 }
 
 function generateRarity(): 'common' | 'rare' | 'epic' | 'legendary' {
-  const totalWeight = Object.values(RARITY_CONFIG).reduce((sum: number, r: any) => sum + r.weight, 0);
+  const totalWeight = Object.values(RARITY_CONFIG).reduce((sum: number, r: RarityInfo) => sum + r.weight, 0);
   let random = Math.random() * totalWeight;
 
   for (const [key, config] of Object.entries(RARITY_CONFIG)) {
-    random -= (config as any).weight;
+    random -= (config as RarityInfo).weight;
     if (random <= 0) return key as 'common' | 'rare' | 'epic' | 'legendary';
   }
   return 'common';
@@ -247,11 +247,11 @@ export interface EquipResult {
   success: boolean;
   message?: string;
   newInventory?: Item[];
-  newEquipment?: any; // Define Equipment type later if needed
+  newEquipment?: EquipmentState;
   newPlayer?: Entity;
 }
 
-export function equipItem(inventory: Item[], index: number, equipment: any, player: Entity): EquipResult {
+export function equipItem(inventory: Item[], index: number, equipment: EquipmentState, player: Entity): EquipResult {
   const item = inventory[index];
   if (!item || !item.slot) return { success: false, message: 'No equipable' };
 
@@ -279,8 +279,8 @@ export function equipItem(inventory: Item[], index: number, equipment: any, play
   return { success: true, message: `Equipado: ${itemToEquip.name}`, newInventory, newEquipment, newPlayer };
 }
 
-export function unequipItem(equipment: any, slot: string, inventory: Item[], player: Entity, maxSlots = 64): EquipResult {
-  const item = equipment[slot];
+export function unequipItem(equipment: EquipmentState, slot: string, inventory: Item[], player: Entity, maxSlots = 64): EquipResult {
+  const item = (equipment as any)[slot];
   if (!item) return { success: false, message: 'Nada' };
   if (inventory.length >= maxSlots) return { success: false, message: 'Lleno' };
 

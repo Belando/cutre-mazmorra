@@ -28,43 +28,49 @@ function reconstructPath(node: PathNode): Point | null {
     return inverted.length > 0 ? inverted[0] : null;
 }
 
+import { BinaryHeap } from './BinaryHeap';
+
 export function findPath(startX: number, startY: number, targetX: number, targetY: number, map: number[][]): Point | null {
     // Inicialización de conjuntos
-    const openSet: PathNode[] = [];
+    const openSet = new BinaryHeap<PathNode>();
+    const openSetNodes = new Map<string, PathNode>(); // Para búsqueda rápida en openSet
     const closedSet = new Set<string>();
 
     // Nodo inicial
     const startNode: PathNode = {
         x: startX,
         y: startY,
-        g: 0, // Coste real desde el inicio
-        f: 0, // Coste total estimado
+        g: 0,
+        f: 0,
         parent: null,
     };
 
     startNode.f = heuristic(startNode, { x: targetX, y: targetY });
     openSet.push(startNode);
+    openSetNodes.set(`${startX},${startY}`, startNode);
 
-    // Límite de seguridad para evitar cuelgues en mapas muy grandes
+    // Límite de seguridad
     let iterations = 0;
-    const maxIterations = 1000;
+    const maxIterations = 2000; // Increased limit for better pathing
 
-    while (openSet.length > 0) {
+    while (openSet.size() > 0) {
         iterations++;
         if (iterations > maxIterations) return null;
 
-        // 1. Obtener el nodo con menor coste F
-        openSet.sort((a, b) => a.f - b.f);
-        const current = openSet.shift();
+        // 1. Obtener el nodo con menor coste F (O(1) pop, O(logN) rebalance)
+        const current = openSet.pop();
 
-        if (!current) break; // Should not happen based on while check
+        if (!current) break;
+
+        const currentKey = `${current.x},${current.y}`;
+        openSetNodes.delete(currentKey); // Ya no está en openSet
 
         // 2. ¿Hemos llegado?
         if (current.x === targetX && current.y === targetY) {
             return reconstructPath(current);
         }
 
-        closedSet.add(`${current.x},${current.y}`);
+        closedSet.add(currentKey);
 
         // 3. Explorar vecinos (Arriba, Abajo, Izquierda, Derecha)
         const neighbors = [
@@ -75,8 +81,10 @@ export function findPath(startX: number, startY: number, targetX: number, target
         ];
 
         for (const neighborPos of neighbors) {
+            const neighborKey = `${neighborPos.x},${neighborPos.y}`;
+
             // Ignorar si ya evaluado
-            if (closedSet.has(`${neighborPos.x},${neighborPos.y}`)) continue;
+            if (closedSet.has(neighborKey)) continue;
 
             // Verificar límites del mapa
             if (
@@ -87,20 +95,16 @@ export function findPath(startX: number, startY: number, targetX: number, target
             )
                 continue;
 
-            // Verificar si es un muro (Asumimos 0 = WALL según tus constantes)
+            // Verificar si es un muro
             const isWall = map[neighborPos.y][neighborPos.x] === 0;
 
-            // Permitimos que el destino sea un muro (para atacar al jugador si está en una puerta),
-            // pero el camino intermedio debe ser libre.
             if (isWall && (neighborPos.x !== targetX || neighborPos.y !== targetY))
                 continue;
 
             const gScore = current.g + 1;
 
-            // Comprobar si ya encontramos un camino mejor a este vecino
-            const existingNode = openSet.find(
-                (n) => n.x === neighborPos.x && n.y === neighborPos.y
-            );
+            // Comprobar si ya está en openSet
+            const existingNode = openSetNodes.get(neighborKey);
 
             if (!existingNode) {
                 const newNode: PathNode = {
@@ -111,12 +115,20 @@ export function findPath(startX: number, startY: number, targetX: number, target
                     parent: current,
                 };
                 openSet.push(newNode);
+                openSetNodes.set(neighborKey, newNode);
             } else if (gScore < existingNode.g) {
                 // Actualizar camino si este es más rápido
                 existingNode.g = gScore;
-                existingNode.f =
-                    gScore + heuristic(neighborPos, { x: targetX, y: targetY });
+                existingNode.f = gScore + heuristic(neighborPos, { x: targetX, y: targetY });
                 existingNode.parent = current;
+
+                // IMPORTANTE: Reordenar el heap porque 'f' cambió
+                // Usamos rescoreElement pero necesitamos la implementación específica
+                // Si BinaryHeap.rescoreElement asume que sabemos índice...
+                // Nuestra implementación actual de rescoreElement busca por índice con indexOf, lo cual es O(N).
+                // Una optimización real requeriría que el nodo sepa su índice en el heap. 
+                // Pero indexOf es mejor que sort() completo.
+                openSet.rescoreElement(existingNode);
             }
         }
     }

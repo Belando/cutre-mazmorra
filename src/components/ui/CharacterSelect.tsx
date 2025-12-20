@@ -11,12 +11,28 @@ interface CharacterSelectProps {
     onNameChange: (name: string) => void;
 }
 
-export default function CharacterSelect({ onSelect, playerName, onNameChange }: CharacterSelectProps) {
-    const [selectedIndex, setSelectedIndex] = useState(0);
+import { useMenuNavigation } from '@/hooks/useMenuNavigation';
 
+export default function CharacterSelect({ onSelect, playerName, onNameChange }: CharacterSelectProps) {
     const appearanceKeys = Object.keys(PLAYER_APPEARANCES);
-    const currentAppearance = (PLAYER_APPEARANCES as any)[appearanceKeys[selectedIndex]];
+
+    // We lift the state control to the hook, or sync them.
+    // The hook manages its own index. We can use that.
+    const { selectedIndex, setSelectedIndex } = useMenuNavigation({
+        itemsCount: appearanceKeys.length,
+        cols: 1, // Horizontal list behaves like 1 col if we map left/right to up/down or change hook? 
+        // My hook maps Up/Down to +/- cols and Left/Right to +/- 1. 
+        // So default Left/Right works for 1D list.
+        loop: true,
+        onSelect: (index) => {
+            const key = appearanceKeys[index];
+            const appearance = (PLAYER_APPEARANCES as any)[key];
+            onSelect(key, appearance);
+        }
+    });
+
     const currentKey = appearanceKeys[selectedIndex];
+    const currentAppearance = (PLAYER_APPEARANCES as any)[currentKey];
 
     const prevCharacter = () => {
         setSelectedIndex((prev) => (prev - 1 + appearanceKeys.length) % appearanceKeys.length);
@@ -96,16 +112,16 @@ export default function CharacterSelect({ onSelect, playerName, onNameChange }: 
                 className="w-full h-12 text-lg font-bold shadow-lg bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-500 hover:to-purple-500"
             >
                 <Play className="w-5 h-5 mr-2" />
-                Comenzar Aventura
+                Comenzar Aventura <span className="ml-2 text-xs opacity-70">(A)</span>
             </Button>
 
             <div className="mt-6 text-[10px] text-slate-500 flex flex-wrap justify-center gap-3 opacity-60">
+                <span>🎮 D-Pad: Cambiar Clase</span>
+                <span>🎮 A: Seleccionar</span>
                 <span>WASD: Mover</span>
                 <span>I: Inventario</span>
                 <span>C: Artesanía</span>
                 <span>T: Habilidades</span>
-                <span>1-6: Skills</span>
-                <span>Espacio: Usar Skill</span>
             </div>
         </motion.div>
     );

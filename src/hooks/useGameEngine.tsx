@@ -3,14 +3,15 @@ import { usePlayer } from './usePlayer';
 import { useDungeon } from './useDungeon';
 import { useInventory } from './useInventory';
 import { useTurnSystem } from './useTurnSystem';
-import { soundManager } from "@/engine/systems/SoundSystem";
 import { useGameEffects } from "@/hooks/useGameEffects";
 import { useCombatLogic } from '@/hooks/useCombatLogic';
-import { useGameActions } from '@/hooks/useGameActions';
+import { useGameActions, GameActionsContext } from '@/hooks/useGameActions';
 import { SpatialHash } from '@/engine/core/SpatialHash';
-import { loadPlaceholders } from '@/engine/core/PlaceholderGenerator';
+import { ASSET_MANIFEST } from '@/data/assets';
 import { spriteManager } from '@/engine/core/SpriteManager';
 import { Entity, Player, Enemy, NPC, Item } from '@/types';
+import { useAudioController } from './useAudioController';
+import { useGameContext } from './useGameContext';
 
 export function useGameEngine() {
     const { player, setPlayer, initPlayer, updatePlayer, gainExp, regenerate: regenPlayer } = usePlayer();
@@ -30,7 +31,15 @@ export function useGameEngine() {
 
     // CARGAR SPRITES
     useEffect(() => {
-        loadPlaceholders(spriteManager);
+        const loadGameAssets = async () => {
+            const promises = ASSET_MANIFEST.map(asset =>
+                spriteManager.load(asset.key, asset.src)
+                    .catch(err => console.warn(`Failed to lead asset: ${asset.key}`, err))
+            );
+            await Promise.all(promises);
+            console.log("Assets loaded");
+        };
+        loadGameAssets();
     }, []);
 
     const [gameStarted, setGameStarted] = useState(false);
@@ -45,10 +54,13 @@ export function useGameEngine() {
     const [selectedSkill, setSelectedSkill] = useState<any>(null);
     const [rangedMode, setRangedMode] = useState(false);
     const [rangedTargets, setRangedTargets] = useState<Entity[]>([]);
+    const [gameWon, setGameWon] = useState(false);
 
     // 2. SINCRONIZAR HASH CUANDO CAMBIA EL NIVEL O SE CARGA JUEGO
     useEffect(() => {
         if (dungeon && dungeon.map && dungeon.map.length > 0) {
+            // Solo reconstruimos completo si cambia el nivel o el mapa
+            // Los movimientos individuales usan spatialHash.move / updatePlayer
             spatialHash.current.rebuild({
                 player: player || null,
                 enemies: dungeon.enemies || [],
@@ -69,48 +81,13 @@ export function useGameEngine() {
                 spatialHash: spatialHash.current
             });
         }
-    }, [dungeon?.level, dungeon?.map, gameStarted, player]);
+        // Eliminamos 'player' de las dependencias para evitar rebuild en cada movimiento
+        // El jugador se actualiza via updatePlayer en el turno
+    }, [dungeon?.level, dungeon?.map, gameStarted]);
 
     // 3. GESTIÓN DE AMBIENTE SONORO (NUEVO)
-    useEffect(() => {
-        if (gameStarted && !gameOver) {
-            // Iniciar bucles de ambiente (viento/mazmorra)
-            soundManager.initAmbience();
-
-            // Calcular distancia a la fuente de fuego más cercana (Antorcha O Herrero)
-            if (player) {
-                let minDist = Infinity;
-
-                // 1. Antorchas
-                if (dungeon.torches) {
-                    dungeon.torches.forEach(torch => {
-                        const dist = Math.sqrt(Math.pow(torch.x - player.x, 2) + Math.pow(torch.y - player.y, 2));
-                        if (dist < minDist) minDist = dist;
-                    });
-                }
-
-                // 2. Herrero (El horno cuenta como fuego fuerte)
-                if (dungeon.npcs) {
-                    const blacksmith = dungeon.npcs.find(n => n.type === 'blacksmith');
-                    if (blacksmith) {
-                        const dist = Math.sqrt(Math.pow(blacksmith.x - player.x, 2) + Math.pow(blacksmith.y - player.y, 2));
-                        // El horno suena un poco más fuerte (reducimos artificialmente la distancia)
-                        if (dist * 0.8 < minDist) minDist = dist * 0.8;
-                    }
-                }
-
-                // Actualizar volumen del canal de fuego
-                soundManager.updateFireAmbience(minDist);
-            }
-        } else {
-            // Silenciar ambiente en menús o muerte
-            soundManager.stopAmbience();
-        }
-
-        return () => {
-            if (!gameStarted) soundManager.stopAmbience();
-        };
-    }, [gameStarted, gameOver, player?.x, player?.y, dungeon.torches, dungeon.npcs]);
+    // 3. AUDIO CONTROLLER
+    useAudioController({ gameStarted, gameOver, gameWon, player, dungeon });
 
     const executeTurn = useCallback((currentPlayerState: Player | null = player, enemiesOverride: Entity[] | null = null) => {
         regenPlayer();
@@ -134,7 +111,8 @@ export function useGameEngine() {
 
     const { handleEnemyDeath, executeSkillAction } = useCombatLogic({
         dungeon, setDungeon, player: player!, updatePlayer, gainExp, setStats,
-        addMessage, addItem, effectsManager, executeTurn, setSelectedSkill
+        addMessage, addItem, effectsManager, executeTurn, setSelectedSkill, setGameWon,
+        spatialHash: spatialHash.current
     });
 
     const initGame = useCallback((level: number = 1, existingPlayer: Player | null = null) => {
@@ -157,39 +135,40 @@ export function useGameEngine() {
     }, [playerClass, playerName, generateLevel, initPlayer, updatePlayer, updateMapFOV, addMessage, player]);
 
     // --- ACTIONS CONTEXT ---
-    const actionsContext = useMemo(() => ({
-        player, setPlayer, updatePlayer, gainExp,
-        dungeon, setDungeon,
-        inventory, setInventory, addItem,
-        equipment, setEquipment,
-        materials, setMaterials, addMaterial,
-        quickSlots, setQuickSlots,
-        resetInventory,
-        reorderInventory,
-        stats, setStats,
-        activeQuests, setActiveQuests,
-        completedQuests, setCompletedQuests,
-        questProgress, setQuestProgress,
-        initGame, executeTurn, addMessage, showFloatingText, effectsManager,
-        setGameStarted, setGameOver, setPlayerName, setSelectedSkill, setRangedMode, setRangedTargets, setMessages, updateMapFOV,
-        playerName, selectedAppearance, setSelectedAppearance, setPlayerClass,
-        handleEnemyDeath, executeSkillAction, selectedSkill,
-        spatialHash: spatialHash.current
-    }), [
+    const actionsContext = useGameContext(
         player, dungeon, inventory, equipment, materials, quickSlots, stats, activeQuests, completedQuests, questProgress,
-        initGame, executeTurn, addMessage, showFloatingText,
-        setGameStarted, setGameOver, setPlayerName, setSelectedSkill, setRangedMode, setRangedTargets, setMessages, updateMapFOV,
-        playerName, selectedAppearance, setPlayerClass,
-        handleEnemyDeath, executeSkillAction, selectedSkill
-    ]);
+        {
+            setPlayer, updatePlayer, gainExp,
+            setDungeon,
+            setInventory, addItem,
+            setEquipment,
+            setMaterials,
+            setQuickSlots,
+            resetInventory,
+            reorderInventory,
+            setStats,
+            setActiveQuests,
+            setCompletedQuests,
+            setQuestProgress,
+            setGameStarted, setGameOver, setPlayerName, setSelectedSkill, setRangedMode, setRangedTargets, setMessages, updateMapFOV, setGameWon,
+            setSelectedAppearance, setPlayerClass
+        },
+        {
+            initGame, executeTurn, addMessage, showFloatingText, effectsManager,
+            handleEnemyDeath, executeSkillAction
+        },
+        {
+            playerName, selectedAppearance, playerClass, selectedSkill, rangedMode, rangedTargets
+        },
+        spatialHash.current
+    );
 
-    const actions = useGameActions(actionsContext as any);
+    const actions = useGameActions(actionsContext);
 
     useEffect(() => { if (gameStarted && !player) initGame(1); }, [gameStarted, player, initGame]);
 
     useEffect(() => {
         if (player && player.level > 1 && gameStarted) {
-            soundManager.play('levelUp');
             effectsManager.current.addSparkles(player.x, player.y, '#ffff00');
             addMessage(`¡Nivel ${player.level} alcanzado!`, 'levelup');
         }
@@ -207,7 +186,7 @@ export function useGameEngine() {
     const uiState = useMemo(() => ({ activeQuests, completedQuests, questProgress, materials, quickSlots, selectedSkill, rangedMode, rangedTargets }), [activeQuests, completedQuests, questProgress, materials, quickSlots, selectedSkill, rangedMode, rangedTargets]);
 
     return {
-        gameState, gameStarted, gameOver, messages, stats,
+        gameState, gameStarted, gameOver, gameWon, messages, stats,
         playerInfo,
         uiState,
         actions

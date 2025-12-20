@@ -6,7 +6,7 @@ import { ENEMY_STATS, EnemyType } from '@/data/enemies';
 import { soundManager } from "@/engine/systems/SoundSystem";
 import { SpatialHash } from "@/engine/core/SpatialHash";
 import { DungeonState } from './useDungeon'; // We defined this earlier
-import { Player } from './usePlayer'; // We defined this earlier
+import { Player } from '@/types';
 
 export interface ProcessTurnParams {
     dungeon: DungeonState;
@@ -30,16 +30,10 @@ export function useTurnSystem() {
         spatialHash
     }: ProcessTurnParams) => {
 
-        // 1. RECONSTRUIR HASH
-        // Antes de que los enemigos piensen, actualizamos el mapa espacial con el estado actual
+        // 1. RECONSTRUIR HASH -> OPTIMIZADO: ACTUALIZAR SOLO JUGADOR
+        // Los enemigos se actualizan ellos mismos al moverse. Los items/static no se mueven.
         if (spatialHash) {
-            spatialHash.rebuild({
-                player,
-                enemies: dungeon.enemies || [],
-                chests: dungeon.chests || [],
-                npcs: dungeon.npcs || [],
-                items: dungeon.items || []
-            });
+            spatialHash.updatePlayer(player);
         }
 
         // 2. IA Enemiga
@@ -73,7 +67,10 @@ export function useTurnSystem() {
                 };
 
                 const isRanged = action.action === 'ranged_attack';
-                const enemyStats = isRanged ? { ...enemy, attack: Math.floor((enemy.attack || 0) * 0.7) } : enemy;
+                const currentAttack = enemy.stats?.attack || 0;
+                const enemyStats = isRanged
+                    ? { ...enemy, stats: { ...enemy.stats, attack: Math.floor(currentAttack * 0.7) } }
+                    : enemy;
 
                 const combatResult = calculateEnemyDamage(
                     enemyStats,

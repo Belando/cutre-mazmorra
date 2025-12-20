@@ -1,4 +1,5 @@
-import { ENEMY_STATS, EnemyType, EnemyStats } from '@/data/enemies';
+import { ENEMY_STATS, EnemyType } from '@/data/enemies';
+import { ENTITY } from '@/data/constants';
 import { SKILLS, SKILL_COLORS } from '@/data/skills';
 import { generateMaterialDrop, generateBossDrop } from "@/engine/systems/CraftingSystem";
 import { calculatePlayerStats, generateItem } from '@/engine/systems/ItemSystem';
@@ -19,6 +20,8 @@ export interface CombatLogicContext {
     effectsManager: any;
     executeTurn: (playerState: Player, enemies?: Entity[]) => void;
     setSelectedSkill: React.Dispatch<React.SetStateAction<string | null>>;
+    setGameWon: React.Dispatch<React.SetStateAction<boolean>>;
+    spatialHash: any; // Using any to avoid circular dependency import issues if simple
 }
 
 export function useCombatLogic({
@@ -28,7 +31,9 @@ export function useCombatLogic({
     addMessage, addItem,
     effectsManager,
     executeTurn,
-    setSelectedSkill
+    setSelectedSkill,
+    setGameWon,
+    spatialHash
 }: CombatLogicContext) {
 
     // --- MANEJO DE MUERTE DE ENEMIGOS ---
@@ -42,6 +47,11 @@ export function useCombatLogic({
         setDungeon(prev => ({ ...prev, enemies: newEnemies }));
         gainExp(info.exp);
         addMessage(`${info.name} derrotado! +${info.exp} XP`, 'death');
+
+        // Remove from spatial hash
+        if (spatialHash && spatialHash.remove) {
+            spatialHash.remove(enemy.x, enemy.y, enemy);
+        }
 
         const isBoss = (enemy as Enemy).isBoss || false;
 
@@ -67,6 +77,11 @@ export function useCombatLogic({
         if (isBoss) {
             setDungeon(prev => ({ ...prev, bossDefeated: true }));
             addMessage("¡Jefe de piso eliminado!", 'levelup');
+
+            if (Number(enemy.type) === ENTITY.BOSS_ANCIENT_DRAGON) {
+                setGameWon(true);
+                addMessage("¡HAS DERROTADO AL DRAGÓN ANCESTRAL!", 'levelup');
+            }
         }
         setStats((prev: any) => ({ ...prev, kills: prev.kills + 1 }));
         return newEnemies;
@@ -143,7 +158,15 @@ export function useCombatLogic({
                 }
             }
 
-            const updates: Partial<Player> = {};
+            const stats: Record<string, number> = {
+                maxHp: player.maxHp || 0,
+                hp: player.hp || 0,
+                attack: player.stats?.attack || 0, // Access from stats object
+                defense: player.stats?.defense || 0,
+                magicAttack: player.stats?.magicAttack || 0,
+                magicDefense: player.stats?.magicDefense || 0,
+                speed: player.stats?.speed || 0
+            };
             if (skill.manaCost) updates.mp = player.mp - skill.manaCost;
 
             if (skill.type === 'melee' && targetEnemy) {

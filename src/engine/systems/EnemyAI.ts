@@ -4,18 +4,7 @@ import { hasLineOfSight } from '@/engine/core/utils';
 import { TILE } from '@/data/constants';
 import { Entity, Enemy, Player, Point } from '@/types';
 
-// --- CONSTANTES DE OPTIMIZACIÓN ---
-const ACTIVATION_DISTANCE = 25; // Distancia máxima: Si está más lejos, el enemigo "duerme"
-const PATHFINDING_LIMIT = 12;   // Distancia media: Si está más lejos, usa movimiento simple (sin A*)
-
-// Tipos de comportamiento
-export const AI_BEHAVIORS = {
-    AGGRESSIVE: 'aggressive',
-    CAUTIOUS: 'cautious',
-    PACK: 'pack',
-    AMBUSH: 'ambush',
-    BOSS: 'boss',
-};
+import { AI_CONFIG, AI_BEHAVIORS } from '@/data/ai';
 
 // SpatialHash interface (inferred)
 export interface SpatialHash {
@@ -176,7 +165,7 @@ function moveToward(enemy: Entity, targetX: number, targetY: number, map: number
     const dist = Math.abs(enemy.x - targetX) + Math.abs(enemy.y - targetY);
 
     // OPTIMIZACIÓN 1: INTELIGENTE (Solo si está cerca)
-    if (dist <= PATHFINDING_LIMIT) {
+    if (dist <= AI_CONFIG.PATHFINDING_LIMIT) {
         // 1. Intentar encontrar el camino ideal con A*
         const nextStep = findPath(enemy.x, enemy.y, targetX, targetY, map);
 
@@ -248,7 +237,7 @@ export function processEnemyTurn(enemy: Enemy, player: Player, enemies: Enemy[],
     // Si el enemigo está muy lejos, retornamos inmediatamente.
     // Excepción: Los Bosses siempre están activos si están a menos de 40 casillas.
     const dist = Math.abs(enemy.x - player.x) + Math.abs(enemy.y - player.y);
-    const isActive = enemy.isBoss ? dist < 40 : dist < ACTIVATION_DISTANCE;
+    const isActive = enemy.isBoss ? dist < AI_CONFIG.BOSS_ACTIVATION_DISTANCE : dist < AI_CONFIG.ACTIVATION_DISTANCE;
 
     if (!isActive) {
         return { action: 'sleep' };
@@ -314,7 +303,7 @@ export function processEnemyTurn(enemy: Enemy, player: Player, enemies: Enemy[],
 
     switch (behavior) {
         case AI_BEHAVIORS.AGGRESSIVE:
-            if (canSee || dist <= 12) {
+            if (canSee || dist <= AI_CONFIG.PATHFINDING_LIMIT) {
                 newPos = moveToward(enemy, player.x, player.y, map, spatialHash);
             }
             break;
@@ -340,7 +329,7 @@ export function processEnemyTurn(enemy: Enemy, player: Player, enemies: Enemy[],
                 // Optimización: Solo buscar aliados cercanos para no iterar todo el array
                 const allies = enemies.filter(e =>
                     e !== enemy &&
-                    Math.abs(e.x - enemy.x) + Math.abs(e.y - enemy.y) < 8
+                    Math.abs(e.x - enemy.x) + Math.abs(e.y - enemy.y) < AI_CONFIG.FLANKING_RANGE
                 );
 
                 if (allies.length > 0) {
@@ -357,7 +346,7 @@ export function processEnemyTurn(enemy: Enemy, player: Player, enemies: Enemy[],
             break;
 
         case AI_BEHAVIORS.AMBUSH:
-            if (dist <= 4) { // Rango reducido de emboscada
+            if (dist <= AI_CONFIG.AMBUSH_RANGE) { // Rango reducido de emboscada
                 newPos = moveToward(enemy, player.x, player.y, map, spatialHash);
             }
             break;

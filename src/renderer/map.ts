@@ -2,6 +2,9 @@ import { TILE, SIZE } from "@/data/constants";
 import { getThemeForFloor, DungeonTheme } from "@/components/game/DungeonThemes";
 import { drawEnvironmentSprite } from "./environment";
 import { GameState } from "@/types";
+import { isLargeEnemy, getEnemySize } from "@/engine/systems/LargeEnemies";
+import { drawLargeBossSprite } from "@/renderer/BossRenderer";
+import { drawNPCSprite } from "@/renderer/NPCRenderer";
 
 function drawHighResFloor(ctx: CanvasRenderingContext2D, x: number, y: number, size: number, color: string, mapX: number, mapY: number) {
     ctx.fillStyle = color;

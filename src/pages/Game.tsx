@@ -18,6 +18,7 @@ import { useGame } from '@/context/GameContext';
 import { useInputHandler } from '@/hooks/useInputHandler';
 import { useAutoTurn } from '@/hooks/useAutoTurn';
 import { useAssetLoader } from '@/hooks/useAssetLoader';
+import VirtualCursor from '@/components/ui/VirtualCursor';
 
 export default function Game() {
     const { gameState, gameStarted, gameOver, messages, stats, playerInfo, uiState, actions } = useGame();
@@ -165,6 +166,7 @@ export default function Game() {
             </div>
 
             <GameOverlays gameState={gameState} uiState={uiState} actions={actions} modals={modals as any} playerInfo={playerInfo} stats={stats} gameOver={gameOver} onRestart={actions.restart} />
+            <VirtualCursor isActive={!gameStarted || inventoryOpen || craftingOpen || skillTreeOpen || !!activeNPC} />
         </div>
     );
 }

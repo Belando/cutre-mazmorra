@@ -18,14 +18,15 @@ export type GameActionsContext = MovementActionsContext &
         setRangedMode: (mode: boolean) => void;
         setRangedTargets: (targets: Entity[]) => void;
         executeTurn: (playerState?: Player, enemiesOverride?: Entity[] | null) => void;
-        executeSkillAction: (skillId: string, target: Entity) => boolean;
-        handleEnemyDeath: (enemy: Entity, index: number) => void;
+        executeSkillAction: (skillId: string, target?: Entity | null) => boolean;
+        handleEnemyDeath: (index: number) => Entity[];
+        spatialHash: any;
     };
 
 export interface GameActions {
     executeTurn: (playerState?: Player, enemiesOverride?: Entity[] | null) => void;
-    executeSkillAction: (skillId: string, target: Entity) => boolean;
-    handleEnemyDeath: (enemy: Entity, index: number) => void;
+    executeSkillAction: (skillId: string, target?: Entity | null) => boolean;
+    handleEnemyDeath: (index: number) => Entity[];
     move: (dx: number, dy: number) => void;
     descend: (goUp: boolean) => void;
     interact: () => { type: 'chest' | 'npc', data?: any } | null;

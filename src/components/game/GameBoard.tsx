@@ -247,8 +247,12 @@ export default function GameBoard({ gameState, viewportWidth = 21, viewportHeigh
             }
 
             if (effectsManager) {
-                effectsManager.update();
-                effectsManager.draw(ctx, offsetX, offsetY, SIZE);
+                // Soporte para Ref o Instancia directa para evitar crashes
+                const manager = (effectsManager as any).current || effectsManager;
+                if (typeof manager.update === 'function') {
+                    manager.update();
+                    manager.draw(ctx, offsetX, offsetY, SIZE);
+                }
             }
         }
 

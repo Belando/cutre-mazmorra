@@ -1,6 +1,7 @@
 import { ENTITY } from './constants';
 
 export type EnemyType = number;
+export type LargeEnemyType = number;
 
 export interface EnemyStats {
     name: string;

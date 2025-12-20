@@ -22,3 +22,20 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# Large Asset Files
+public/sounds/ambience/*.wav
+public/sounds/**/*.wav
+*.png
+*.jpg
+*.jpeg
+*.wav
+*.mp3
+*.zip
+*.rar
+*.exe
+*.dll
+public/sprites/
+public/sounds/
+*.mjs
+public/*.wav

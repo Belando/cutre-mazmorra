@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, Trash2, Shield, Sword, Heart, Zap, ArrowRight, ArrowDown, Users } from 'lucide-react';
 import { Button } from './button';
@@ -172,13 +172,49 @@ interface InventoryPanelProps {
     onReorder: (source: number, target: number) => void;
 }
 
+import { useMenuNavigation } from '@/hooks/useMenuNavigation';
+
 export default function InventoryPanel({
     isOpen, onClose, inventory, equipment, player,
     onUseItem, onEquipItem, onUnequipItem, onDropItem, onAssignQuickSlot, onReorder
 }: InventoryPanelProps) {
-    const [selectedItem, setSelectedItem] = useState<any>(null);
+    const [selectedItemState, setSelectedItemState] = useState<any>(null); // renamed to differentiate from gamepad nav
+
+    // Gamepad Navigation
+    const { selectedIndex, setSelectedIndex } = useMenuNavigation({
+        itemsCount: 64, // Grid size
+        cols: 8,
+        isActive: isOpen,
+        onBack: onClose,
+        onSelect: (index) => {
+            const item = inventory[index];
+            if (item) {
+                setSelectedItemState({ ...item, index, isEquipped: false });
+            } else {
+                setSelectedItemState(null);
+            }
+        }
+    });
+
+    // Sync gamepad focus with visual selection if needed, or just keep them separate?
+    // User expects gamepad selection to SHOW details immediately? 
+    // Usually gamepad focus moves the cursor, and 'A' selects it (updates details). 
+    // Or focus auto-updates details. Let's make focus auto-update details if valid item.
+    // Actually, let's keep it simple: D-pad moves focus (border), A selects (shows details pane).
+    // Or D-pad moves selection immediately.
+
+    useEffect(() => {
+        if (!isOpen) return;
+        const item = inventory[selectedIndex];
+        // Optional: Auto-select item on hover/navigate? 
+        // Might be annoying if reading description. Let's Stick to "A to select". 
+        // But the previous onSelect logic in hook maps 'A' to onSelect.
+        // So pressing 'A' on a slot will set selectedItemState.
+    }, [selectedIndex, inventory, isOpen]);
 
     if (!isOpen) return null;
+
+    const selectedItem = selectedItemState;
 
     const totalAttack = (player.baseAttack || 0) + (player.equipAttack || 0);
     const totalMagicAttack = (player.baseMagicAttack || 0) + (player.equipMagicAttack || 0);
@@ -225,42 +261,42 @@ export default function InventoryPanel({
                     <div className="flex-1 p-4 overflow-y-auto custom-scrollbar">
                         <div className="flex flex-col items-center gap-2 mb-6">
                             <EquipSlot slotKey="helmet" equipment={equipment}
-                                onSelect={(item) => setSelectedItem({ ...item, slot: 'helmet', isEquipped: true })}
+                                onSelect={(item) => setSelectedItemState({ ...item, slot: 'helmet', isEquipped: true })}
                                 isSelected={selectedItem?.isEquipped && selectedItem?.slot === 'helmet'} />
 
                             <div className="flex gap-2">
                                 <EquipSlot slotKey="weapon" equipment={equipment}
-                                    onSelect={(item) => setSelectedItem({ ...item, slot: 'weapon', isEquipped: true })}
+                                    onSelect={(item) => setSelectedItemState({ ...item, slot: 'weapon', isEquipped: true })}
                                     isSelected={selectedItem?.isEquipped && selectedItem?.slot === 'weapon'} />
                                 <EquipSlot slotKey="chest" equipment={equipment}
-                                    onSelect={(item) => setSelectedItem({ ...item, slot: 'chest', isEquipped: true })}
+                                    onSelect={(item) => setSelectedItemState({ ...item, slot: 'chest', isEquipped: true })}
                                     isSelected={selectedItem?.isEquipped && selectedItem?.slot === 'chest'} />
                                 <EquipSlot slotKey="offhand" equipment={equipment}
-                                    onSelect={(item) => setSelectedItem({ ...item, slot: 'offhand', isEquipped: true })}
+                                    onSelect={(item) => setSelectedItemState({ ...item, slot: 'offhand', isEquipped: true })}
                                     isSelected={selectedItem?.isEquipped && selectedItem?.slot === 'offhand'} />
                             </div>
 
                             <div className="flex gap-2">
                                 <EquipSlot slotKey="gloves" equipment={equipment}
-                                    onSelect={(item) => setSelectedItem({ ...item, slot: 'gloves', isEquipped: true })}
+                                    onSelect={(item) => setSelectedItemState({ ...item, slot: 'gloves', isEquipped: true })}
                                     isSelected={selectedItem?.isEquipped && selectedItem?.slot === 'gloves'} />
                                 <EquipSlot slotKey="legs" equipment={equipment}
-                                    onSelect={(item) => setSelectedItem({ ...item, slot: 'legs', isEquipped: true })}
+                                    onSelect={(item) => setSelectedItemState({ ...item, slot: 'legs', isEquipped: true })}
                                     isSelected={selectedItem?.isEquipped && selectedItem?.slot === 'legs'} />
                                 <EquipSlot slotKey="boots" equipment={equipment}
-                                    onSelect={(item) => setSelectedItem({ ...item, slot: 'boots', isEquipped: true })}
+                                    onSelect={(item) => setSelectedItemState({ ...item, slot: 'boots', isEquipped: true })}
                                     isSelected={selectedItem?.isEquipped && selectedItem?.slot === 'boots'} />
                             </div>
 
                             <div className="flex justify-center w-full gap-2 pt-2 mt-2 border-t border-slate-800">
                                 <EquipSlot slotKey="necklace" equipment={equipment}
-                                    onSelect={(item) => setSelectedItem({ ...item, slot: 'necklace', isEquipped: true })}
+                                    onSelect={(item) => setSelectedItemState({ ...item, slot: 'necklace', isEquipped: true })}
                                     isSelected={selectedItem?.isEquipped && selectedItem?.slot === 'necklace'} />
                                 <EquipSlot slotKey="ring" equipment={equipment}
-                                    onSelect={(item) => setSelectedItem({ ...item, slot: 'ring', isEquipped: true })}
+                                    onSelect={(item) => setSelectedItemState({ ...item, slot: 'ring', isEquipped: true })}
                                     isSelected={selectedItem?.isEquipped && selectedItem?.slot === 'ring'} />
                                 <EquipSlot slotKey="earring" equipment={equipment}
-                                    onSelect={(item) => setSelectedItem({ ...item, slot: 'earring', isEquipped: true })}
+                                    onSelect={(item) => setSelectedItemState({ ...item, slot: 'earring', isEquipped: true })}
                                     isSelected={selectedItem?.isEquipped && selectedItem?.slot === 'earring'} />
                             </div>
                         </div>
@@ -297,8 +333,8 @@ export default function InventoryPanel({
                                     key={idx}
                                     index={idx}
                                     item={item}
-                                    onClick={() => setSelectedItem({ ...item, index: idx, isEquipped: false })}
-                                    isSelected={selectedItem?.index === idx && !selectedItem?.isEquipped}
+                                    onClick={() => { setSelectedItemState({ ...item, index: idx, isEquipped: false }); setSelectedIndex(idx); }}
+                                    isSelected={(selectedItem?.index === idx && !selectedItem?.isEquipped) || selectedIndex === idx} // Visual focus state
                                     onDragStart={handleDragStart}
                                     onDrop={handleDrop}
                                     onDragOver={handleDragOver}
@@ -309,6 +345,7 @@ export default function InventoryPanel({
                                     key={`empty-${i}`}
                                     index={inventory.length + i}
                                     isEmpty
+                                    isSelected={selectedIndex === (inventory.length + i)}
                                     onDrop={handleDrop}
                                     onDragOver={handleDragOver}
                                 />
@@ -328,31 +365,31 @@ export default function InventoryPanel({
                                 <GiBackpack className="w-8 h-8 opacity-20" />
                             </div>
                             <p className="text-sm font-medium">Selecciona un objeto</p>
-                            <p className="mt-2 text-xs">Haz clic para detalles. Arrastra para ordenar.</p>
+                            <p className="mt-2 text-xs">Haz clic o usa (A) para detalles.</p>
                         </div>
                     ) : (
                         <>
                             <div className="p-6 pb-4 border-b border-slate-800 bg-gradient-to-b from-slate-900 to-slate-950">
                                 <div className="flex justify-center mb-4">
                                     <div className={`w-20 h-20 rounded-xl border-2 flex items-center justify-center bg-slate-900 shadow-lg ${{
-                                            common: 'border-slate-600',
-                                            uncommon: 'border-emerald-500 shadow-emerald-500/20',
-                                            rare: 'border-blue-500 shadow-blue-500/20',
-                                            epic: 'border-purple-500 shadow-purple-500/20',
-                                            legendary: 'border-amber-500 shadow-amber-500/20',
-                                        }[selectedItem.rarity as string]
+                                        common: 'border-slate-600',
+                                        uncommon: 'border-emerald-500 shadow-emerald-500/20',
+                                        rare: 'border-blue-500 shadow-blue-500/20',
+                                        epic: 'border-purple-500 shadow-purple-500/20',
+                                        legendary: 'border-amber-500 shadow-amber-500/20',
+                                    }[selectedItem.rarity as string]
                                         }`}>
                                         {React.createElement(getItemIcon(selectedItem), { className: "w-12 h-12 text-white" })}
                                     </div>
                                 </div>
                                 <div className="text-center">
                                     <h3 className={`text-xl font-bold leading-tight ${{
-                                            common: 'text-slate-200',
-                                            uncommon: 'text-emerald-400',
-                                            rare: 'text-blue-400',
-                                            epic: 'text-purple-400',
-                                            legendary: 'text-amber-400',
-                                        }[selectedItem.rarity as string]
+                                        common: 'text-slate-200',
+                                        uncommon: 'text-emerald-400',
+                                        rare: 'text-blue-400',
+                                        epic: 'text-purple-400',
+                                        legendary: 'text-amber-400',
+                                    }[selectedItem.rarity as string]
                                         }`}>
                                         {selectedItem.name} {(selectedItem.upgradeLevel || 0) > 0 && `+${selectedItem.upgradeLevel}`}
                                     </h3>
@@ -426,7 +463,7 @@ export default function InventoryPanel({
                                     selectedItem.isEquipped ? (
                                         <Button
                                             className="w-full bg-slate-700 hover:bg-slate-600 text-slate-200"
-                                            onClick={() => { onUnequipItem(selectedItem.slot); setSelectedItem(null); }}
+                                            onClick={() => { onUnequipItem(selectedItem.slot); setSelectedItemState(null); }}
                                         >
                                             Desequipar
                                         </Button>
@@ -434,9 +471,9 @@ export default function InventoryPanel({
                                         <Button
                                             className={`w-full ${canClassEquip(selectedItem, player.class, player.level) ? 'bg-blue-600 hover:bg-blue-500' : 'bg-slate-800 border border-slate-700 text-slate-500 cursor-not-allowed'}`}
                                             disabled={!canClassEquip(selectedItem, player.class, player.level)}
-                                            onClick={() => { onEquipItem(selectedItem.index); setSelectedItem(null); }}
+                                            onClick={() => { onEquipItem(selectedItem.index); setSelectedItemState(null); }}
                                         >
-                                            {canClassEquip(selectedItem, player.class, player.level) ? 'Equipar' : 'No puedes equipar esto'}
+                                            {canClassEquip(selectedItem, player.class, player.level) ? 'Equipar (X)' : 'No puedes equipar esto'}
                                         </Button>
                                     )
                                 ) : (
@@ -450,9 +487,9 @@ export default function InventoryPanel({
                                     ) : (
                                         <Button
                                             className="w-full bg-emerald-600 hover:bg-emerald-500"
-                                            onClick={() => { onUseItem(selectedItem.index); setSelectedItem(null); }}
+                                            onClick={() => { onUseItem(selectedItem.index); setSelectedItemState(null); }}
                                         >
-                                            Usar
+                                            Usar (X)
                                         </Button>
                                     )
                                 )}
@@ -472,7 +509,7 @@ export default function InventoryPanel({
                                     <Button
                                         variant="ghost"
                                         className="w-full text-red-400 hover:text-red-300 hover:bg-red-950/30"
-                                        onClick={() => { onDropItem(selectedItem.index); setSelectedItem(null); }}
+                                        onClick={() => { onDropItem(selectedItem.index); setSelectedItemState(null); }}
                                     >
                                         <Trash2 className="w-4 h-4 mr-2" /> Tirar objeto
                                     </Button>
@@ -486,3 +523,8 @@ export default function InventoryPanel({
         </div>
     );
 }
+
+// Helper update: We need to handle 'X' button for Actions in Inventory?
+// Currently GamepadControls has buttonX.
+// Ideally, pressing 'X' (Button 2) should trigger "Equip/Use" on selected item.
+// We can add logic to pollGamepad in the hook or a separate listener here.

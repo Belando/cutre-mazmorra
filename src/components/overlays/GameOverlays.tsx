@@ -5,6 +5,7 @@ import NPCDialog from './NPCDialog';
 import CraftingPanel from '@/components/ui/CraftingPanel';
 import SkillTree from '@/components/ui/SkillTree';
 import GameOver from './GameOver';
+import VictoryScreen from './VictoryScreen';
 import { GameState } from '@/types';
 
 interface GameOverlaysProps {
@@ -24,6 +25,7 @@ interface GameOverlaysProps {
     playerInfo: any;
     stats: any;
     gameOver: boolean;
+    gameWon?: boolean;
     onRestart: () => void;
 }
 
@@ -35,6 +37,7 @@ export default function GameOverlays({
     playerInfo,
     stats,
     gameOver,
+    gameWon = false,
     onRestart
 }: GameOverlaysProps) {
     const { inventoryOpen, setInventoryOpen, craftingOpen, setCraftingOpen, skillTreeOpen, setSkillTreeOpen, activeNPC, setActiveNPC } = modals;
@@ -114,6 +117,7 @@ export default function GameOverlays({
             </AnimatePresence>
 
             {gameOver && <GameOver stats={stats} onRestart={onRestart} />}
+            {gameWon && <VictoryScreen stats={stats} onRestart={onRestart} />}
         </>
     );
 }

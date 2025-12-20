@@ -33,7 +33,15 @@ export class SpatialHash {
         const key = this._key(x, y);
         if (this.grid.has(key)) {
             const list = this.grid.get(key)!;
-            const index = list.indexOf(entity);
+
+            // Try to find by ID first if present
+            const index = list.findIndex(e => {
+                if (entity.id !== undefined && e.id !== undefined) {
+                    return e.id === entity.id;
+                }
+                return e === entity;
+            });
+
             if (index !== -1) {
                 list.splice(index, 1);
                 // Limpieza de memoria si la lista queda vacía
@@ -85,5 +93,18 @@ export class SpatialHash {
             const iy = i.y ?? 0;
             this.add(ix, iy, { ...i, x: ix, y: iy, type: 'item', ref: i });
         });
+    }
+
+    updatePlayer(player: any): void {
+        // Optimization: The caller (useTurnSystem) knows the player. 
+        // We update the REF at the CURRENT position.
+        const currentList = this.get(player.x, player.y);
+        const index = currentList.findIndex(e => e.type === 'player');
+        if (index !== -1) {
+            currentList[index] = { ...player, type: 'player', ref: player };
+        } else {
+            // Player moved or not found at strict coords? Just add it.
+            this.add(player.x, player.y, { ...player, type: 'player', ref: player });
+        }
     }
 }

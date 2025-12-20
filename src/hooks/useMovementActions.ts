@@ -1,3 +1,4 @@
+import { useRef } from 'react';
 import { TILE } from '@/data/constants';
 import { SKILLS } from '@/data/skills';
 import { canUseSkill } from '@/engine/systems/SkillSystem';
@@ -38,6 +39,8 @@ export function useMovementActions(
         selectedSkill,
     } = context;
 
+    const openingDoors = useRef(new Set<string>());
+
     const move = (dx: number, dy: number) => {
         const nx = player.x + dx;
         const ny = player.y + dy;
@@ -47,13 +50,27 @@ export function useMovementActions(
         if (targetTile === TILE.WALL) return;
 
         if (targetTile === TILE.DOOR) {
-            const newMap = [...dungeon.map];
-            newMap[ny] = [...newMap[ny]];
-            newMap[ny][nx] = TILE.DOOR_OPEN;
-            setDungeon(prev => ({ ...prev, map: newMap }));
+            const doorKey = `${nx},${ny}`;
+
+            // Si la puerta ya se está abriendo, ignoramos la interacción (no repetimos sonido)
+            if (openingDoors.current.has(doorKey)) return;
+
+            openingDoors.current.add(doorKey);
             soundManager.play('door');
-            addMessage("Abres la puerta.", 'info');
-            updateMapFOV(player.x, player.y);
+            addMessage("La puerta se está abriendo...", 'info');
+
+            setTimeout(() => {
+                setDungeon(prev => {
+                    const newMap = [...prev.map];
+                    newMap[ny] = [...newMap[ny]];
+                    newMap[ny][nx] = TILE.DOOR_OPEN;
+                    return { ...prev, map: newMap };
+                });
+                // Actualizamos FOV desde la posición donde se inició la acción (o la actual si no se movió)
+                updateMapFOV(player.x, player.y);
+                openingDoors.current.delete(doorKey);
+            }, 1000);
+
             return;
         }
 
