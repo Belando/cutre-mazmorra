@@ -1,3 +1,5 @@
+import { PlayerClass } from './enums';
+
 export interface Point {
     x: number;
     y: number;
@@ -28,6 +30,12 @@ export interface Buff {
     type?: string;
     value?: number;
     icon?: any;
+    // Special effects
+    absorb?: number;
+    damageReduction?: number;
+    cooldownReduction?: number;
+    regen?: number;
+    evasion?: number;
 }
 
 export interface SkillState {
@@ -77,7 +85,7 @@ export interface BaseEntity extends Point {
 
 export interface Player extends BaseEntity {
     type: 'player';
-    class: string;
+    class: PlayerClass;
     exp: number;
     gold: number;
     skills: SkillState;

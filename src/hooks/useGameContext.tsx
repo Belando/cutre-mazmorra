@@ -1,20 +1,21 @@
 import { useMemo } from 'react';
 import { GameActionsContext } from '@/hooks/useGameActions';
-import { Player, GameState } from '@/types';
+import { Player, Item, EquipmentState, QuickSlotData } from '@/types';
+import { DungeonState } from './useDungeon';
 
 // This hook purely organizes the actions context to unclutter the main engine hook
 export function useGameContext(
     player: Player | null,
-    dungeon: any,
-    inventory: any,
-    equipment: any,
-    materials: any,
-    quickSlots: any,
-    stats: any,
+    dungeon: DungeonState,
+    inventory: Item[],
+    equipment: EquipmentState,
+    materials: Record<string, number>,
+    quickSlots: (QuickSlotData | null)[],
+    stats: any, // Game stats (kills, etc.)
     activeQuests: string[],
     completedQuests: string[],
-    questProgress: any,
-    setters: any, // We'll type this properly or pass individual functions
+    questProgress: Record<string, any>,
+    setters: any, // Keeping as any for now due to complexity of prop drilling
     methods: any,
     extraState: any,
     spatialHash: any
@@ -33,7 +34,8 @@ export function useGameContext(
         setCompletedQuests,
         setQuestProgress,
         setGameStarted, setGameOver, setPlayerName, setSelectedSkill, setRangedMode, setRangedTargets, setMessages, updateMapFOV, setGameWon,
-        setSelectedAppearance, setPlayerClass
+        setSelectedAppearance, setPlayerClass,
+        setMaterials
     } = setters;
 
     const {
@@ -46,7 +48,7 @@ export function useGameContext(
     } = extraState;
 
     return useMemo((): GameActionsContext => ({
-        player, setPlayer, updatePlayer, gainExp,
+        player: player as Player, setPlayer, updatePlayer, gainExp,
         dungeon, setDungeon,
         inventory, setInventory, addItem,
         equipment, setEquipment,
@@ -59,10 +61,10 @@ export function useGameContext(
         questProgress, setQuestProgress,
         initGame, executeTurn, addMessage, showFloatingText, effectsManager,
         setGameStarted, setGameOver, setPlayerName, setSelectedSkill, setRangedMode, setRangedTargets, setMessages, updateMapFOV,
-        playerName, selectedAppearance, setSelectedAppearance, setPlayerClass,
-        handleEnemyDeath, executeSkillAction, selectedSkill,
+        playerName, selectedAppearance, setSelectedAppearance, setPlayerClass, playerClass,
+        handleEnemyDeath, executeSkillAction, selectedSkill, rangedMode, rangedTargets,
         spatialHash,
-        setGameWon
+        setGameWon, materials, setMaterials
     }), [
         player, dungeon, inventory, equipment, materials, quickSlots, stats, activeQuests, completedQuests, questProgress,
         initGame, executeTurn, addMessage, showFloatingText,

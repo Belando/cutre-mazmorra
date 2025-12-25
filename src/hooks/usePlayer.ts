@@ -2,11 +2,13 @@ import { useState, useCallback } from 'react';
 import { initializeSkills, updateCooldowns, updateBuffs } from "@/engine/systems/SkillSystem";
 import { PLAYER_APPEARANCES, PlayerAppearance } from '@/data/player';
 import { Player, SkillState, Stats, SpriteComponent } from '@/types';
+import { PlayerClass } from '@/types/enums';
+import { CLASS_CONFIG } from '@/data/classes';
 
 export interface UsePlayerResult {
     player: Player | null;
     setPlayer: React.Dispatch<React.SetStateAction<Player | null>>;
-    initPlayer: (savedPlayer?: Player | null, classType?: string, name?: string, startPos?: { x: number, y: number }) => void;
+    initPlayer: (savedPlayer?: Player | null, classType?: PlayerClass, name?: string, startPos?: { x: number, y: number }) => void;
     updatePlayer: (updates: Partial<Player>) => void;
     gainExp: (amount: number) => void;
     regenerate: () => void;
@@ -15,18 +17,15 @@ export interface UsePlayerResult {
 export function usePlayer(): UsePlayerResult {
     const [player, setPlayer] = useState<Player | null>(null);
 
-    const initPlayer = useCallback((savedPlayer: Player | null = null, classType: string = 'warrior', name = 'Héroe', startPos = { x: 1, y: 1 }) => {
+    const initPlayer = useCallback((savedPlayer: Player | null = null, classType: PlayerClass = PlayerClass.WARRIOR, name = 'Héroe', startPos = { x: 1, y: 1 }) => {
         if (savedPlayer) {
             setPlayer(savedPlayer);
             return;
         }
 
         const appearance = PLAYER_APPEARANCES[classType as keyof typeof PLAYER_APPEARANCES] || PLAYER_APPEARANCES.warrior;
-
-        // Stats Base según clase
-        let baseStats = { attack: 5, magicAttack: 0, defense: 2, magicDefense: 1 };
-        if (classType === 'mage') baseStats = { attack: 1, magicAttack: 8, defense: 1, magicDefense: 4 };
-        if (classType === 'rogue') baseStats = { attack: 6, magicAttack: 1, defense: 2, magicDefense: 2 };
+        const config = CLASS_CONFIG[classType];
+        const baseStats = config.baseStats;
 
         const initialSprite: SpriteComponent = {
             texture: `player_${classType}`,
@@ -106,16 +105,18 @@ export function usePlayer(): UsePlayerResult {
                 exp -= level * 25; // RESTAMOS la experiencia necesaria en lugar de ponerla a 0
                 level++;
 
+                const growth = CLASS_CONFIG[prev.class]?.growthRates || { hp: 10, mp: 5, attack: 1, defense: 1, magicAttack: 0, magicDefense: 0 };
+
                 // Mejoras por subir de nivel
-                maxHp += 10;
+                maxHp += growth.hp;
                 hp = maxHp; // Recuperar vida al subir nivel
                 if (skills) skills.skillPoints = (skills.skillPoints || 0) + 1;
 
                 // Subida de stats base
-                baseAttack = (baseAttack || 0) + 1;
-                baseMagicAttack = (baseMagicAttack || 0) + 1;
-                baseDefense = (baseDefense || 0) + 1;
-                baseMagicDefense = (baseMagicDefense || 0) + 1;
+                baseAttack = (baseAttack || 0) + growth.attack;
+                baseMagicAttack = (baseMagicAttack || 0) + growth.magicAttack;
+                baseDefense = (baseDefense || 0) + growth.defense;
+                baseMagicDefense = (baseMagicDefense || 0) + growth.magicDefense;
 
                 leveledUp = true;
             }

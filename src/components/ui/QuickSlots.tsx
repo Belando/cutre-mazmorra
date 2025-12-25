@@ -1,4 +1,4 @@
-import React from 'react';
+
 import { cn } from "@/engine/core/utils";
 import { getItemIcon } from '@/data/icons';
 import { Item } from '@/types';
@@ -23,10 +23,10 @@ export default function QuickSlots({
     inventory = []
 }: QuickSlotsProps) {
     return (
-        <div className="w-20 p-2 border rounded-lg bg-slate-900/80 backdrop-blur-sm border-slate-700/50">
-            <div className="text-[10px] text-slate-400 font-medium mb-2 text-center">CONSUMIBLES</div>
+        <div className="p-2 border rounded-lg bg-slate-900/50 backdrop-blur-sm border-slate-700/50 flex flex-col items-center">
+            <div className="text-[10px] text-slate-400 font-medium mb-1">CONSUMIBLES</div>
 
-            <div className="flex flex-col gap-1.5">
+            <div className="flex flex-row gap-1.5">
                 {QUICK_SLOT_KEYS.map((key, index) => {
                     const slot = quickSlots[index];
                     const item = slot ? inventory.find(i => i.id === slot.itemId) : null;
@@ -45,7 +45,7 @@ export default function QuickSlots({
                                     : "border-emerald-600 bg-emerald-900/30 hover:bg-emerald-800/40 hover:scale-105",
                                 disabled && "opacity-50 cursor-not-allowed"
                             )}
-                            title={item ? `${item.name} (${key})` : `Slot vacío (${key}) - Asigna desde inventario`}
+                            title={item ? `${item.name} (${key})` : `Slot vacío (${key})`}
                         >
                             {item && ItemIcon ? (
                                 <>
@@ -66,7 +66,7 @@ export default function QuickSlots({
                 })}
             </div>
 
-            <p className="text-[8px] text-slate-600 text-center mt-2">Asigna en [I]</p>
+
         </div>
     );
 }

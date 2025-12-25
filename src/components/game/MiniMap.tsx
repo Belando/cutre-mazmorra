@@ -148,7 +148,7 @@ export default function MiniMap({ gameState, floorHistory = [] }: MiniMapProps) 
     return (
         <>
             <div
-                className="p-2 transition-colors border cursor-pointer bg-slate-900/80 backdrop-blur-sm rounded-xl border-slate-700/50 hover:border-slate-600/50"
+                className="p-2 transition-colors border cursor-pointer bg-slate-900/50 backdrop-blur-sm rounded-xl border-slate-700/50 hover:border-slate-600/50"
                 onClick={() => { setExpanded(true); setViewingFloor(null); }}
             >
                 <div className="flex items-center justify-between mb-1">

@@ -1,5 +1,5 @@
 import { useEffect, useRef, useCallback } from 'react';
-import { GameActionsContext } from './useGameActions';
+import { GameActionsContext, GameActions } from './useGameActions';
 
 export interface AutoTurnModals {
     inventoryOpen: boolean;
@@ -13,7 +13,7 @@ export interface UseAutoTurnResult {
 }
 
 export function useAutoTurn(
-    actions: GameActionsContext,
+    actions: GameActions | GameActionsContext,
     gameStarted: boolean,
     gameOver: boolean,
     modals: AutoTurnModals,

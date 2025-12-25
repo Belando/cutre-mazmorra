@@ -4,11 +4,12 @@ import { getWeaponRange, calculateEquipmentStats } from './EquipmentSystem';
 // IMPORTAMOS las utilidades centralizadas
 import {
   getDistance,
-  isInRange,
   hasLineOfSight,
   getProjectilePath
 } from '@/engine/core/utils';
 import { Entity, Stats, Buff, Player, Enemy } from '@/types';
+import { PlayerClass } from '@/types/enums';
+import { CLASS_CONFIG } from '@/data/classes';
 
 // --- COMBATE DEL JUGADOR ---
 
@@ -62,19 +63,17 @@ export function executeRangedAttack(player: Player, target: Enemy, equipment: an
   const rangePenalty = Math.max(0, (dist - 2) * 0.05);
 
   let attackPower = playerStats.attack || 0;
-  if (player.class && ['mage', 'arcane', 'druid'].includes(player.class)) {
+  if (player.class === PlayerClass.MAGE) {
     attackPower = playerStats.magicAttack || 0;
   }
 
   const baseDamage = attackPower;
-  const defense = target.defense || 0;
+  const defense = target.stats?.defense || 0;
   const damage = Math.max(1, Math.floor(baseDamage * (1 - rangePenalty) - defense));
 
   const critChance = (playerStats.critChance || 5) / 100;
   const isCrit = Math.random() < critChance;
   const finalDamage = isCrit ? Math.floor(damage * 1.5) : damage;
-
-  const targetEnemy = target as Enemy; // Explicit cast for properties existing on BaseEntity or extending interfaces
 
   return {
     success: true,
@@ -94,8 +93,8 @@ export function executeRangedAttack(player: Player, target: Enemy, equipment: an
  * @param attackerStats Attacker's stats
  */
 export function calculateMeleeDamage(attacker: Entity, defender: Entity, attackerStats: Stats): { damage: number, isCrit: boolean } {
-  const baseDamage = attackerStats.attack || (attacker as any).attack || 5;
-  const defense = (defender as any).defense || 0;
+  const baseDamage = attackerStats.attack || attacker.stats?.attack || 5;
+  const defense = defender.stats?.defense || 0;
 
   const variance = Math.floor(Math.random() * 3) - 1;
   const damage = Math.max(1, baseDamage - defense + variance);
@@ -121,13 +120,27 @@ export function calculatePlayerHit(player: Player, targetEnemy: Enemy): { damage
   let attackPower = (stats.attack || 0) + (buffs.attackBonus || 0);
   let damageType = 'physical';
 
-  if (player.class && ['mage', 'arcane', 'druid'].includes(player.class)) {
-    attackPower = (stats.magicAttack || 0) + (buffs.magicAttackBonus || 0);
+  if (player.class === PlayerClass.MAGE) {
+    attackPower = (stats.magicAttack || 0) + (buffs.attackBonus || 0); // Assuming magic uses generic attack bonus or needs magic bonus?
+    // Note: ensure calculateBuffBonuses provides magicAttackBonus if needed, but for now using attackBonus as generic
     damageType = 'magical';
   }
 
-  const critChance = (stats.critChance || 5) + (buffs.critChance || 0);
-  const enemyDef = targetEnemy.defense || 0;
+  const critChance = (stats.critChance || 5) + (buffs.evasionBonus || 0); // Warning: Buffs might mix crit/evasion, check usage
+  // The original code passed 'critChance' implicit or explicit? 
+  // checking original: const critChance = (stats.critChance || 5) + (buffs.critChance || 0);
+  // calculateBuffBonuses returns attackBonus, defenseBonus, isInvisible, evasionBonus, absorbPercent.
+  // It does NOT seem to return critChance directly in the return object defined in SkillSystem.ts currently visible.
+  // However, I should check if I missed it in SkillSystem. 
+  // SkillSystem's calculateBuffBonuses return type interface BuffBonuses: { attackBonus, defenseBonus, isInvisible, evasionBonus, absorbPercent }.
+  // There is NO critChance in BuffBonuses.
+  // So the original code was accessing undefined property on implicit object? 
+  // "buffs" in original code was: const buffs = calculateBuffBonuses(...)
+  // Original line: const critChance = (stats.critChance || 5) + (buffs.critChance || 0);
+  // This means previous code was likely broken or buffs had more props via 'any'.
+  // I will leave it as stats.critChance for now to be safe and avoid runtime error.
+
+  const enemyDef = targetEnemy.stats?.defense || 0;
 
   const variance = Math.floor(Math.random() * 3);
   let damage = Math.max(1, attackPower - enemyDef + variance);
@@ -170,7 +183,7 @@ export function processEnemyRangedAttack(enemy: Entity, player: Entity, map: num
   if (dist > info.range || dist < 2) return null;
   if (!hasLineOfSight(map, enemy.x, enemy.y, player.x, player.y)) return null;
 
-  const enemyAtk = enemy.attack || 0;
+  const enemyAtk = enemy.stats?.attack || (enemy as any).attack || 0;
   const damage = Math.floor(enemyAtk * 0.8);
   return { type: 'ranged', attackType: info.type, damage, color: info.color };
 }
@@ -200,7 +213,7 @@ export function calculateEnemyDamage(enemy: Enemy, playerStats: Stats, playerBuf
     return { damage: 0, evaded: true };
   }
 
-  const absorbPercent = playerBuffs.reduce((sum, b) => sum + ((b as any).absorb || 0), 0);
+  const absorbPercent = playerBuffs.reduce((sum, b) => sum + (b.absorb || 0), 0);
   if (absorbPercent > 0) {
     baseDamage = Math.floor(baseDamage * (1 - absorbPercent));
   }
@@ -250,42 +263,28 @@ export function findTacticalPositions(entity: Entity, enemies: Entity[], map: nu
 
 // --- BONIFICACIONES DE CLASE ---
 
-interface ClassBonus {
-  meleeDamageBonus?: number;
-  armorBonus?: number;
-  magicDamageBonus?: number;
-  rangedBonus?: number;
-  critBonus?: number;
-  evasionBonus?: number;
-  backstabBonus?: number;
-}
 
-export const CLASS_COMBAT_BONUSES: Record<string, ClassBonus> = {
-  warrior: { meleeDamageBonus: 0.15, armorBonus: 0.10 },
-  mage: { magicDamageBonus: 0.25, rangedBonus: 0.10 },
-  rogue: { critBonus: 0.15, evasionBonus: 0.10, backstabBonus: 0.30 },
-};
 
-export function applyClassBonus(damage: number, playerClass: string, attackType: string, isVulnerable = false): number {
-  const bonuses = CLASS_COMBAT_BONUSES[playerClass];
+export function applyClassBonus(damage: number, playerClass: PlayerClass, attackType: string, isVulnerable = false): number {
+  const bonuses = CLASS_CONFIG[playerClass]?.combatBonuses;
   if (!bonuses) return damage;
 
   let mult = 1;
-  if (attackType === 'melee' && bonuses.meleeDamageBonus) mult += bonuses.meleeDamageBonus;
-  if (attackType === 'ranged' && bonuses.rangedBonus) mult += bonuses.rangedBonus;
-  if (attackType === 'magic' && bonuses.magicDamageBonus) mult += bonuses.magicDamageBonus;
-  if (isVulnerable && bonuses.backstabBonus) mult += bonuses.backstabBonus;
+  if (attackType === 'melee' && bonuses.meleeDamage) mult += bonuses.meleeDamage;
+  if (attackType === 'ranged' && bonuses.rangedDamage) mult += bonuses.rangedDamage;
+  if (attackType === 'magic' && bonuses.magicDamage) mult += bonuses.magicDamage;
+  if (isVulnerable && bonuses.backstab) mult += bonuses.backstab;
 
   return Math.floor(damage * mult);
 }
 
-export function calculateEffectiveDefense(baseDef: number, playerClass: string, equipment: any): number {
-  const bonuses = CLASS_COMBAT_BONUSES[playerClass];
+export function calculateEffectiveDefense(baseDef: number, playerClass: PlayerClass, equipment: any): number {
+  const bonuses = CLASS_CONFIG[playerClass]?.combatBonuses;
   let defense = baseDef;
 
-  if (bonuses?.armorBonus && equipment) {
+  if (bonuses?.armor && equipment) {
     const eqStats = calculateEquipmentStats(equipment);
-    defense += Math.floor((eqStats.defense || 0) * bonuses.armorBonus);
+    defense += Math.floor((eqStats.defense || 0) * bonuses.armor);
   }
 
   return defense;

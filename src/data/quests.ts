@@ -23,6 +23,8 @@ export interface Quest {
     targetCount?: number;
     targets?: MultiTarget[]; // For multi_kill
     floor?: number;
+    minFloor?: number;
+    maxFloor?: number;
     reward: QuestReward;
     nextQuest?: string;
     requires?: string;
@@ -75,6 +77,7 @@ export const QUESTS: Record<string, Quest> = {
         target: 'ENEMY_RAT',
         targetType: 'kill',
         targetCount: 5,
+        minFloor: 1,
         reward: { gold: 30, exp: 20 },
     },
     kill_skeletons: {
@@ -85,6 +88,7 @@ export const QUESTS: Record<string, Quest> = {
         target: 'ENEMY_SKELETON',
         targetType: 'kill',
         targetCount: 4,
+        minFloor: 2,
         reward: { gold: 50, exp: 35 },
     },
     clear_spiders: {
@@ -95,6 +99,7 @@ export const QUESTS: Record<string, Quest> = {
         target: 'ENEMY_SPIDER',
         targetType: 'kill',
         targetCount: 5,
+        minFloor: 3,
         reward: { gold: 60, exp: 40 },
     },
     undead_purge: {
@@ -107,6 +112,7 @@ export const QUESTS: Record<string, Quest> = {
             { target: 'ENEMY_ZOMBIE', count: 3 },
             { target: 'ENEMY_SKELETON', count: 3 },
         ],
+        minFloor: 3,
         reward: { gold: 80, exp: 60 },
     },
     demon_hunt: {
@@ -117,6 +123,7 @@ export const QUESTS: Record<string, Quest> = {
         target: 'ENEMY_DEMON',
         targetType: 'kill',
         targetCount: 2,
+        minFloor: 6,
         reward: { gold: 150, exp: 100 },
     },
     beast_slayer: {
@@ -129,6 +136,7 @@ export const QUESTS: Record<string, Quest> = {
             { target: 'ENEMY_WOLF', count: 3 },
             { target: 'ENEMY_TROLL', count: 2 },
         ],
+        minFloor: 4,
         reward: { gold: 120, exp: 80 },
     },
     crafting_master: {
@@ -138,6 +146,7 @@ export const QUESTS: Record<string, Quest> = {
         description: 'Crea 3 items de rareza rara o superior.',
         targetType: 'craft',
         targetCount: 3,
+        minFloor: 2,
         reward: { gold: 200, exp: 120 },
     },
     treasure_hunter: {
@@ -147,6 +156,7 @@ export const QUESTS: Record<string, Quest> = {
         description: 'Acumula 500 de oro.',
         targetType: 'gold',
         target: 500,
+        minFloor: 1,
         reward: { exp: 150 },
     },
 
@@ -159,6 +169,7 @@ export const QUESTS: Record<string, Quest> = {
         target: 'iron_ore',
         targetType: 'collect',
         targetCount: 5,
+        minFloor: 1,
         reward: { gold: 40, exp: 25 },
     },
     gather_crystals: {
@@ -169,6 +180,7 @@ export const QUESTS: Record<string, Quest> = {
         target: 'crystal',
         targetType: 'collect',
         targetCount: 3,
+        minFloor: 4,
         reward: { gold: 100, exp: 50 },
     },
 
@@ -180,6 +192,7 @@ export const QUESTS: Record<string, Quest> = {
         description: 'Desciende hasta el piso 5.',
         target: 5,
         targetType: 'floor',
+        minFloor: 2,
         reward: { gold: 120, exp: 80 },
     },
 
@@ -192,6 +205,7 @@ export const QUESTS: Record<string, Quest> = {
         target: 'BOSS_GOBLIN_KING',
         targetType: 'boss',
         floor: 1,
+        minFloor: 1,
         reward: { gold: 75, exp: 50 },
     },
 };

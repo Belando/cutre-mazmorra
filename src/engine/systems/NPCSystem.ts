@@ -1,5 +1,5 @@
 import { TILE } from '@/data/constants';
-import { GameState, Item } from '@/types';
+import { GameState } from '@/types';
 import { NPCS, NPC_TYPES, NpcTemplate, NpcType } from '@/data/npcs';
 import { QUESTS, Quest, QuestTargetType } from '@/data/quests';
 
@@ -29,18 +29,10 @@ export function getAvailableQuests(floor: number, completedQuests: string[] = []
             }
         } else if (quest.type === 'side') {
             // Side quests available based on floor
-            if (quest.id === 'kill_rats' && floor >= 1) available.push(quest);
-            if (quest.id === 'kill_skeletons' && floor >= 2) available.push(quest);
-            if (quest.id === 'clear_spiders' && floor >= 3) available.push(quest);
-            if (quest.id === 'undead_purge' && floor >= 3) available.push(quest);
-            if (quest.id === 'demon_hunt' && floor >= 6) available.push(quest);
-            if (quest.id === 'beast_slayer' && floor >= 4) available.push(quest);
-            if (quest.id === 'gather_iron' && floor >= 1) available.push(quest);
-            if (quest.id === 'gather_crystals' && floor >= 4) available.push(quest);
-            if (quest.id === 'explore_deep' && floor >= 2) available.push(quest);
-            if (quest.id === 'slay_goblin_king' && floor >= 1) available.push(quest);
-            if (quest.id === 'crafting_master' && floor >= 2) available.push(quest);
-            if (quest.id === 'treasure_hunter' && floor >= 1) available.push(quest);
+            if (quest.minFloor && floor < quest.minFloor) return;
+            if (quest.maxFloor && floor > quest.maxFloor) return;
+
+            available.push(quest);
         }
     });
 

@@ -21,10 +21,10 @@ export default function SkillBar({ disabled }: SkillBarProps) {
     const unlockedSkills = getUnlockedSkills(player.level, learnedSkillIds);
 
     return (
-        <div className="w-20 p-2 border rounded-lg bg-slate-900/80 backdrop-blur-sm border-slate-700/50">
-            <div className="text-[10px] text-slate-400 font-medium mb-2 text-center">HABILIDADES</div>
+        <div className="p-2 border rounded-lg bg-slate-900/50 backdrop-blur-sm border-slate-700/50 flex flex-col items-center">
+            <div className="text-[10px] text-slate-400 font-medium mb-1">HABILIDADES</div>
 
-            <div className="flex flex-col gap-1.5">
+            <div className="flex flex-row gap-1.5">
                 {unlockedSkills.map((skill, index) => {
                     const isOnCooldown = !canUseSkill(skill.id, cooldowns);
                     const cooldownLeft = cooldowns[skill.id] || 0;

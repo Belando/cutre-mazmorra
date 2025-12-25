@@ -1,10 +1,9 @@
 import { useEffect, useRef, useCallback } from 'react';
-// @ts-ignore
 import { QUICK_SLOT_HOTKEYS } from "@/components/ui/QuickSlots";
 import { getUnlockedSkills } from "@/engine/systems/SkillSystem";
-import { SKILLS } from '@/data/skills';
+import { SKILLS, Skill } from '@/data/skills';
 import { GameActions } from './useGameActions';
-import { GameState, Entity } from '@/types';
+import { GameState, Entity, NPC } from '@/types';
 import { useKeyboardControls } from './useKeyboardControls';
 import { useGamepadControls } from './useGamepadControls';
 
@@ -14,11 +13,13 @@ export interface InputHandlerModals {
     inventoryOpen: boolean;
     craftingOpen: boolean;
     skillTreeOpen: boolean;
-    activeNPC: any;
+    activeNPC: NPC | null;
+    mainMenuOpen: boolean;
     setInventoryOpen: React.Dispatch<React.SetStateAction<boolean>>;
     setCraftingOpen: React.Dispatch<React.SetStateAction<boolean>>;
     setSkillTreeOpen: React.Dispatch<React.SetStateAction<boolean>>;
-    setActiveNPC: React.Dispatch<React.SetStateAction<any>>;
+    setActiveNPC: React.Dispatch<React.SetStateAction<NPC | null>>;
+    setMainMenuOpen: React.Dispatch<React.SetStateAction<boolean>>;
 }
 
 export interface InputHandlerParams {
@@ -44,17 +45,16 @@ export function useInputHandler({
     modals,
     onAction
 }: InputHandlerParams) {
-    const { inventoryOpen, craftingOpen, skillTreeOpen, activeNPC, setInventoryOpen, setCraftingOpen, setSkillTreeOpen, setActiveNPC } = modals;
+    const { inventoryOpen, craftingOpen, skillTreeOpen, activeNPC, mainMenuOpen, setInventoryOpen, setCraftingOpen, setSkillTreeOpen, setActiveNPC, setMainMenuOpen } = modals;
 
     const lastActionTime = useRef(0);
 
     // --- KEYBOARD HANDLER (Event Driven for specific actions) ---
     const handleKeyDown = useCallback((e: KeyboardEvent) => {
-        // ... (existing keyboard logic) ...
-        // (We will keep the existing handleKeyDown mostly as is for keyboard support)
+
         if (!gameStarted || gameOver) return;
 
-        // ... (copy existing logic inside handleKeyDown) ...
+
         const key = e.key.toLowerCase();
 
         if (e.key === 'Escape') {
@@ -62,11 +62,13 @@ export function useInputHandler({
             else if (skillTreeOpen) setSkillTreeOpen(false);
             else if (craftingOpen) setCraftingOpen(false);
             else if (inventoryOpen) setInventoryOpen(false);
+            else if (mainMenuOpen) setMainMenuOpen(false); // Close menu if open
             else if (uiState.rangedMode) actions.setRangedMode(false);
+            else setMainMenuOpen(true); // Open menu if nothing else is open
             return;
         }
 
-        const anyModalOpen = inventoryOpen || craftingOpen || skillTreeOpen || activeNPC;
+        const anyModalOpen = inventoryOpen || craftingOpen || skillTreeOpen || activeNPC || mainMenuOpen;
 
         if (key === 'i') {
             if (!anyModalOpen || inventoryOpen) setInventoryOpen(p => !p);
@@ -87,7 +89,7 @@ export function useInputHandler({
         switch (e.key) {
             case ' ':
                 if (uiState.selectedSkill) {
-                    const skill = (SKILLS as any)[uiState.selectedSkill];
+                    const skill = SKILLS[uiState.selectedSkill];
                     if (skill && skill.type !== 'melee') {
                         const success = actions.executeSkillAction(uiState.selectedSkill);
                         if (success) actionTaken = true;
@@ -106,7 +108,7 @@ export function useInputHandler({
             case 'e': case 'E': {
                 const result = actions.interact();
                 if (result?.type === 'npc') {
-                    setActiveNPC(result.data);
+                    setActiveNPC(result.data as NPC);
                     return;
                 }
                 if (result?.type === 'chest') actionTaken = true;
@@ -153,7 +155,7 @@ export function useInputHandler({
 
             // 1. Poll Gamepad State
             const padState = pollGamepad();
-            const anyModalOpen = modals.inventoryOpen || modals.craftingOpen || modals.skillTreeOpen || modals.activeNPC;
+            const anyModalOpen = modals.inventoryOpen || modals.craftingOpen || modals.skillTreeOpen || modals.activeNPC || modals.mainMenuOpen;
 
             if (anyModalOpen) {
                 // Handle Menu Navigation with Gamepad here if desired
@@ -161,8 +163,10 @@ export function useInputHandler({
                     if (isPressing('buttonB') || isPressing('start')) {
                         if (activeNPC) setActiveNPC(null);
                         else if (skillTreeOpen) setSkillTreeOpen(false);
-                        else if (craftingOpen) setCraftingOpen(false);
+
                         else if (inventoryOpen) setInventoryOpen(false);
+                        else if (mainMenuOpen) setMainMenuOpen(false);
+                        else setMainMenuOpen(true); // Start button toggles menu
                     }
                 }
                 animationFrameId = requestAnimationFrame(gameLoop);
@@ -207,29 +211,29 @@ export function useInputHandler({
 
                 // --- GAMEPAD BUTTON ACTIONS (Simulating keyboard shortcuts) ---
                 if (padState && !actionTaken) {
-                    // A -> Interact (E) or Descend (Enter) if on stairs? 
-                    // Let's make A = Interact for now.
+                    // A -> Interact (E) or Descend (Enter)
+                    // Priority: Stairs > Interact
                     if (isPressing('buttonA')) {
-                        // Priority: Stairs > Interact
-                        // Validating if on stairs is logic for actions.interact or explicit check?
-                        // The original code has Enter for descend and E for interact.
-                        // Let's try interaction first.
-                        const result = actions.interact();
-                        if (result?.type === 'npc') {
-                            setActiveNPC(result.data);
+                        // GameState structure: { player, stairs, stairsUp, ... }
+                        // It does NOT contain 'dungeon' object, but spreads its props.
+                        const { player, stairs, stairsUp } = gameState;
+
+                        const onStairsDown = stairs && player && player.x === stairs.x && player.y === stairs.y;
+                        const onStairsUp = stairsUp && player && player.x === stairsUp.x && player.y === stairsUp.y;
+
+                        if (onStairsDown) {
+                            actions.descend(false);
                             actionTaken = true;
-                        } else if (result?.type === 'chest') {
+                        } else if (onStairsUp) {
+                            actions.descend(true);
                             actionTaken = true;
                         } else {
-                            // If no interact, try descend (Enter logic)
-                            // Warning: descend only works if on stairs.
-                            // We don't want to descend by accident if just trying to talk.
-                            // But interact() returns null if nothing nearby.
-                            // Note: interact() in useGameActions doesn't handle stairs. descend() does.
-                            // We might need a separate button or context sensitive 'A'.
-                            if (padState.buttonA) { // Simple check
-                                actions.descend(false);
-                                // We can't easily know if descend worked without return value, but we set actionTaken
+                            // Try interaction if not on stairs
+                            const result = actions.interact();
+                            if (result) {
+                                if (result.type === 'npc') {
+                                    setActiveNPC(result.data as NPC);
+                                }
                                 actionTaken = true;
                             }
                         }
@@ -238,7 +242,7 @@ export function useInputHandler({
                     // X -> Attack (Space)
                     if (isPressing('buttonX')) {
                         if (uiState.selectedSkill) {
-                            const skill = (SKILLS as any)[uiState.selectedSkill];
+                            const skill = SKILLS[uiState.selectedSkill];
                             if (skill && skill.type !== 'melee') {
                                 const success = actions.executeSkillAction(uiState.selectedSkill);
                                 if (success) actionTaken = true;
@@ -249,8 +253,6 @@ export function useInputHandler({
                     // Y -> Inventory (I)
                     if (isPressing('buttonY')) {
                         setInventoryOpen(prev => !prev);
-                        // Since this opens menu, we don't set actionTaken for cooldown on movement, 
-                        // but isPressing handles debounce for the button itself.
                     }
 
                     // Select -> Skills (T)
@@ -258,7 +260,7 @@ export function useInputHandler({
                         setSkillTreeOpen(prev => !prev);
                     }
 
-                    // Start -> Pause/Menu (Esc logic handled above for closing, here maybe open pause menu?)
+                    // Start -> Pause/Menu
                 }
 
 
@@ -275,3 +277,4 @@ export function useInputHandler({
         return () => cancelAnimationFrame(animationFrameId);
     }, [gameStarted, gameOver, modals, actions, onAction, keyboardKeys, pollGamepad, isPressing, getMovement]); // Added necessary deps
 }
+

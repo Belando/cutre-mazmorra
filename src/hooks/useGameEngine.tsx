@@ -12,6 +12,7 @@ import { spriteManager } from '@/engine/core/SpriteManager';
 import { Entity, Player, Enemy, NPC, Item } from '@/types';
 import { useAudioController } from './useAudioController';
 import { useGameContext } from './useGameContext';
+import { PlayerClass } from '@/types/enums';
 
 export function useGameEngine() {
     const { player, setPlayer, initPlayer, updatePlayer, gainExp, regenerate: regenPlayer } = usePlayer();
@@ -49,7 +50,7 @@ export function useGameEngine() {
     const [completedQuests, setCompletedQuests] = useState<string[]>([]);
     const [questProgress, setQuestProgress] = useState<Record<string, any>>({});
     const [selectedAppearance, setSelectedAppearance] = useState<any>(null);
-    const [playerClass, setPlayerClass] = useState<'warrior' | 'mage' | 'rogue'>('warrior');
+    const [playerClass, setPlayerClass] = useState<PlayerClass>(PlayerClass.WARRIOR);
     const [playerName, setPlayerName] = useState('');
     const [selectedSkill, setSelectedSkill] = useState<any>(null);
     const [rangedMode, setRangedMode] = useState(false);

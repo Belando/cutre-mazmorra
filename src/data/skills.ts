@@ -93,6 +93,12 @@ export interface Skill {
     manaCost: number;
     type: 'melee' | 'ranged' | 'self' | 'aoe' | 'ultimate';
     range?: number;
+    visuals?: {
+        color?: string;
+        projectileColor?: string;
+        projectileStyle?: 'circle' | 'arrow';
+        sound?: string;
+    };
     tree: string;
     unlockLevel: number;
     maxLevel: number;
@@ -112,7 +118,7 @@ export const SKILLS: Record<string, Skill> = {
         tree: 'warrior',
         unlockLevel: 1,
         maxLevel: 5,
-        effect: (player, target, playerStats, skillLevel = 1) => {
+        effect: (_player, _target, playerStats, skillLevel = 1) => {
             const multiplier = 1.5 + (skillLevel * 0.25);
             const damage = Math.floor((playerStats.attack || 0) * multiplier);
             return { damage, message: `¡Golpe Poderoso Nv.${skillLevel} inflige ${damage}!` };
@@ -129,7 +135,7 @@ export const SKILLS: Record<string, Skill> = {
         tree: 'warrior',
         unlockLevel: 1,
         maxLevel: 5,
-        effect: (player, target, playerStats, skillLevel = 1) => {
+        effect: (_player, _target, playerStats, skillLevel = 1) => {
             const damage = Math.floor((playerStats.attack || 0) * (0.75 + skillLevel * 0.1));
             return { damage, stun: 2 + Math.floor(skillLevel / 3), message: `¡Golpe de Escudo aturde e inflige ${damage}!` };
         }
@@ -145,6 +151,7 @@ export const SKILLS: Record<string, Skill> = {
         tree: 'warrior',
         unlockLevel: 3,
         maxLevel: 5,
+        visuals: { color: '#ffffff', sound: 'magic' },
         effect: (player, targets, playerStats, skillLevel = 1) => {
             const damage = Math.floor((playerStats.attack || 0) * (1 + skillLevel * 0.15));
             return { damage, hitAll: true, message: `¡Torbellino golpea a todos por ${damage}!` };
@@ -161,10 +168,10 @@ export const SKILLS: Record<string, Skill> = {
         tree: 'warrior',
         unlockLevel: 5,
         maxLevel: 3,
-        effect: (player, target, playerStats, skillLevel = 1) => {
+        effect: (_player, _target, _playerStats, skillLevel = 1) => {
             const bonus = 0.5 + skillLevel * 0.1;
             return {
-                buff: { attack: bonus, defense: bonus, duration: 5 + skillLevel },
+                buff: { id: 'war_cry', name: 'Grito de Guerra', stats: { attack: bonus, defense: bonus }, duration: 5 + skillLevel },
                 message: `¡Grito de Guerra Nv.${skillLevel}!`
             };
         }
@@ -182,9 +189,9 @@ export const SKILLS: Record<string, Skill> = {
         tree: 'knight',
         unlockLevel: 10,
         maxLevel: 5,
-        effect: (player, target, playerStats, skillLevel = 1) => {
+        effect: (_player, _target, _playerStats, skillLevel = 1) => {
             return {
-                buff: { damageReduction: 0.7 + skillLevel * 0.05, duration: 4 + skillLevel } as any,
+                buff: { id: 'iron_fortress', name: 'Fortaleza de Hierro', damageReduction: 0.7 + skillLevel * 0.05, duration: 4 + skillLevel } as any,
                 message: '¡Fortaleza de Hierro activada!'
             };
         }
@@ -200,7 +207,7 @@ export const SKILLS: Record<string, Skill> = {
         tree: 'knight',
         unlockLevel: 12,
         maxLevel: 5,
-        effect: (player, target, playerStats, skillLevel = 1) => {
+        effect: (_player, _target, playerStats, skillLevel = 1) => {
             const damage = Math.floor((playerStats.attack || 0) * (2 + skillLevel * 0.2));
             const heal = Math.floor(damage * 0.3);
             return { damage, heal, message: `¡Golpe Sagrado! ${damage} daño, +${heal} HP!` };
@@ -219,9 +226,9 @@ export const SKILLS: Record<string, Skill> = {
         tree: 'berserker',
         unlockLevel: 10,
         maxLevel: 5,
-        effect: (player, target, playerStats, skillLevel = 1) => {
+        effect: (_player, _target, _playerStats, skillLevel = 1) => {
             return {
-                buff: { attack: 1 + skillLevel * 0.2, defense: -0.3, duration: 6 + skillLevel },
+                buff: { id: 'blood_rage', name: 'Furia Sangrienta', stats: { attack: 1 + skillLevel * 0.2, defense: -0.3 }, duration: 6 + skillLevel },
                 message: '¡FURIA SANGRIENTA!'
             };
         }
@@ -237,7 +244,7 @@ export const SKILLS: Record<string, Skill> = {
         tree: 'berserker',
         unlockLevel: 12,
         maxLevel: 5,
-        effect: (player, target, playerStats, skillLevel = 1) => {
+        effect: (_player, target, playerStats, skillLevel = 1) => {
             const t = target as Entity;
             const isLowHp = (t.hp || 0) / (t.maxHp || 1) < (0.3 + skillLevel * 0.05);
             const multiplier = isLowHp ? (5 + skillLevel) : 1.5;
@@ -294,6 +301,12 @@ export const SKILLS: Record<string, Skill> = {
         tree: 'mage',
         unlockLevel: 3,
         maxLevel: 5,
+        visuals: {
+            color: '#06b6d4',
+            projectileColor: '#06b6d4',
+            projectileStyle: 'circle',
+            sound: 'magic'
+        },
         effect: (player, target, playerStats, skillLevel = 1) => {
             const atk = playerStats.magicAttack || playerStats.attack || 0;
             const damage = Math.floor(atk * (1.25 + skillLevel * 0.15));
@@ -313,7 +326,7 @@ export const SKILLS: Record<string, Skill> = {
         maxLevel: 3,
         effect: (player, target, playerStats, skillLevel = 1) => {
             return {
-                buff: { absorb: 0.5 + skillLevel * 0.1, duration: 4 + skillLevel } as any,
+                buff: { id: 'arcane_shield', name: 'Escudo Arcano', absorb: 0.5 + skillLevel * 0.1, duration: 4 + skillLevel } as any,
                 message: '¡Escudo Arcano!'
             };
         }
@@ -350,7 +363,7 @@ export const SKILLS: Record<string, Skill> = {
         maxLevel: 3,
         effect: (player, target, playerStats, skillLevel = 1) => {
             return {
-                buff: { cooldownReduction: 0.3 + skillLevel * 0.1, duration: 8 } as any,
+                buff: { id: 'arcane_mastery', name: 'Maestría Arcana', cooldownReduction: 0.3 + skillLevel * 0.1, duration: 8 } as any,
                 message: '¡Maestría Arcana activa!'
             };
         }
@@ -369,7 +382,7 @@ export const SKILLS: Record<string, Skill> = {
         effect: (player, target, playerStats, skillLevel = 1) => {
             const healPerTurn = Math.floor((player.maxHp || 100) * (0.1 + skillLevel * 0.02));
             return {
-                buff: { regen: healPerTurn, duration: 5 + skillLevel } as any,
+                buff: { id: 'rejuvenation', name: 'Rejuvenecimiento', regen: healPerTurn, duration: 5 + skillLevel } as any,
                 message: `¡Rejuvenecimiento! +${healPerTurn}/turno!`
             };
         }
@@ -428,6 +441,8 @@ export const SKILLS: Record<string, Skill> = {
         effect: (player, target, playerStats, skillLevel = 1) => {
             return {
                 buff: {
+                    id: 'smoke_bomb',
+                    name: 'Bomba de Humo',
                     invisible: true,
                     duration: 99,
                     breaksOnAction: true
@@ -448,6 +463,12 @@ export const SKILLS: Record<string, Skill> = {
         tree: 'rogue',
         unlockLevel: 3,
         maxLevel: 5,
+        visuals: {
+            color: '#cbd5e1',
+            projectileColor: '#cbd5e1',
+            projectileStyle: 'arrow',
+            sound: 'magic'
+        },
         effect: (player, target, playerStats, skillLevel = 1) => {
             const damage = Math.floor((playerStats.attack || 0) * (1 + skillLevel * 0.1));
             return { damage, bleed: { damage: Math.floor(damage * 0.2), duration: 3 }, message: `¡Cuchillo! ${damage} + sangrado!` };
@@ -466,7 +487,7 @@ export const SKILLS: Record<string, Skill> = {
         maxLevel: 3,
         effect: (player, target, playerStats, skillLevel = 1) => {
             return {
-                buff: { evasion: 1 + skillLevel * 0.2, duration: 3 + skillLevel },
+                buff: { id: 'quick_step', name: 'Paso Rápido', evasion: 1 + skillLevel * 0.2, duration: 3 + skillLevel },
                 message: '¡Evasión máxima!'
             };
         }
@@ -521,6 +542,12 @@ export const SKILLS: Record<string, Skill> = {
         tree: 'archer',
         unlockLevel: 10,
         maxLevel: 5,
+        visuals: {
+            color: '#f59e0b',
+            projectileColor: '#cbd5e1',
+            projectileStyle: 'arrow',
+            sound: 'magic'
+        },
         effect: (player, target, playerStats, skillLevel = 1) => {
             const damage = Math.floor((playerStats.attack || 0) * (1 + skillLevel * 0.15));
             return { damage, multiTarget: 3 + Math.floor(skillLevel / 2), message: `¡Disparo Múltiple! ${damage} x3!` };

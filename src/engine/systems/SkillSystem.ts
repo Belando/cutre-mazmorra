@@ -1,20 +1,19 @@
 // Enhanced Skill System with Class Evolution
 import { CLASS_EVOLUTIONS, SKILL_TREES, SKILLS, Skill } from '@/data/skills';
 import { hasLineOfSight } from '@/engine/core/utils';
-import { Entity, Stats, SkillState, Buff } from '@/types';
+import { Entity, Stats, SkillState, Buff, Player } from '@/types';
+import { PlayerClass } from '@/types/enums';
+import { CLASS_CONFIG } from '@/data/classes';
 
 // Initialize skills state
-export function initializeSkills(playerClass: string = 'warrior'): SkillState {
-    const startingSkills: Record<string, string[]> = {
-        warrior: ['power_strike', 'shield_bash'],
-        mage: ['heal', 'fireball'],
-        rogue: ['backstab', 'smoke_bomb'],
-    };
+export function initializeSkills(playerClass: PlayerClass = PlayerClass.WARRIOR): SkillState {
+    const config = CLASS_CONFIG[playerClass];
+    const startingSkills = config ? config.startingSkills : ['power_strike'];
 
     return {
         class: playerClass,
         evolvedClass: null,
-        learned: [...(startingSkills[playerClass] || ['power_strike', 'heal'])],
+        learned: [...startingSkills],
         skillLevels: {},
         skillPoints: 0,
         cooldowns: {},
@@ -94,7 +93,7 @@ export function upgradeSkill(skills: SkillState, skillId: string): LearnSkillRes
 }
 
 // Get unlocked skills
-export function getUnlockedSkills(playerLevel: number, learnedSkills: string[], playerClass: string | null = null): Skill[] {
+export function getUnlockedSkills(playerLevel: number, learnedSkills: string[], _playerClass: string | null = null): Skill[] {
     return learnedSkills
         .filter(skillId => SKILLS[skillId] && SKILLS[skillId].unlockLevel <= playerLevel)
         .map(skillId => SKILLS[skillId]);
@@ -149,7 +148,7 @@ export function useSkill(skillId: string, player: Entity, playerStats: Stats, ta
     const skill = SKILLS[skillId];
     if (!skill) return { success: false, message: 'Habilidad desconocida' };
 
-    const skillLevel = player.skills?.skillLevels?.[skillId] || 1;
+    const skillLevel = (player.type === 'player' && (player as Player).skills?.skillLevels?.[skillId]) || 1;
     const { cooldown } = getSkillEffectiveStats(skill, skillLevel);
 
     const result: SkillActionResult = {
@@ -228,14 +227,12 @@ export function calculateBuffBonuses(buffs: Buff[], playerStats: Stats): BuffBon
 
     buffs.forEach(buff => {
         if (buff.stats?.attack) attackBonus += Math.floor((playerStats.attack || 0) * buff.stats.attack);
-        if ((buff as any).attack) attackBonus += Math.floor((playerStats.attack || 0) * (buff as any).attack); // Legacy support logic
 
         if (buff.stats?.defense) defenseBonus += Math.floor((playerStats.defense || 0) * buff.stats.defense);
-        if ((buff as any).defense) defenseBonus += Math.floor((playerStats.defense || 0) * (buff as any).defense);
 
         if (buff.invisible) isInvisible = true;
         if (buff.evasion) evasionBonus += buff.evasion;
-        if ((buff as any).absorb) absorbPercent += (buff as any).absorb;
+        if (buff.absorb) absorbPercent += buff.absorb;
     });
 
     return { attackBonus, defenseBonus, isInvisible, evasionBonus, absorbPercent };

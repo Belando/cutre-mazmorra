@@ -126,24 +126,29 @@ export function useCombatLogic({
         const res = useSkill(skillId, player, effectiveStats, targetEnemy, dungeon.enemies, dungeon.visible, dungeon.map);
 
         if (res.success) {
-            if (skill.type === 'ranged' && targetEnemy) {
-                let projColor = '#fff';
-                let projStyle = 'circle';
+            const updates: Partial<Player> = {};
 
-                if (skillId === 'fireball') { projColor = '#f97316'; projStyle = 'circle'; }
-                else if (skillId === 'ice_shard') { projColor = '#06b6d4'; projStyle = 'circle'; }
-                else if (skillId === 'throwing_knife' || skillId === 'multishot') { projColor = '#cbd5e1'; projStyle = 'arrow'; }
-                else if ((skill as any).tree === 'mage' || (skill as any).tree === 'arcane') { projColor = '#a855f7'; projStyle = 'circle'; }
-                else if ((skill as any).tree === 'archer') { projColor = '#f59e0b'; projStyle = 'arrow'; }
-
+            // Visuals from data
+            if (skill.type === 'ranged' && targetEnemy && skill.visuals?.projectileColor) {
                 if (effectsManager.current) {
-                    effectsManager.current.addProjectile(player.x, player.y, targetEnemy.x, targetEnemy.y, projColor, projStyle);
+                    effectsManager.current.addProjectile(
+                        player.x, player.y,
+                        targetEnemy.x, targetEnemy.y,
+                        skill.visuals.projectileColor,
+                        skill.visuals.projectileStyle || 'circle'
+                    );
                 }
             }
 
-            if (skillId === 'fireball') soundManager.play('fireball');
-            else if (skillId === 'heal') soundManager.play('heal');
-            else soundManager.play('magic');
+            // Sounds from data
+            if (skill.visuals?.sound) {
+                soundManager.play(skill.visuals.sound as any);
+            } else {
+                // Fallback defaults
+                if (skill.type === 'ranged') soundManager.play('magic');
+                else if (skillId === 'heal') soundManager.play('heal');
+                else soundManager.play('magic'); // Generic fallback
+            }
 
             let currentBuffs = player.skills?.buffs || [];
             if (['melee', 'ranged', 'aoe', 'ultimate'].includes(skill.type)) {
@@ -195,8 +200,7 @@ export function useCombatLogic({
 
             let currentEnemiesList = [...dungeon.enemies];
             if (res.damages && res.damages.length > 0) {
-                let damageColor = SKILL_COLORS[skillId] || SKILL_COLORS.default;
-                if (skillId === 'power_strike') damageColor = '#ffffff';
+                let damageColor = skill.visuals?.color || SKILL_COLORS[skillId] || SKILL_COLORS.default;
 
                 res.damages.forEach(dmgInfo => {
                     const idx = currentEnemiesList.indexOf(dmgInfo.target as any);
@@ -205,7 +209,7 @@ export function useCombatLogic({
                         enemy.hp = (enemy.hp || 0) - dmgInfo.damage;
 
                         if (effectsManager.current) {
-                            const explosionColor = skillId === 'fireball' ? '#f97316' : (skillId === 'power_strike' || skillId === 'shield_bash' ? '#ffffff' : '#a855f7');
+                            const explosionColor = skill.visuals?.color || (skillId === 'fireball' ? '#f97316' : '#a855f7');
                             effectsManager.current.addExplosion(enemy.x, enemy.y, explosionColor);
 
                             const isCritical = dmgInfo.isCrit || false;

@@ -1,4 +1,4 @@
-import { Entity } from '@/types';
+import { BOSS_CONSTANTS } from './BossConstants';
 
 // Draw large enemy sprite (2x2 boss)
 export function drawLargeBossSprite(
@@ -35,9 +35,16 @@ function drawAncientDragonLarge(ctx: CanvasRenderingContext2D, x: number, y: num
     const wingFlap = Math.sin(frame * 0.1) * 0.05;
 
     // Body
-    ctx.fillStyle = "#92400e";
+    // Body
+    ctx.fillStyle = BOSS_CONSTANTS.DRAGON.COLOR_BODY;
     ctx.beginPath();
-    ctx.ellipse(x + s * 0.5, y + s * 0.55, s * 0.35, s * 0.25, 0, 0, Math.PI * 2);
+    ctx.ellipse(
+        x + s * BOSS_CONSTANTS.DRAGON.BODY_X,
+        y + s * BOSS_CONSTANTS.DRAGON.BODY_Y,
+        s * BOSS_CONSTANTS.DRAGON.BODY_RX,
+        s * BOSS_CONSTANTS.DRAGON.BODY_RY,
+        0, 0, Math.PI * 2
+    );
     ctx.fill();
 
     // Neck
@@ -50,13 +57,14 @@ function drawAncientDragonLarge(ctx: CanvasRenderingContext2D, x: number, y: num
     ctx.fill();
 
     // Head
-    ctx.fillStyle = "#fbbf24";
+    // Head
+    ctx.fillStyle = BOSS_CONSTANTS.DRAGON.COLOR_HEAD;
     ctx.beginPath();
     ctx.ellipse(
-        x + s * 0.28,
-        y + s * 0.12,
-        s * 0.12,
-        s * 0.08,
+        x + s * BOSS_CONSTANTS.DRAGON.HEAD_X,
+        y + s * BOSS_CONSTANTS.DRAGON.HEAD_Y,
+        s * BOSS_CONSTANTS.DRAGON.HEAD_RX,
+        s * BOSS_CONSTANTS.DRAGON.HEAD_RY,
         -0.3,
         0,
         Math.PI * 2
@@ -179,13 +187,25 @@ function drawDemonLordLarge(ctx: CanvasRenderingContext2D, x: number, y: number,
     const s = size;
 
     // Body
-    ctx.fillStyle = "#7f1d1d";
-    ctx.fillRect(x + s * 0.25, y + s * 0.35, s * 0.5, s * 0.45);
+    // Body
+    ctx.fillStyle = BOSS_CONSTANTS.DEMON.COLOR_BODY;
+    ctx.fillRect(
+        x + s * BOSS_CONSTANTS.DEMON.BODY_X,
+        y + s * BOSS_CONSTANTS.DEMON.BODY_Y,
+        s * BOSS_CONSTANTS.DEMON.BODY_W,
+        s * BOSS_CONSTANTS.DEMON.BODY_H
+    );
 
     // Head
-    ctx.fillStyle = "#dc2626";
+    // Head
+    ctx.fillStyle = BOSS_CONSTANTS.DEMON.COLOR_HEAD;
     ctx.beginPath();
-    ctx.arc(x + s * 0.5, y + s * 0.28, s * 0.18, 0, Math.PI * 2);
+    ctx.arc(
+        x + s * BOSS_CONSTANTS.DEMON.HEAD_X,
+        y + s * BOSS_CONSTANTS.DEMON.HEAD_Y,
+        s * BOSS_CONSTANTS.DEMON.HEAD_R,
+        0, Math.PI * 2
+    );
     ctx.fill();
 
     // Horns (large, curved)
@@ -256,21 +276,23 @@ function drawDemonLordLarge(ctx: CanvasRenderingContext2D, x: number, y: number,
     ctx.fillRect(x + s * 0.56, y + s * 0.9, s * 0.16, s * 0.06);
 }
 
-function drawGolemKingLarge(ctx: CanvasRenderingContext2D, x: number, y: number, size: number, frame: number): void {
+function drawGolemKingLarge(ctx: CanvasRenderingContext2D, x: number, y: number, size: number, _frame: number): void {
     const s = size;
 
     // Body (massive)
-    ctx.fillStyle = "#44403c";
+    // Body (massive)
+    ctx.fillStyle = BOSS_CONSTANTS.GOLEM.COLOR_ROCKS;
     ctx.fillRect(x + s * 0.2, y + s * 0.35, s * 0.6, s * 0.5);
 
     // Head
-    ctx.fillStyle = "#57534e";
+    // Head
+    ctx.fillStyle = BOSS_CONSTANTS.GOLEM.COLOR_BODY;
     ctx.beginPath();
     ctx.arc(x + s * 0.5, y + s * 0.28, s * 0.2, 0, Math.PI * 2);
     ctx.fill();
 
     // Crown
-    ctx.fillStyle = "#fbbf24";
+    ctx.fillStyle = BOSS_CONSTANTS.GOLEM.COLOR_CROWN;
     ctx.beginPath();
     ctx.moveTo(x + s * 0.3, y + s * 0.15);
     ctx.lineTo(x + s * 0.35, y + s * 0.02);
@@ -283,8 +305,8 @@ function drawGolemKingLarge(ctx: CanvasRenderingContext2D, x: number, y: number,
     ctx.fill();
 
     // Gem in crown
-    ctx.fillStyle = "#dc2626";
-    ctx.shadowColor = "#dc2626";
+    ctx.fillStyle = BOSS_CONSTANTS.GOLEM.COLOR_GEM;
+    ctx.shadowColor = BOSS_CONSTANTS.GOLEM.COLOR_GEM;
     ctx.shadowBlur = 8;
     ctx.beginPath();
     ctx.arc(x + s * 0.5, y + s * 0.08, s * 0.04, 0, Math.PI * 2);
@@ -292,16 +314,16 @@ function drawGolemKingLarge(ctx: CanvasRenderingContext2D, x: number, y: number,
     ctx.shadowBlur = 0;
 
     // Glowing eyes
-    ctx.fillStyle = "#22d3ee";
-    ctx.shadowColor = "#22d3ee";
+    ctx.fillStyle = BOSS_CONSTANTS.GOLEM.COLOR_EYES;
+    ctx.shadowColor = BOSS_CONSTANTS.GOLEM.COLOR_EYES;
     ctx.shadowBlur = 12;
     ctx.fillRect(x + s * 0.38, y + s * 0.24, s * 0.08, s * 0.08);
     ctx.fillRect(x + s * 0.54, y + s * 0.24, s * 0.08, s * 0.08);
     ctx.shadowBlur = 0;
 
     // Rune lines on body
-    ctx.strokeStyle = "#22d3ee";
-    ctx.shadowColor = "#22d3ee";
+    ctx.strokeStyle = BOSS_CONSTANTS.GOLEM.COLOR_RUNES;
+    ctx.shadowColor = BOSS_CONSTANTS.GOLEM.COLOR_RUNES;
     ctx.shadowBlur = 6;
     ctx.lineWidth = 2;
     ctx.beginPath();

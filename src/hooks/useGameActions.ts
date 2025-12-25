@@ -21,6 +21,13 @@ export type GameActionsContext = MovementActionsContext &
         executeSkillAction: (skillId: string, target?: Entity | null) => boolean;
         handleEnemyDeath: (index: number) => Entity[];
         spatialHash: any;
+        playerName: string;
+        selectedAppearance: string;
+        playerClass: string;
+        selectedSkill: string | null;
+        rangedMode: boolean;
+        rangedTargets: Entity[];
+        setGameWon: (won: boolean) => void;
     };
 
 export interface GameActions {
