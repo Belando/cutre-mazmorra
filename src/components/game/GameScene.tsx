@@ -4,6 +4,7 @@ import { OrbitControls, PerspectiveCamera, Stars } from '@react-three/drei';
 import { GameState } from '@/types';
 import { DungeonMap3D } from './3d/DungeonMap3D';
 import * as THREE from 'three';
+import { Model as TorchModel } from './3d/TorchModel';
 
 interface GameSceneProps {
     gameState: GameState;
@@ -47,10 +48,17 @@ export function GameScene({ gameState }: GameSceneProps) {
                 maxDistance={20}
             />
 
-            <ambientLight intensity={0.2} />
+            {/* 3️⃣ Asegurar iluminación mínima (Ambient + Directional) */}
+            <ambientLight intensity={0.7} />
+            <directionalLight
+                position={[5, 10, 5]}
+                intensity={1.0}
+                castShadow
+                shadow-mapSize={[1024, 1024]} // Mayor resolución de sombra
+                shadow-bias={-0.0001} // Evitar Shadow Acne (la rejilla extraña)
+            />
 
-            {/* Luz del jugador (Antorcha) */}
-            <pointLight position={[playerX, 5, playerY]} intensity={0.8} castShadow distance={15} decay={2} color="#fbbf24" />
+            {/* Luz del jugador (Antorcha) - Movida al grupo del Jugador */}
 
             <Stars radius={100} depth={50} count={2000} factor={4} saturation={0} fade speed={1} />
 
@@ -60,12 +68,16 @@ export function GameScene({ gameState }: GameSceneProps) {
                 explored={gameState.explored}
             />
 
+
+
             {/* Jugador (Cubo Azul) */}
             <group ref={playerRef} position={[playerX, 0, playerY]}>
                 <mesh position={[0, 0.75, 0]} castShadow>
                     <boxGeometry args={[0.6, 1.5, 0.6]} />
                     <meshStandardMaterial color="#3b82f6" emissive="#1d4ed8" emissiveIntensity={0.5} />
                 </mesh>
+
+                {/* Antorcha eliminada del jugador */}
             </group>
 
             {/* Enemigos (Cubos Rojos) */}
