@@ -18,8 +18,8 @@ type GLTFResult = GLTF & {
   animations: THREE.AnimationClip[]
 }
 
-export function Model(props: React.JSX.IntrinsicElements['group']) {
-  const { nodes, materials } = useGLTF('/models/wall.glb') as GLTFResult
+export function Model(props: React.JSX.IntrinsicElements['group'] & { texture?: THREE.Texture }) {
+  const { nodes, materials } = useGLTF('/models/wall.glb') as unknown as GLTFResult
 
   // Búsqueda dinámica del nodo de malla (por si cambia el nombre en Blender)
   const meshNode = nodes.Muro_Ladrillo_Rojo_Final || Object.values(nodes).find(n => n.type === 'Mesh') as THREE.Mesh;
@@ -32,28 +32,19 @@ export function Model(props: React.JSX.IntrinsicElements['group']) {
     const hasVertexColors = geometry.attributes.color || geometry.attributes.COLOR_0;
 
     Object.values(materials).forEach((mat) => {
-      if (hasVertexColors) {
-        // ✅ Configuración Ideal: Vertex Colors activados
-        mat.vertexColors = true;
-        mat.color = new THREE.Color(1, 1, 1);
-        mat.roughness = 0.9;
-        mat.metalness = 0.0;
-      } else {
-        // ⚠️ Fallback: Sin Vertex Colors (evitar negro)
-        mat.vertexColors = false;
-        mat.color = new THREE.Color('#78350f'); // Ladrillo rojo/marrón manual
-        mat.roughness = 0.9;
-        mat.metalness = 0.1;
-      }
-
-      // Limpieza común
-      if (mat.map) mat.map = null;
+      // 3. Fallback / Override: Force Stone Grey
+      mat.map = null;
+      mat.vertexColors = false;
+      mat.color = new THREE.Color('#64748b');
+      mat.roughness = 0.9;
+      mat.metalness = 0.0;
       mat.emissive = new THREE.Color(0, 0, 0);
+      mat.needsUpdate = true;
       mat.emissiveIntensity = 0;
       mat.needsUpdate = true;
     });
 
-  }, [materials, meshNode]);
+  }, [materials, meshNode, props.texture]);
 
   if (!meshNode) return null;
 

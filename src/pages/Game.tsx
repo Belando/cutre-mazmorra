@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { motion } from 'framer-motion';
 import { Button } from "@/components/ui/button";
 // Icons removed as they are no longer used in this file
@@ -62,6 +62,8 @@ export default function Game() {
         }
     }, [gameState, activeNPC]);
 
+    const cameraAngleRef = useRef(0);
+
     useInputHandler({
         gameStarted,
         gameOver,
@@ -69,7 +71,8 @@ export default function Game() {
         actions,
         gameState,
         modals: modals as any,
-        onAction: handleAction
+        onAction: handleAction,
+        cameraAngleRef
     });
 
     const { loading: assetsLoading, progress: assetProgress } = useAssetLoader();
@@ -120,7 +123,7 @@ export default function Game() {
             <div className="relative w-screen h-screen overflow-hidden bg-black">
 
                 <div className="absolute inset-0 z-0">
-                    <Game3DViewer gameState={gameState} />
+                    <Game3DViewer gameState={gameState} cameraAngleRef={cameraAngleRef} />
                 </div>
 
                 <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-10">

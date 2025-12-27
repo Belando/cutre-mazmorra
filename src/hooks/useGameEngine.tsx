@@ -175,6 +175,29 @@ export function useGameEngine() {
         }
     }, [player?.level]);
 
+    // Use Refs to allow stable interval even when state changes
+    const actionsRef = useRef(actions);
+    useEffect(() => { actionsRef.current = actions; });
+
+    // REAL-TIME ENEMY LOOP
+    useEffect(() => {
+        if (!gameStarted || gameOver || gameWon) return;
+
+        const ENEMY_TICK_RATE = 600; // ms between enemy moves
+
+        const interval = setInterval(() => {
+            // Execute turn via ref to avoid resetting interval on re-renders
+            if (actionsRef.current) {
+                actionsRef.current.executeTurn(undefined, null);
+            }
+        }, ENEMY_TICK_RATE);
+
+        return () => clearInterval(interval);
+    }, [gameStarted, gameOver, gameWon]);
+
+
+
+
     const gameState = useMemo(() => ({
         player, map: dungeon.map, enemies: dungeon.enemies, items: dungeon.items, chests: dungeon.chests,
         torches: dungeon.torches, npcs: dungeon.npcs, stairs: dungeon.stairs, stairsUp: dungeon.stairsUp,

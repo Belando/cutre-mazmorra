@@ -34,6 +34,7 @@ export interface InputHandlerParams {
     gameState: GameState;
     modals: InputHandlerModals;
     onAction?: () => void;
+    cameraAngleRef?: React.RefObject<number>;
 }
 
 export function useInputHandler({
@@ -43,7 +44,8 @@ export function useInputHandler({
     actions,
     gameState,
     modals,
-    onAction
+    onAction,
+    cameraAngleRef
 }: InputHandlerParams) {
     const { inventoryOpen, craftingOpen, skillTreeOpen, activeNPC, mainMenuOpen, setInventoryOpen, setCraftingOpen, setSkillTreeOpen, setActiveNPC, setMainMenuOpen } = modals;
 
@@ -141,6 +143,31 @@ export function useInputHandler({
 
     }, [gameStarted, gameOver, uiState, actions, gameState, modals, onAction]);
 
+    // --- MOUSE CLICK ATTACK ---
+    useEffect(() => {
+        const handleMouseDown = (e: MouseEvent) => {
+            if (!gameStarted || gameOver || !uiState.selectedSkill) return;
+            const anyModalOpen = modals.inventoryOpen || modals.craftingOpen || modals.skillTreeOpen || modals.activeNPC || modals.mainMenuOpen;
+            if (anyModalOpen) return;
+
+            // Left Click (0)
+            if (e.button === 0) {
+                const target = e.target as HTMLElement;
+                // Ignore clicks on interactive elements
+                if (target.closest('button, a, input, textarea, select, [role="button"]')) return;
+
+                const skill = SKILLS[uiState.selectedSkill];
+                if (skill) {
+                    const success = actions.executeSkillAction(uiState.selectedSkill);
+                    if (success && onAction) onAction();
+                }
+            }
+        };
+
+        window.addEventListener('mousedown', handleMouseDown);
+        return () => window.removeEventListener('mousedown', handleMouseDown);
+    }, [gameStarted, gameOver, uiState.selectedSkill, modals, actions, onAction]);
+
     const { pressedKeys: keyboardKeys } = useKeyboardControls(handleKeyDown);
     const { pollGamepad, isPressing, getMovement } = useGamepadControls();
 
@@ -158,6 +185,7 @@ export function useInputHandler({
             const anyModalOpen = modals.inventoryOpen || modals.craftingOpen || modals.skillTreeOpen || modals.activeNPC || modals.mainMenuOpen;
 
             if (anyModalOpen) {
+                // ... (Modal interaction logic remains)
                 // Handle Menu Navigation with Gamepad here if desired
                 if (padState) {
                     if (isPressing('buttonB') || isPressing('start')) {
@@ -173,53 +201,87 @@ export function useInputHandler({
                 return;
             }
 
-            // 2. Handle Actions (Movement & Buttons)
+            // --- CONTINUOUS INPUT POLLING (Fluid Movement) ---
+            let dx = 0;
+            let dy = 0;
+
+            // Keyboard
+            const keys = keyboardKeys.current;
+            if (keys.size > 0) {
+                if (keys.has('w') || keys.has('arrowup')) dy -= 1;
+                if (keys.has('s') || keys.has('arrowdown')) dy += 1;
+                if (keys.has('a') || keys.has('arrowleft')) dx -= 1;
+                if (keys.has('d') || keys.has('arrowright')) dx += 1;
+            }
+
+            // Gamepad
+            if (padState) {
+                const padMove = getMovement();
+                if (padMove.dx !== 0 || padMove.dy !== 0) {
+                    dx = padMove.dx; // Usually float -1 to 1
+                    dy = padMove.dy;
+                }
+            }
+
+            // Normalize vector if needed (gamepad does this often, keyboard needs it)
+            if (dx !== 0 || dy !== 0) {
+                // If using keyboard (binary 0/1), normalize diagonals
+                if (Math.abs(dx) === 1 && Math.abs(dy) === 1) {
+                    const len = Math.sqrt(dx * dx + dy * dy);
+                    dx /= len;
+                    dy /= len;
+                }
+
+                // Rotate movement vector based on Camera Angle
+                if (cameraAngleRef && cameraAngleRef.current !== undefined) {
+                    const angle = -cameraAngleRef.current;
+                    const sin = Math.sin(angle);
+                    const cos = Math.cos(angle);
+
+                    // Rotate: x' = x cos - y sin, y' = x sin + y cos
+                    // Note: Our "y" is actually Z in 3D. 
+                    // Input: dx is Left/Right, dy is Forward/Back (Up/Down keys).
+                    // Forward (-dy) means moving into the screen (-Z).
+
+                    // Let's standardise:
+                    // dx = 1 (Right)
+                    // dy = 1 (Down/Back)
+
+                    const rotatedDx = dx * cos - dy * sin;
+                    const rotatedDy = dx * sin + dy * cos;
+
+                    dx = rotatedDx;
+                    dy = rotatedDy;
+                }
+
+                // Call fluid move action every frame
+                // We pass delta time approx (1/60) or measure it properly
+                // For now, let's assume the action handler manages dt or we pass a simple "input vector"
+                if (actions.moveFluid) {
+                    actions.moveFluid(dx, dy);
+                }
+            } else {
+                if (actions.moveFluid) {
+                    actions.moveFluid(0, 0); // Stop
+                }
+            }
+
+            // --- DISCRETE ACTIONS (Buttons) ---
             if (now - lastActionTime.current >= INPUT_COOLDOWN) {
                 let actionTaken = false;
 
-                // --- MOVEMENT ---
-                let dx = 0;
-                let dy = 0;
-
-                // Keyboard
-                const keys = keyboardKeys.current;
-                if (keys.size > 0) {
-                    if (keys.has('w') || keys.has('arrowup')) dy -= 1;
-                    if (keys.has('s') || keys.has('arrowdown')) dy += 1;
-                    if (keys.has('a') || keys.has('arrowleft')) dx -= 1;
-                    if (keys.has('d') || keys.has('arrowright')) dx += 1;
-
-                    if (keys.has('home')) { dx = -1; dy = -1; }
-                    if (keys.has('pageup')) { dx = 1; dy = -1; }
-                    if (keys.has('end')) { dx = -1; dy = 1; }
-                    if (keys.has('pagedown')) { dx = 1; dy = 1; }
-                }
-
-                // Gamepad
-                if (padState) {
-                    const padMove = getMovement();
-                    if (padMove.dx !== 0 || padMove.dy !== 0) {
-                        dx = padMove.dx;
-                        dy = padMove.dy;
-                    }
-                }
-
-                if (dx !== 0 || dy !== 0) {
-                    actions.move(Math.sign(dx), Math.sign(dy));
-                    actionTaken = true;
-                }
-
                 // --- GAMEPAD BUTTON ACTIONS (Simulating keyboard shortcuts) ---
-                if (padState && !actionTaken) {
+                if (padState) {
                     // A -> Interact (E) or Descend (Enter)
                     // Priority: Stairs > Interact
                     if (isPressing('buttonA')) {
-                        // GameState structure: { player, stairs, stairsUp, ... }
-                        // It does NOT contain 'dungeon' object, but spreads its props.
                         const { player, stairs, stairsUp } = gameState;
+                        // Check distance instead of exact integer match for stairs
+                        const distTo = (p: any, t: any) => Math.sqrt((p.x - t.x) ** 2 + (p.y - t.y) ** 2);
+                        const INTERACT_DIST = 1.0;
 
-                        const onStairsDown = stairs && player && player.x === stairs.x && player.y === stairs.y;
-                        const onStairsUp = stairsUp && player && player.x === stairsUp.x && player.y === stairsUp.y;
+                        const onStairsDown = stairs && player && distTo(player, stairs) < INTERACT_DIST;
+                        const onStairsUp = stairsUp && player && distTo(player, stairsUp) < INTERACT_DIST;
 
                         if (onStairsDown) {
                             actions.descend(false);
@@ -228,8 +290,8 @@ export function useInputHandler({
                             actions.descend(true);
                             actionTaken = true;
                         } else {
-                            // Try interaction if not on stairs
-                            const result = actions.interact();
+                            // Try interaction
+                            const result = actions.interact(); // interact needs update for distance too
                             if (result) {
                                 if (result.type === 'npc') {
                                     setActiveNPC(result.data as NPC);
@@ -242,6 +304,7 @@ export function useInputHandler({
                     // X -> Attack (Space)
                     if (isPressing('buttonX')) {
                         if (uiState.selectedSkill) {
+                            // ... skill logic
                             const skill = SKILLS[uiState.selectedSkill];
                             if (skill && skill.type !== 'melee') {
                                 const success = actions.executeSkillAction(uiState.selectedSkill);
@@ -259,10 +322,7 @@ export function useInputHandler({
                     if (isPressing('select')) {
                         setSkillTreeOpen(prev => !prev);
                     }
-
-                    // Start -> Pause/Menu
                 }
-
 
                 if (actionTaken) {
                     lastActionTime.current = now;
@@ -275,6 +335,6 @@ export function useInputHandler({
 
         animationFrameId = requestAnimationFrame(gameLoop);
         return () => cancelAnimationFrame(animationFrameId);
-    }, [gameStarted, gameOver, modals, actions, onAction, keyboardKeys, pollGamepad, isPressing, getMovement]); // Added necessary deps
+    }, [gameStarted, gameOver, modals, actions, onAction, keyboardKeys, pollGamepad, isPressing, getMovement]);
 }
 

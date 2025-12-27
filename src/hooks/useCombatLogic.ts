@@ -102,6 +102,32 @@ export function useCombatLogic({
             return false;
         }
 
+        // --- Auto-Targeting for Melee/Targeted skills if no target provided ---
+        if (!targetEnemy && (skill.type === 'melee' || skill.type === 'ranged')) {
+            const range = skill.range || 1.5;
+            let closestDst = range + 0.1; // Initialize just outside val
+            let closestEnemy: Entity | null = null;
+
+            dungeon.enemies.forEach(e => {
+                const dst = Math.sqrt(Math.pow(e.x - player.x, 2) + Math.pow(e.y - player.y, 2));
+                if (dst <= range && dst < closestDst) {
+                    closestDst = dst;
+                    closestEnemy = e;
+                }
+            });
+
+            targetEnemy = closestEnemy;
+
+            // If still no target and it requires one (melee usually does)
+            if (!targetEnemy && skill.type === 'melee') {
+                // Option: Allow attacking air? For now, fail to prevent wasting CD/Mana
+                // Or maybe just return false silently if it was an "auto" attempt?
+                // Let's add message
+                addMessage("No hay objetivos cerca", 'info');
+                return false;
+            }
+        }
+
         const level = player.skills?.skillLevels?.[skillId] || 1;
         const { manaCost } = getSkillEffectiveStats(skill, level);
 

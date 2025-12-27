@@ -173,5 +173,81 @@ export function useMovementActions(
         }
     };
 
-    return { move, descend };
+    const moveFluid = (inputX: number, inputY: number) => {
+        if (inputX === 0 && inputY === 0) return;
+
+        const SPEED = 0.1; // Adjust based on feel
+        const PLAYER_SIZE = 0.4; // Half-width (radius) for collision
+
+        // Calculate next potential positions independently for X and Z (Y in 2D) to allow sliding
+        let nextX = player.x + inputX * SPEED;
+        let nextY = player.y + inputY * SPEED;
+
+        // Helper to check collision at a point
+        const isSolid = (x: number, y: number) => {
+            const tx = Math.floor(x);
+            const ty = Math.floor(y);
+            if (!dungeon.map || ty < 0 || ty >= dungeon.map.length || tx < 0 || tx >= dungeon.map[0].length) return true;
+
+            // Wall collision
+            if (dungeon.map[ty][tx] === TILE.WALL) return true;
+
+            // Door collision (closed)
+            if (dungeon.map[ty][tx] === TILE.DOOR) {
+                // If closed, trigger open but return TRUE (collision) so we stop and wait
+                const doorKey = `${tx},${ty}`;
+                if (!openingDoors.current.has(doorKey)) {
+                    openingDoors.current.add(doorKey);
+                    soundManager.play('door');
+                    addMessage("La puerta se está abriendo...", 'info');
+
+                    setTimeout(() => {
+                        setDungeon(prev => {
+                            const newMap = [...prev.map];
+                            newMap[ty] = [...newMap[ty]];
+                            newMap[ty][tx] = TILE.DOOR_OPEN;
+                            return { ...prev, map: newMap };
+                        });
+                        // Recalculate FOV
+                        updateMapFOV(player.x, player.y);
+                        openingDoors.current.delete(doorKey);
+                    }, 1000);
+                }
+                return true;
+            }
+
+            return false;
+        };
+
+        // Standard AABB vs Tilemap collision
+        // Check X axis
+        if (inputX !== 0) {
+            const checkX = inputX > 0 ? nextX + PLAYER_SIZE : nextX - PLAYER_SIZE;
+            if (isSolid(checkX, player.y - PLAYER_SIZE) || isSolid(checkX, player.y + PLAYER_SIZE)) {
+                nextX = player.x; // Stop X movement
+            }
+        }
+
+        // Check Y axis (Z in 3D world)
+        if (inputY !== 0) {
+            const checkY = inputY > 0 ? nextY + PLAYER_SIZE : nextY - PLAYER_SIZE;
+            if (isSolid(nextX - PLAYER_SIZE, checkY) || isSolid(nextX + PLAYER_SIZE, checkY)) {
+                nextY = player.y; // Stop Y movement
+            }
+        }
+
+        // Apply visual updates
+        updatePlayer({ x: nextX, y: nextY, lastMoveTime: Date.now() });
+
+        // Trigger generic spatial updates (FOV, items)
+        // Optimization: Only update FOV if tile changed
+        if (Math.floor(nextX) !== Math.floor(player.x) || Math.floor(nextY) !== Math.floor(player.y)) {
+            updateMapFOV(nextX, nextY);
+        }
+
+        // Check triggers (items, doors)
+        // ... (simplified version of grid 'move' logic for triggers)
+    };
+
+    return { move, descend, moveFluid };
 }

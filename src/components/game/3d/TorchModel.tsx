@@ -4,51 +4,91 @@ Command: npx gltfjsx@6.5.3 public/models/torch.glb --output src/components/game/
 */
 
 import * as THREE from 'three'
-import React from 'react'
-import { useGLTF } from '@react-three/drei'
+import React, { useRef, useEffect } from 'react'
+import { useGLTF, useAnimations } from '@react-three/drei'
 import { GLTF } from 'three-stdlib'
 
 type GLTFResult = GLTF & {
   nodes: {
-    Cubo9650: THREE.Mesh
-    Cubo9650_1: THREE.Mesh
-    Cubo9650_2: THREE.Mesh
+    [key: string]: THREE.Mesh | any
   }
   materials: {
-    Mat_Hierro: THREE.MeshStandardMaterial
-    Mat_Madera: THREE.MeshStandardMaterial
-    Mat_Fuego: THREE.MeshStandardMaterial
+    [key: string]: THREE.MeshStandardMaterial
   }
   animations: THREE.AnimationClip[]
 }
 
 export function Model(props: React.JSX.IntrinsicElements['group']) {
-  const { nodes, materials } = useGLTF('/models/torch.glb') as GLTFResult
+  const group = useRef<THREE.Group>(null)
+  const { nodes, materials, animations } = useGLTF('/models/torch.glb') as unknown as GLTFResult
+  // Animations removed as GLB has none causing errors
+  // const { actions, names } = useAnimations(animations, group)
+
+  // Debug check for new model structure
+  if (!nodes.Palo && !nodes.Cubo9650) {
+    // console.log('TorchModel nodes found:', Object.keys(nodes));
+  }
 
   // Configuración de materiales
   React.useLayoutEffect(() => {
+    // 1. Generic setup for all StandardMaterials
     Object.values(materials).forEach((mat) => {
-      mat.vertexColors = true;
-      mat.roughness = 0.9;
-      mat.metalness = 0.0;
+      if (mat instanceof THREE.MeshStandardMaterial) {
+        mat.vertexColors = true;
+        mat.roughness = 0.9;
+        mat.metalness = 0.0;
+      }
     });
 
-    // Configuración especial para el fuego
-    if (materials.Mat_Fuego) {
-      materials.Mat_Fuego.emissive = new THREE.Color(1, 0.5, 0); // Naranja brillante
-      materials.Mat_Fuego.emissiveIntensity = 2.0; // Muy brillante
-      materials.Mat_Fuego.toneMapped = false; // No oscurecer por tone mapping
-    }
-  }, [materials]);
+    // 2. Generic Fire Logic
+    const fireKeywords = ['Fuego', 'Fire', 'Flame'];
+
+    // Check Materials
+    Object.entries(materials).forEach(([name, mat]) => {
+      if (fireKeywords.some(k => name.includes(k)) && mat instanceof THREE.MeshStandardMaterial) {
+        mat.emissive = new THREE.Color(1, 0.5, 0);
+        mat.emissiveIntensity = 2.0;
+        mat.toneMapped = false;
+      }
+    });
+
+    // Check Nodes
+    Object.entries(nodes).forEach(([name, node]) => {
+      if ((node as any).isMesh) {
+        const mesh = node as THREE.Mesh;
+        const mat = mesh.material as THREE.MeshStandardMaterial;
+        if (fireKeywords.some(k => name.includes(k)) && mat instanceof THREE.MeshStandardMaterial) {
+          mat.emissive = mat.color ? mat.color.clone() : new THREE.Color(1, 0.5, 0);
+          mat.emissiveIntensity = 2.0;
+          mat.toneMapped = false;
+        }
+      }
+    });
+
+  }, [materials, nodes]);
 
   return (
-    <group {...props} dispose={null}>
+    <group ref={group} {...props} dispose={null}>
       <group scale={[0.15, 0.25, 0.05]}>
-        <mesh geometry={nodes.Cubo9650.geometry} material={materials.Mat_Hierro} castShadow />
-        <mesh geometry={nodes.Cubo9650_1.geometry} material={materials.Mat_Madera} castShadow />
-        <mesh geometry={nodes.Cubo9650_2.geometry} material={materials.Mat_Fuego} />
-        {/* Luz integrada en la antorcha */}
-        <pointLight position={[0, 2, 0]} intensity={1.5} distance={5} decay={2} color="#ffaa00" castShadow />
+        {/* Renderizado Genérico: Renderizar todos los meshes encontrados */}
+        {Object.entries(nodes).map(([name, node]) => {
+          if ((node as any).isMesh) {
+            const mesh = node as THREE.Mesh;
+            // Material override logic if needed, or use existing
+            return (
+              <mesh
+                key={name}
+                geometry={mesh.geometry}
+                material={mesh.material}
+                castShadow
+              />
+            );
+          }
+          return null;
+        })}
+
+        {/* Luz integrada en la antorcha -- SHADOWS DISABLED FOR PERFORMANCE */}
+        <pointLight position={[0, 2, 0]} intensity={1.5} distance={5} decay={2} color="#ffaa00" castShadow={false} />
       </group>
     </group>
   )

@@ -65,6 +65,7 @@ export interface GameActions {
     setSelectedSkill: (skillId: string | null) => void;
     setRangedMode: (mode: boolean) => void;
     setRangedTargets: (targets: Entity[]) => void;
+    moveFluid: (dx: number, dy: number) => void;
 }
 
 export function useGameActions(context: GameActionsContext): GameActions {
@@ -74,7 +75,7 @@ export function useGameActions(context: GameActionsContext): GameActions {
     } = context;
 
     const { performAttack, executeSkillAction } = useCombatActions(context);
-    const { move, descend } = useMovementActions(context, executeSkillAction, performAttack, executeTurn);
+    const { move, descend, moveFluid } = useMovementActions(context, executeSkillAction, performAttack, executeTurn);
     const { interact, buyItem, sellItem, acceptQuest, completeQuest } = useInteractionActions(context);
     const inventoryActions = useInventoryActions(context);
     const metaActions = useMetaActions(context);
@@ -85,6 +86,7 @@ export function useGameActions(context: GameActionsContext): GameActions {
         executeSkillAction,
         handleEnemyDeath,
         move,
+        moveFluid,
         descend,
         interact,
         buyItem,

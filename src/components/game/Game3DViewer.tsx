@@ -1,3 +1,4 @@
+import { useRef, RefObject } from 'react';
 import { Canvas } from '@react-three/fiber';
 import { GameScene } from './GameScene';
 import { GameState } from '@/types';
@@ -5,9 +6,10 @@ import * as THREE from 'three';
 
 interface Game3DViewerProps {
     gameState: GameState;
+    cameraAngleRef?: RefObject<number>;
 }
 
-export default function Game3DViewer({ gameState }: Game3DViewerProps) {
+export default function Game3DViewer({ gameState, cameraAngleRef }: Game3DViewerProps) {
     return (
         <div className="w-full h-full relative" style={{ minHeight: '600px' }}>
             <Canvas
@@ -23,7 +25,7 @@ export default function Game3DViewer({ gameState }: Game3DViewerProps) {
                 camera={{ position: [0, 10, 10], fov: 50 }}
             >
                 <color attach="background" args={['#1a1a2e']} />
-                <GameScene gameState={gameState} />
+                <GameScene gameState={gameState} cameraAngleRef={cameraAngleRef} />
             </Canvas>
         </div>
     );

@@ -80,6 +80,11 @@ export interface BaseEntity extends Point {
     poisoned?: number;
     poisonDamage?: number;
     marked?: boolean;
+    // Fluid Movement Props
+    velocity?: { x: number; y: number };
+    width?: number;
+    height?: number;
+
     lastAction?: string;
 }
 

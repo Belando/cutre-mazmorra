@@ -59,18 +59,21 @@ export function getEnemyRange(enemyType: number | string): number {
 
 // Comprueba si una casilla está libre de obstáculos
 function isTileFree(x: number, y: number, map: number[][], spatialHash: SpatialHash): boolean {
+    const tx = Math.floor(x);
+    const ty = Math.floor(y);
+
     // 1. Límites del mapa
-    if (y < 0 || y >= map.length || x < 0 || x >= map[0].length) return false;
+    if (ty < 0 || ty >= map.length || tx < 0 || tx >= map[0].length) return false;
 
     // 2. Obstáculos estáticos (Muros/Puertas Cerradas)
-    const tile = map[y][x];
+    const tile = map[ty][tx];
     const isWalkable = tile === TILE.FLOOR || tile === TILE.STAIRS || tile === TILE.STAIRS_UP || tile === TILE.DOOR_OPEN;
 
     if (!isWalkable) return false;
 
     // 3. Entidades dinámicas (Consulta O(1) al Hash)
     // isBlocked devuelve true si hay Player, Enemy, Chest o NPC
-    if (spatialHash.isBlocked(x, y)) return false;
+    if (spatialHash.isBlocked(tx, ty)) return false;
 
     return true;
 }
