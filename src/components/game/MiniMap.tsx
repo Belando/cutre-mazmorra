@@ -17,11 +17,12 @@ import { GameState } from '@/types';
 interface MiniMapProps {
     gameState: GameState;
     floorHistory?: GameState[];
+    expanded: boolean;
+    onExpandChange: (expanded: boolean) => void;
 }
 
-export default function MiniMap({ gameState, floorHistory = [] }: MiniMapProps) {
+export default function MiniMap({ gameState, floorHistory = [], expanded, onExpandChange }: MiniMapProps) {
     const canvasRef = useRef<HTMLCanvasElement>(null);
-    const [expanded, setExpanded] = useState(false);
     const [viewingFloor, setViewingFloor] = useState<number | null>(null);
     const expandedCanvasRef = useRef<HTMLCanvasElement>(null);
 
@@ -35,6 +36,8 @@ export default function MiniMap({ gameState, floorHistory = [] }: MiniMapProps) 
         if (!ctx) return;
 
         const { map, player, explored, stairs, stairsUp } = gameState;
+        if (!map || !map.length || !map[0]) return;
+
         const scale = 3;
 
         canvas.width = map[0].length * scale;
@@ -82,8 +85,10 @@ export default function MiniMap({ gameState, floorHistory = [] }: MiniMapProps) 
             });
         }
 
-        ctx.fillStyle = '#3b82f6';
-        ctx.fillRect(player.x * scale - 1, player.y * scale - 1, scale + 2, scale + 2);
+        if (player) {
+            ctx.fillStyle = '#3b82f6';
+            ctx.fillRect(player.x * scale - 1, player.y * scale - 1, scale + 2, scale + 2);
+        }
 
     }, [gameState]);
 
@@ -98,6 +103,8 @@ export default function MiniMap({ gameState, floorHistory = [] }: MiniMapProps) 
         if (!floorData) return;
 
         const { map, explored, stairs, player } = floorData;
+        if (!map || !map.length || !map[0]) return;
+
         const scale = 6;
 
         canvas.width = map[0].length * scale;
@@ -133,7 +140,7 @@ export default function MiniMap({ gameState, floorHistory = [] }: MiniMapProps) 
             });
         }
 
-        if (viewingFloor === null || viewingFloor === currentFloor) {
+        if ((viewingFloor === null || viewingFloor === currentFloor) && player) {
             ctx.fillStyle = '#3b82f6';
             ctx.shadowColor = '#3b82f6';
             ctx.shadowBlur = 8;
@@ -149,7 +156,7 @@ export default function MiniMap({ gameState, floorHistory = [] }: MiniMapProps) 
         <>
             <div
                 className="p-2 transition-colors border cursor-pointer bg-slate-900/80 backdrop-blur-sm rounded-xl border-slate-700/50 hover:border-slate-600/50"
-                onClick={() => { setExpanded(true); setViewingFloor(null); }}
+                onClick={() => { onExpandChange(true); setViewingFloor(null); }}
             >
                 <div className="flex items-center justify-between mb-1">
                     <div className="flex items-center gap-1">
@@ -168,7 +175,7 @@ export default function MiniMap({ gameState, floorHistory = [] }: MiniMapProps) 
                         animate={{ opacity: 1 }}
                         exit={{ opacity: 0 }}
                         className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/90 backdrop-blur-sm"
-                        onClick={() => setExpanded(false)}
+                        onClick={() => onExpandChange(false)}
                     >
                         <motion.div
                             initial={{ scale: 0.9, y: 20 }}
@@ -187,7 +194,7 @@ export default function MiniMap({ gameState, floorHistory = [] }: MiniMapProps) 
                                         <p className="text-xs text-slate-500 mt-1">Piso {viewingFloor || currentFloor}</p>
                                     </div>
                                 </div>
-                                <Button variant="ghost" size="icon" onClick={() => setExpanded(false)} className="text-slate-400 hover:text-white">
+                                <Button variant="ghost" size="icon" onClick={() => onExpandChange(false)} className="text-slate-400 hover:text-white">
                                     <X className="w-5 h-5" />
                                 </Button>
                             </div>

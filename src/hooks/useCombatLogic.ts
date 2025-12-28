@@ -18,7 +18,6 @@ export interface CombatLogicContext {
     addMessage: (msg: string, type?: string) => void;
     addItem: (item: Item) => boolean;
     effectsManager: any;
-    executeTurn: (playerState: Player, enemies?: Entity[]) => void;
     setSelectedSkill: React.Dispatch<React.SetStateAction<string | null>>;
     setGameWon: React.Dispatch<React.SetStateAction<boolean>>;
     spatialHash: any; // Using any to avoid circular dependency import issues if simple
@@ -30,7 +29,6 @@ export function useCombatLogic({
     setStats,
     addMessage, addItem,
     effectsManager,
-    executeTurn,
     setSelectedSkill,
     setGameWon,
     spatialHash
@@ -167,7 +165,10 @@ export function useCombatLogic({
                 magicDefense: player.stats?.magicDefense || 0,
                 speed: player.stats?.speed || 0
             };
-            if (skill.manaCost) updates.mp = player.mp - skill.manaCost;
+
+            const updates: Partial<Player> = {};
+
+            if (skill.manaCost) updates.mp = Math.max(0, player.mp - skill.manaCost);
 
             if (skill.type === 'melee' && targetEnemy) {
                 updates.lastAttackTime = Date.now();
@@ -224,7 +225,7 @@ export function useCombatLogic({
                         if (dmgInfo.slow) enemy.slowed = dmgInfo.slow;
 
                         if ((enemy.hp || 0) <= 0) {
-                            currentEnemiesList = handleEnemyDeath(idx);
+                            currentEnemiesList = handleEnemyDeath(currentEnemiesList.indexOf(enemy));
                             soundManager.play('kill');
                             if (effectsManager.current) effectsManager.current.addExplosion(enemy.x, enemy.y, '#52525b');
                         }
@@ -234,7 +235,7 @@ export function useCombatLogic({
 
             addMessage(res.message || "Accion completada", 'player_damage');
             setSelectedSkill(null);
-            executeTurn(player, currentEnemiesList);
+            setDungeon(prev => ({ ...prev, enemies: currentEnemiesList }));
             return true;
         } else {
             addMessage(res.message || "Fallo", 'info');

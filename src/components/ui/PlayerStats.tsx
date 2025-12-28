@@ -3,9 +3,6 @@ import {
     GiHearts,
     GiSwordsPower,
     GiCheckedShield,
-    GiCoins,
-    GiFootsteps,
-    GiBackpack,
     GiWaterDrop,
     GiSpartanHelmet,   // Warrior
     GiWizardFace,      // Mage
@@ -19,7 +16,6 @@ import {
     GiMagicTrident,
     GiMagicShield
 } from 'react-icons/gi';
-import { Button } from './button';
 import { calculatePlayerStats } from '@/engine/systems/ItemSystem';
 import { Player } from '@/hooks/usePlayer';
 
@@ -39,11 +35,9 @@ const CLASS_ICONS: Record<string, any> = {
 interface PlayerStatsProps {
     player: Player;
     dungeonLevel: number;
-    onOpenInventory: () => void;
-    inventoryCount: number;
 }
 
-export default function PlayerStats({ player, onOpenInventory, inventoryCount }: PlayerStatsProps) {
+export default function PlayerStats({ player, dungeonLevel }: PlayerStatsProps) {
     if (!player) return null;
 
     const expForNext = player.level * 25;
@@ -131,15 +125,7 @@ export default function PlayerStats({ player, onOpenInventory, inventoryCount }:
                 />
             </div>
 
-            <Button
-                onClick={onOpenInventory}
-                variant="outline"
-                size="sm"
-                className="w-full h-7 text-[10px] border-amber-800/50 bg-amber-900/20 hover:bg-amber-800/30 text-amber-200 flex items-center justify-center gap-2"
-            >
-                <GiBackpack className="w-4 h-4" />
-                <span>Inventario ({inventoryCount}) </span>
-            </Button>
+            {/* Inventory button removed - Moved to Pause Menu */}
         </div>
     );
 }

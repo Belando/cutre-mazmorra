@@ -19,7 +19,7 @@ export function getSpriteForEnemy(type: number | string): SpriteComponent | null
         case ENTITY.ENEMY_WRAITH: texture = 'skeleton_sheet'; break; // Placeholder
         case ENTITY.ENEMY_DEMON: texture = 'goblin_sheet'; break; // Placeholder
         case ENTITY.ENEMY_DRAGON: texture = 'rat_sheet'; break; // Placeholder
-        case ENTITY.ENEMY_SLIME: texture = 'rat_sheet'; break; // Placeholder
+        case ENTITY.ENEMY_SLIME: texture = 'slime_sheet'; break;
         case ENTITY.ENEMY_WOLF: texture = 'rat_sheet'; break; // Placeholder
         case ENTITY.ENEMY_CULTIST: texture = 'skeleton_sheet'; break; // Placeholder
         case ENTITY.ENEMY_GOLEM: texture = 'goblin_sheet'; break; // Placeholder

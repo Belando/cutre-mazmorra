@@ -1,11 +1,12 @@
 import { spriteManager } from '@/engine/core/SpriteManager';
 import { animationSystem } from '@/engine/systems/AnimationSystem';
 import { drawShadow } from './enemies';
+import { TILE_HEIGHT } from '@/data/constants';
 
 export function drawPlayer(
     ctx: CanvasRenderingContext2D,
-    x: number,
-    y: number,
+    isoX: number,
+    isoY: number,
     size: number,
     appearance: any = null,
     playerClass: string | null = null,
@@ -18,6 +19,10 @@ export function drawPlayer(
     lastMoveTime: number = 0,
     sprite: any = null
 ) {
+    // Calculate bounding box position
+    const drawX = isoX - size / 2;
+    const drawY = isoY + TILE_HEIGHT / 2 - size * 0.85;
+
     if (sprite) {
         if (sprite.isMultiFile && sprite.textureKeys) {
             const now = Date.now();
@@ -55,15 +60,26 @@ export function drawPlayer(
                     if (isInvisible) ctx.globalAlpha = 0.4;
                     ctx.imageSmoothingEnabled = true;
                     ctx.imageSmoothingQuality = 'high';
-                    drawShadow(ctx, x, y, size);
+
+                    // Draw shadow at bounding box position
+                    drawShadow(ctx, drawX, drawY, size);
+
                     let scale = 1.6;
                     if (isAttacking) scale *= 1.35;
                     const drawSize = size * scale;
+                    // Center the larger sprite on the bounding box center
                     const offsetX = (drawSize - size) / 2;
+                    // Align feet:
+                    // Original logic: offsetY = feetPosInImage - shadowPosInWorld
+                    // We just center on drawX, drawY? No.
+                    // We want to align the sprite logic.
+                    // Let's use the provided bounding box for the sprite base.
+
                     const feetPosInImage = drawSize * 0.93;
                     const shadowPosInWorld = size * 0.85;
                     const offsetY = feetPosInImage - shadowPosInWorld;
-                    ctx.drawImage(img, 0, 0, img.width, img.height, x - offsetX, y - offsetY, drawSize, drawSize);
+
+                    ctx.drawImage(img, 0, 0, img.width, img.height, drawX - offsetX, drawY - offsetY, drawSize, drawSize);
                     ctx.restore();
                     return;
                 }
@@ -76,8 +92,9 @@ export function drawPlayer(
                 if (frameRect) {
                     ctx.save();
                     if (isInvisible) ctx.globalAlpha = 0.4;
-                    drawShadow(ctx, x, y, size);
-                    ctx.drawImage(img, frameRect.x, frameRect.y, frameRect.w, frameRect.h, x, y - size * 0.2, size, size);
+                    drawShadow(ctx, drawX, drawY, size);
+                    // Adjust y to match shadow
+                    ctx.drawImage(img, frameRect.x, frameRect.y, frameRect.w, frameRect.h, drawX, drawY - size * 0.2, size, size);
                     ctx.restore();
                     return;
                 }
@@ -90,7 +107,7 @@ export function drawPlayer(
         class: "warrior",
     };
 
-    drawCustomPlayer(ctx, x, y, size, app, playerClass || app.class, frame, lastAttackTime, lastAttackDir, lastSkillTime, lastSkillId, isInvisible, lastMoveTime);
+    drawCustomPlayer(ctx, drawX, drawY, size, app, playerClass || app.class, frame, lastAttackTime, lastAttackDir, lastSkillTime, lastSkillId, isInvisible, lastMoveTime);
 }
 
 function drawCustomPlayer(ctx: CanvasRenderingContext2D, x: number, y: number, size: number, appearance: any, playerClass: string, frame: number, lastAttackTime: number, lastAttackDir: { x: number, y: number }, lastSkillTime: number, lastSkillId: string | null, isInvisible: boolean, lastMoveTime: number) {
@@ -103,10 +120,10 @@ function drawCustomPlayer(ctx: CanvasRenderingContext2D, x: number, y: number, s
     const leftLegLift = isMoving && walkCycle > 0 ? walkCycle * s * 0.08 : 0; const rightLegLift = isMoving && walkCycle < 0 ? -walkCycle * s * 0.08 : 0;
     const ATTACK_DURATION = 250; const SKILL_DURATION = 400; const timeSinceAttack = now - lastAttackTime; const isAttacking = timeSinceAttack < ATTACK_DURATION; const isCasting = (now - lastSkillTime) < SKILL_DURATION;
     const isPowerStrike = isAttacking && lastSkillId === 'power_strike'; const isShieldBash = isAttacking && lastSkillId === 'shield_bash'; const isBackstab = isAttacking && lastSkillId === 'backstab'; const isHeal = isCasting && lastSkillId === 'heal'; const isFireball = isCasting && lastSkillId === 'fireball';
-    let attackProgress = isAttacking ? timeSinceAttack / ATTACK_DURATION : 0; let castProgress = isCasting ? (now - lastSkillTime) / SKILL_DURATION : 0;
+    const attackProgress = isAttacking ? timeSinceAttack / ATTACK_DURATION : 0; const castProgress = isCasting ? (now - lastSkillTime) / SKILL_DURATION : 0;
     if (isPowerStrike || isBackstab) { ctx.save(); ctx.translate(x + s * 0.5, y + s * 0.5); ctx.globalAlpha = 0.6 * Math.sin(attackProgress * Math.PI); ctx.fillStyle = isPowerStrike ? '#ef4444' : '#0f172a'; ctx.beginPath(); ctx.arc(0, 0, s * 0.7, 0, Math.PI * 2); ctx.fill(); ctx.restore(); }
     if (isCasting) { ctx.save(); ctx.translate(x + s * 0.5, y + s * 0.5); ctx.rotate(frame * 0.1); let circleColor = playerClass === 'mage' ? '#a855f7' : '#fbbf24'; if (isHeal) circleColor = '#22c55e'; if (isFireball) circleColor = '#ef4444'; ctx.strokeStyle = circleColor; ctx.lineWidth = 2; ctx.globalAlpha = 1 - castProgress; ctx.beginPath(); const radius = s * 0.4 + (castProgress * s * 0.3); ctx.arc(0, 0, radius, 0, Math.PI * 2); ctx.stroke(); ctx.rotate(Math.PI / 4); ctx.strokeRect(-radius * 0.7, -radius * 0.7, radius * 1.4, radius * 1.4); ctx.restore(); }
-    ctx.fillStyle = "rgba(0,0,0,0.4)"; ctx.beginPath(); const breath = Math.sin(frame * (isCasting ? 0.5 : 0.1)) * (isCasting ? s * 0.05 : s * 0.02); const shadowScale = 1 - breath / s; const jumpScale = 1 - bodyBob / s; ctx.ellipse(x + s * 0.5, y + s * 0.85, s * 0.3 * shadowScale * jumpScale, s * 0.1 * shadowScale * jumpScale, 0, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = "rgba(0,0,0,0.4)"; ctx.beginPath(); const breath = Math.sin(frame * (isCasting ? 0.5 : 0.1)) * (isCasting ? s * 0.05 : s * 0.02); const shadowScale = 1 - breath / s; const jumpScale = 1 - bodyBob / s; ctx.ellipse(x + s * 0.5, y + s * 0.85, s * 0.3 * shadowScale * jumpScale, s * 0.15 * shadowScale * jumpScale, 0, 0, Math.PI * 2); ctx.fill();
     const yAnim = y + breath - (isCasting ? s * 0.1 : 0) - bodyBob; const cx = x + s * 0.5; const cy = yAnim + s * 0.5; ctx.translate(cx, cy); if (isBackstab) ctx.rotate(attackProgress * Math.PI * 2); if (isMoving) ctx.rotate(walkCycle * 0.05); ctx.translate(-cx, -cy);
     const legColor = playerClass === 'warrior' ? '#334155' : (playerClass === 'rogue' ? '#1c1917' : '#1e1b4b'); ctx.fillStyle = legColor; ctx.fillRect(x + s * 0.35, yAnim + s * 0.65 - leftLegLift, s * 0.12, s * 0.25); ctx.fillRect(x + s * 0.53, yAnim + s * 0.65 - rightLegLift, s * 0.12, s * 0.25);
     ctx.fillStyle = '#0f172a'; ctx.beginPath(); ctx.arc(x + s * 0.41, yAnim + s * 0.9 - leftLegLift, s * 0.07, 0, Math.PI * 2); ctx.arc(x + s * 0.59, yAnim + s * 0.9 - rightLegLift, s * 0.07, 0, Math.PI * 2); ctx.fill();

@@ -23,7 +23,7 @@ export default function MessageLog({ messages }: MessageLogProps) {
             </div>
             <div
                 ref={scrollRef}
-                className="h-[calc(100%-28px)] overflow-y-auto p-2 space-y-0.5 scrollbar-thin scrollbar-thumb-slate-700"
+                className="h-[calc(100%-28px)] overflow-y-auto p-2 space-y-0.5 custom-scrollbar"
             >
                 {messages.slice(-30).map((msg, i) => (
                     <p

@@ -17,16 +17,24 @@ export type GameActionsContext = MovementActionsContext &
         setSelectedSkill: (skillId: string | null) => void;
         setRangedMode: (mode: boolean) => void;
         setRangedTargets: (targets: Entity[]) => void;
-        executeTurn: (playerState?: Player, enemiesOverride?: Entity[] | null) => void;
+        setGameStarted: (started: boolean) => void;
+        setGameOver: (over: boolean) => void;
+        setGameWon: (won: boolean) => void;
+        setSelectedAppearance: (app: string) => void;
+        setPlayerClass: (cls: string) => void;
+        initGame: (level?: number, player?: Entity | null) => void;
         executeSkillAction: (skillId: string, target?: Entity | null) => boolean;
         handleEnemyDeath: (index: number) => Entity[];
+        performAttack?: (enemy: Entity, enemyIdx: number) => Entity[]; // Optional context passing
         spatialHash: any;
+        setMessages: (msgs: any[]) => void;
+        updateMapFOV: (map: any[][], player: any) => void;
     };
 
 export interface GameActions {
-    executeTurn: (playerState?: Player, enemiesOverride?: Entity[] | null) => void;
     executeSkillAction: (skillId: string, target?: Entity | null) => boolean;
     handleEnemyDeath: (index: number) => Entity[];
+    performAttack: (enemy: Entity, enemyIdx: number) => Entity[];
     move: (dx: number, dy: number) => void;
     descend: (goUp: boolean) => void;
     interact: () => { type: 'chest' | 'npc', data?: any } | null;
@@ -58,25 +66,38 @@ export interface GameActions {
     setSelectedSkill: (skillId: string | null) => void;
     setRangedMode: (mode: boolean) => void;
     setRangedTargets: (targets: Entity[]) => void;
+    setGameStarted: (started: boolean) => void;
+    setGameOver: (over: boolean) => void;
+    setGameWon: (won: boolean) => void;
+    setSelectedAppearance: (app: string) => void;
+    setPlayerClass: (cls: string) => void;
+    initGame: (level?: number, player?: Entity | null) => void;
+
+    setMessages: (msgs: any[]) => void;
+    updateMapFOV: (map: any[][], player: any) => void;
+    addMessage: (msg: string, type?: string) => void;
+    effectsManager: any;
 }
 
 export function useGameActions(context: GameActionsContext): GameActions {
     const {
-        executeTurn, handleEnemyDeath,
-        setPlayerName, setSelectedSkill, setRangedMode, setRangedTargets
+        handleEnemyDeath,
+        setPlayerName, setSelectedSkill, setRangedMode, setRangedTargets,
+        setGameStarted, setGameOver, setGameWon, setSelectedAppearance, setPlayerClass, initGame,
+        setMessages, updateMapFOV
     } = context;
 
     const { performAttack, executeSkillAction } = useCombatActions(context);
-    const { move, descend } = useMovementActions(context, executeSkillAction, performAttack, executeTurn);
+    const { move, descend } = useMovementActions(context, executeSkillAction, performAttack);
     const { interact, buyItem, sellItem, acceptQuest, completeQuest } = useInteractionActions(context);
     const inventoryActions = useInventoryActions(context);
     const metaActions = useMetaActions(context);
     const skillActions = useSkillActions(context);
 
     return {
-        executeTurn,
         executeSkillAction,
         handleEnemyDeath,
+        performAttack, // Exposed for manual triggering
         move,
         descend,
         interact,
@@ -87,6 +108,10 @@ export function useGameActions(context: GameActionsContext): GameActions {
         ...inventoryActions,
         ...metaActions,
         ...skillActions,
-        setPlayerName, setSelectedSkill, setRangedMode, setRangedTargets
+        setPlayerName, setSelectedSkill, setRangedMode, setRangedTargets,
+        setGameStarted, setGameOver, setGameWon, setSelectedAppearance, setPlayerClass, initGame,
+        setMessages, updateMapFOV,
+        addMessage: context.addMessage,
+        effectsManager: context.effectsManager
     } as GameActions;
 }

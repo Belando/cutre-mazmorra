@@ -61,6 +61,12 @@ export function useCombatActions(context: CombatActionsContext) {
             return handleEnemyDeath(enemyIdx);
         }
 
+        // IMPORTANT: Actually update the dungeon state!
+        setDungeon(prev => ({
+            ...prev,
+            enemies: nextEnemies
+        }));
+
         return nextEnemies;
     };
 

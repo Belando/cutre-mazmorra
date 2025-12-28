@@ -23,50 +23,41 @@ export default function QuickSlots({
     inventory = []
 }: QuickSlotsProps) {
     return (
-        <div className="w-20 p-2 border rounded-lg bg-slate-900/80 backdrop-blur-sm border-slate-700/50">
-            <div className="text-[10px] text-slate-400 font-medium mb-2 text-center">CONSUMIBLES</div>
+        <div className="flex gap-2 items-center">
+            {QUICK_SLOT_KEYS.map((key, index) => {
+                const slot = quickSlots[index];
+                const item = slot ? inventory.find(i => i.id === slot.itemId) : null;
+                const isEmpty = !item;
+                const ItemIcon = item ? getItemIcon(item) : null;
 
-            <div className="flex flex-col gap-1.5">
-                {QUICK_SLOT_KEYS.map((key, index) => {
-                    const slot = quickSlots[index];
-                    const item = slot ? inventory.find(i => i.id === slot.itemId) : null;
-                    const isEmpty = !item;
+                return (
+                    <button
+                        key={key}
+                        onClick={() => !isEmpty && !disabled && onUseSlot(index)}
+                        className={cn(
+                            "relative w-12 h-12 rounded-lg border-2 flex items-center justify-center transition-all",
+                            isEmpty
+                                ? "border-slate-800 bg-slate-900/50 cursor-default"
+                                : "border-emerald-600 bg-emerald-900/40 hover:bg-emerald-800/60 hover:scale-105",
+                            disabled && "opacity-50 cursor-not-allowed"
+                        )}
+                        title={item ? `${item.name} (${key})` : `Slot vacío (${key})`}
+                    >
+                        {item && ItemIcon ? (
+                            <>
+                                <ItemIcon className="text-2xl text-white drop-shadow-md" />
+                                <span className="absolute -bottom-1 -right-1 text-[10px] bg-slate-800 rounded px-1.5 text-white border border-slate-600 font-bold min-w-[16px] text-center">
+                                    {item.quantity || 1}
+                                </span>
+                            </>
+                        ) : null}
 
-                    const ItemIcon = item ? getItemIcon(item) : null;
-
-                    return (
-                        <button
-                            key={key}
-                            onClick={() => !isEmpty && !disabled && onUseSlot(index)}
-                            className={cn(
-                                "relative w-10 h-10 rounded-lg border-2 flex items-center justify-center transition-all mx-auto",
-                                isEmpty
-                                    ? "border-slate-700 bg-slate-800/30 cursor-default"
-                                    : "border-emerald-600 bg-emerald-900/30 hover:bg-emerald-800/40 hover:scale-105",
-                                disabled && "opacity-50 cursor-not-allowed"
-                            )}
-                            title={item ? `${item.name} (${key})` : `Slot vacío (${key}) - Asigna desde inventario`}
-                        >
-                            {item && ItemIcon ? (
-                                <>
-                                    <ItemIcon className="text-2xl text-white" />
-                                    {(item.quantity || 1) > 1 && (
-                                        <span className="absolute -bottom-1 -right-1 text-[9px] bg-slate-700 rounded px-1 text-white border border-slate-600">
-                                            {item.quantity}
-                                        </span>
-                                    )}
-                                </>
-                            ) : null}
-
-                            <span className="absolute -top-1 -left-1 w-4 h-4 bg-slate-600 rounded text-[10px] text-white flex items-center justify-center font-bold shadow">
-                                {key}
-                            </span>
-                        </button>
-                    );
-                })}
-            </div>
-
-            <p className="text-[8px] text-slate-600 text-center mt-2">Asigna en [I]</p>
+                        <span className="absolute -top-2 -left-2 w-5 h-5 bg-slate-700/90 rounded-full text-[10px] text-white flex items-center justify-center font-bold border border-slate-600 shadow-sm">
+                            {key}
+                        </span>
+                    </button>
+                );
+            })}
         </div>
     );
 }

@@ -15,10 +15,14 @@ export interface InputHandlerModals {
     craftingOpen: boolean;
     skillTreeOpen: boolean;
     activeNPC: any;
+    pauseMenuOpen: boolean;
+    mapExpanded: boolean;
     setInventoryOpen: React.Dispatch<React.SetStateAction<boolean>>;
     setCraftingOpen: React.Dispatch<React.SetStateAction<boolean>>;
     setSkillTreeOpen: React.Dispatch<React.SetStateAction<boolean>>;
     setActiveNPC: React.Dispatch<React.SetStateAction<any>>;
+    setPauseMenuOpen: React.Dispatch<React.SetStateAction<boolean>>;
+    setMapExpanded: React.Dispatch<React.SetStateAction<boolean>>;
 }
 
 export interface InputHandlerParams {
@@ -44,7 +48,7 @@ export function useInputHandler({
     modals,
     onAction
 }: InputHandlerParams) {
-    const { inventoryOpen, craftingOpen, skillTreeOpen, activeNPC, setInventoryOpen, setCraftingOpen, setSkillTreeOpen, setActiveNPC } = modals;
+    const { inventoryOpen, craftingOpen, skillTreeOpen, activeNPC, pauseMenuOpen, setInventoryOpen, setCraftingOpen, setSkillTreeOpen, setActiveNPC, setPauseMenuOpen } = modals;
 
     const lastActionTime = useRef(0);
 
@@ -62,11 +66,14 @@ export function useInputHandler({
             else if (skillTreeOpen) setSkillTreeOpen(false);
             else if (craftingOpen) setCraftingOpen(false);
             else if (inventoryOpen) setInventoryOpen(false);
+            else if (pauseMenuOpen) setPauseMenuOpen(false);
+            else if (modals.mapExpanded) modals.setMapExpanded(false); // Close map with ESC
             else if (uiState.rangedMode) actions.setRangedMode(false);
+            else setPauseMenuOpen(true); // Open Pause Menu if nothing else is open
             return;
         }
 
-        const anyModalOpen = inventoryOpen || craftingOpen || skillTreeOpen || activeNPC;
+        const anyModalOpen = inventoryOpen || craftingOpen || skillTreeOpen || activeNPC || pauseMenuOpen || modals.mapExpanded;
 
         if (key === 'i') {
             if (!anyModalOpen || inventoryOpen) setInventoryOpen(p => !p);
@@ -201,7 +208,17 @@ export function useInputHandler({
                 }
 
                 if (dx !== 0 || dy !== 0) {
-                    actions.move(Math.sign(dx), Math.sign(dy));
+                    // Isometric Rotation (Screen -> Grid)
+                    // Visual Up (0, -1) -> Grid (-1, -1)
+                    // Visual Right (1, 0) -> Grid (1, -1)
+                    // Visual Down (0, 1) -> Grid (1, 1)
+                    // Visual Left (-1, 0) -> Grid (-1, 1)
+
+                    const gridDx = dx + dy;
+                    const gridDy = dy - dx;
+
+                    // We clamp to -1, 0, 1 to ensure single step movement logic holds
+                    actions.move(Math.sign(gridDx), Math.sign(gridDy));
                     actionTaken = true;
                 }
 

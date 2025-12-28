@@ -1,11 +1,15 @@
 import { spriteManager } from '@/engine/core/SpriteManager';
 import { ENEMY_STATS } from '@/data/enemies';
+import { TILE_HEIGHT } from '@/data/constants';
 
 export const drawShadow = (ctx: CanvasRenderingContext2D, x: number, y: number, size: number) => {
     const s = size;
     ctx.fillStyle = "rgba(0, 0, 0, 0.35)";
     ctx.beginPath();
-    ctx.ellipse(x + s * 0.5, y + s * 0.85, s * 0.3, s * 0.1, 0, 0, Math.PI * 2);
+    // Isometric shadow (2:1 ratio generally, but keeping it flat looks good)
+    // x, y is the top-left of the sizing box
+    // Center is x + s/2, y + s*0.85
+    ctx.ellipse(x + s * 0.5, y + s * 0.85, s * 0.3, s * 0.15, 0, 0, Math.PI * 2);
     ctx.fill();
 }
 
@@ -158,15 +162,16 @@ export const SPRITES: Record<string, { draw: (ctx: CanvasRenderingContext2D, x: 
 export function drawEnemy(
     ctx: CanvasRenderingContext2D,
     type: string,
-    x: number,
-    y: number,
+    isoX: number,
+    isoY: number,
     size: number,
     frame: number = 0,
     isStunned: boolean = false,
     lastAttackTime: number = 0,
     lastAttackDir: { x: number, y: number } = { x: 0, y: 0 },
     lastMoveTime: number = 0,
-    sprite: any = null
+    sprite: any = null,
+    isHovered: boolean = false // Added hover param
 ) {
     const now = Date.now();
     const ATTACK_DURATION = 300;
@@ -175,21 +180,42 @@ export function drawEnemy(
     const progress = isAttacking ? timeSinceAttack / ATTACK_DURATION : 0;
     const dir = lastAttackDir;
 
+    // Convert Iso Top coordinate to Sprite Box Top-Left
+    const drawX = isoX - size / 2;
+    const drawY = isoY + TILE_HEIGHT / 2 - size * 0.85;
+
+    // HOVER EFFECT
+    if (isHovered) {
+        ctx.save();
+        ctx.translate(isoX, isoY + TILE_HEIGHT / 2 - size * 0.4); // Center around base
+        ctx.scale(1, 0.5); // Isometric squash
+        const glowSize = size * 0.8;
+        const gad = ctx.createRadialGradient(0, 0, glowSize * 0.2, 0, 0, glowSize);
+        gad.addColorStop(0, 'rgba(255, 200, 0, 0.6)'); // Yellow center
+        gad.addColorStop(0.5, 'rgba(255, 160, 0, 0.4)'); // Orange mid
+        gad.addColorStop(1, 'rgba(255, 160, 0, 0)'); // Fade out
+        ctx.fillStyle = gad;
+        ctx.beginPath();
+        ctx.arc(0, 0, glowSize, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.restore();
+    }
+
     if (sprite) {
         const img = spriteManager.get(sprite.texture);
         if (img) {
             ctx.save();
             if (isStunned) ctx.filter = 'grayscale(100%) brightness(1.5)';
+            if (isHovered) ctx.filter = (ctx.filter !== 'none' ? ctx.filter : '') + ' drop-shadow(0 0 5px orange)';
 
             const frame = sprite.currentFrameIndex || 0;
             const fw = sprite.frameSize?.x || 32;
             const fh = sprite.frameSize?.y || 32;
 
-            // Assuming horizontal sprite sheet for now as per common pattern in this project
             const sx = frame * fw;
             const sy = 0;
 
-            ctx.drawImage(img, sx, sy, fw, fh, x, y, size, size);
+            ctx.drawImage(img, sx, sy, fw, fh, drawX, drawY, size, size);
             ctx.restore();
             return;
         }
@@ -207,34 +233,35 @@ export function drawEnemy(
 
     ctx.save();
     if (isStunned) ctx.filter = 'grayscale(100%) brightness(1.2)';
-    renderer.draw(ctx, x, y, size, frame, isAttacking, progress, dir, lastMoveTime);
+    renderer.draw(ctx, drawX, drawY, size, frame, isAttacking, progress, dir, lastMoveTime);
     ctx.restore();
 }
 
 export function drawLargeEnemy(
     ctx: CanvasRenderingContext2D,
     type: string,
-    x: number,
-    y: number,
+    isoX: number,
+    isoY: number,
     size: number,
     frame: number = 0,
     isStunned: boolean = false,
     lastAttackTime: number = 0
 ) {
-    // Large enemies usually have more complex logic, but for now we follow the same pattern
     const now = Date.now();
     const ATTACK_DURATION = 500;
     const timeSinceAttack = now - lastAttackTime;
     const isAttacking = timeSinceAttack < ATTACK_DURATION;
     const progress = isAttacking ? timeSinceAttack / ATTACK_DURATION : 0;
 
+    // Convert Iso Top coordinate to Sprite Box Top-Left
+    const drawX = isoX - size / 2;
+    const drawY = isoY + TILE_HEIGHT / 2 - size * 0.85;
+
     ctx.save();
     if (isStunned) ctx.filter = 'grayscale(100%) brightness(1.2)';
 
-    // Large enemies might have specific renderers, if not we scale up
     let enemyType = String(type || 'generic').toLowerCase();
 
-    // Auto-map numeric IDs to render keys
     const id = parseInt(enemyType);
     if (!isNaN(id) && ENEMY_STATS[id]) {
         enemyType = ENEMY_STATS[id].renderKey;
@@ -242,13 +269,12 @@ export function drawLargeEnemy(
 
     const renderer = SPRITES[enemyType] || SPRITES.generic;
 
-    // Some visual flair for bosses/large enemies
     if (isAttacking) {
         ctx.shadowColor = '#ef4444';
         ctx.shadowBlur = 15;
     }
 
-    renderer.draw(ctx, x, y, size, frame, isAttacking, progress, { x: 0, y: 1 }, 0);
+    renderer.draw(ctx, drawX, drawY, size, frame, isAttacking, progress, { x: 0, y: 1 }, 0);
 
     ctx.restore();
 }

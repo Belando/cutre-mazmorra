@@ -1,4 +1,15 @@
 import { soundManager } from "@/engine/systems/SoundSystem";
+import { TILE_HEIGHT } from '@/data/constants';
+
+// Reusing the shadow logic concept, but keeping it local to avoid circular deps if any
+const drawIsoShadow = (ctx: CanvasRenderingContext2D, x: number, y: number, size: number) => {
+    const s = size;
+    ctx.fillStyle = "rgba(0, 0, 0, 0.35)";
+    ctx.beginPath();
+    // Center is x + s/2, y + s*0.85
+    ctx.ellipse(x + s * 0.5, y + s * 0.85, s * 0.3, s * 0.15, 0, 0, Math.PI * 2);
+    ctx.fill();
+};
 
 export const NPC_SPRITES: Record<string, { draw: (ctx: CanvasRenderingContext2D, x: number, y: number, size: number, frame: number) => void }> = {
     merchant: {
@@ -304,16 +315,12 @@ export const NPC_SPRITES: Record<string, { draw: (ctx: CanvasRenderingContext2D,
     },
 };
 
-function drawShadow(ctx: CanvasRenderingContext2D, x: number, y: number, size: number) {
-    const s = size;
-    ctx.fillStyle = "rgba(0, 0, 0, 0.35)";
-    ctx.beginPath();
-    ctx.ellipse(x + s * 0.5, y + s * 0.85, s * 0.3, s * 0.1, 0, 0, Math.PI * 2);
-    ctx.fill();
-}
+export function drawNPC(ctx: CanvasRenderingContext2D, npcType: string, isoX: number, isoY: number, size: number, frame: number = 0) {
+    // Calculate bounding box position
+    const drawX = isoX - size / 2;
+    const drawY = isoY + TILE_HEIGHT / 2 - size * 0.85;
 
-export function drawNPC(ctx: CanvasRenderingContext2D, npcType: string, x: number, y: number, size: number, frame: number = 0) {
-    drawShadow(ctx, x, y, size);
+    drawIsoShadow(ctx, drawX, drawY, size);
 
     const spriteKey = npcType === "merchant" ? "merchant" :
         npcType === "quest_giver" ? "quest_elder" :
@@ -321,11 +328,11 @@ export function drawNPC(ctx: CanvasRenderingContext2D, npcType: string, x: numbe
                 npcType === "blacksmith" ? "blacksmith" : null;
 
     if (spriteKey && NPC_SPRITES[spriteKey]) {
-        NPC_SPRITES[spriteKey].draw(ctx, x, y, size, frame);
+        NPC_SPRITES[spriteKey].draw(ctx, drawX, drawY, size, frame);
     } else {
         ctx.fillStyle = "#fbbf24";
         ctx.beginPath();
-        ctx.arc(x + size / 2, y + size / 2, size / 3, 0, Math.PI * 2);
+        ctx.arc(drawX + size / 2, drawY + size / 2, size / 3, 0, Math.PI * 2);
         ctx.fill();
     }
 }

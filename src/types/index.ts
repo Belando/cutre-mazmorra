@@ -67,6 +67,7 @@ export interface BaseEntity extends Point {
     lastAttackTime?: number;
     lastAttackDir?: Point;
     lastMoveTime?: number;
+    lastActionTime?: number;
     stunned?: number;
     slowed?: number;
     poisoned?: number;

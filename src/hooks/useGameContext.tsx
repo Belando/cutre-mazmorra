@@ -25,6 +25,7 @@ export function useGameContext(
         setDungeon,
         setInventory, addItem,
         setEquipment,
+        setMaterials,
         setQuickSlots,
         resetInventory,
         reorderInventory,
@@ -37,8 +38,8 @@ export function useGameContext(
     } = setters;
 
     const {
-        initGame, executeTurn, addMessage, showFloatingText, effectsManager,
-        handleEnemyDeath, executeSkillAction
+        initGame, addMessage, showFloatingText, effectsManager,
+        handleEnemyDeath, executeSkillAction, performAttack
     } = methods;
 
     const {
@@ -50,6 +51,7 @@ export function useGameContext(
         dungeon, setDungeon,
         inventory, setInventory, addItem,
         equipment, setEquipment,
+        materials, setMaterials,
         quickSlots, setQuickSlots,
         resetInventory,
         reorderInventory,
@@ -57,15 +59,15 @@ export function useGameContext(
         activeQuests, setActiveQuests,
         completedQuests, setCompletedQuests,
         questProgress, setQuestProgress,
-        initGame, executeTurn, addMessage, showFloatingText, effectsManager,
-        setGameStarted, setGameOver, setPlayerName, setSelectedSkill, setRangedMode, setRangedTargets, setMessages, updateMapFOV,
+        initGame, addMessage, showFloatingText, effectsManager,
+        handleEnemyDeath, executeSkillAction, performAttack, // Add performAttack
+        setGameStarted, setGameOver, setPlayerName, setSelectedSkill, setRangedMode, setRangedTargets, setMessages, updateMapFOV, setGameWon,
         playerName, selectedAppearance, setSelectedAppearance, setPlayerClass,
-        handleEnemyDeath, executeSkillAction, selectedSkill,
-        spatialHash,
-        setGameWon
+        selectedSkill,
+        spatialHash
     }), [
         player, dungeon, inventory, equipment, materials, quickSlots, stats, activeQuests, completedQuests, questProgress,
-        initGame, executeTurn, addMessage, showFloatingText,
+        initGame, addMessage, showFloatingText,
         setGameStarted, setGameOver, setPlayerName, setSelectedSkill, setRangedMode, setRangedTargets, setMessages, updateMapFOV,
         playerName, selectedAppearance, setPlayerClass,
         handleEnemyDeath, executeSkillAction, selectedSkill,

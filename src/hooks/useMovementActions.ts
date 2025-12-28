@@ -27,8 +27,7 @@ export interface MovementActionsContext {
 export function useMovementActions(
     context: MovementActionsContext,
     executeSkillAction: (skillId: string, target: Entity) => boolean,
-    performAttack: (enemy: Entity, index: number) => Entity[],
-    executeTurn: (playerState: Player, enemiesOverride?: Entity[] | null) => void
+    performAttack: (enemy: Entity, index: number) => Entity[]
 ) {
     const {
         player, updatePlayer,
@@ -109,7 +108,8 @@ export function useMovementActions(
                     }
                 }
                 const nextEnemiesState = performAttack(enemy, enemyIdx);
-                executeTurn(player, nextEnemiesState);
+                setDungeon(prev => ({ ...prev, enemies: nextEnemiesState }));
+                // Trigger FOV update or other immediate effects if needed
                 return;
             }
         }
@@ -117,6 +117,7 @@ export function useMovementActions(
         // --- MOVIMIENTO VÁLIDO ---
         spatialHash.move(player.x, player.y, nx, ny, { ...player, type: 'player' });
         updatePlayer({ x: nx, y: ny, lastMoveTime: Date.now() });
+        updateMapFOV(nx, ny); // Update FOV immediately on move
 
         soundManager.play('step');
 
@@ -151,8 +152,6 @@ export function useMovementActions(
                 }
             }
         }
-
-        executeTurn({ ...player, x: nx, y: ny } as Player);
     };
 
     const descend = (goUp: boolean) => {

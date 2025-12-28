@@ -1,5 +1,6 @@
 // src/engine/systems/EffectSystem.ts
 import { Point } from '@/types';
+import { toScreen } from '@/utils/isometric';
 
 export type EffectType = 'text' | 'particle' | 'projectile';
 
@@ -272,7 +273,7 @@ export class EffectsManager {
     }
 
     // --- RENDERIZADO ---
-    draw(ctx: CanvasRenderingContext2D, offsetX: number, offsetY: number, tileSize: number): void {
+    draw(ctx: CanvasRenderingContext2D, offsetX: number, offsetY: number, tileSize: number, halfW: number, halfH: number): void {
         ctx.save();
 
         const particles: ParticleEffect[] = [];
@@ -288,8 +289,9 @@ export class EffectsManager {
 
         // 1. DIBUJAR PROYECTILES (Debajo de partículas y texto)
         projectiles.forEach(p => {
-            const screenX = (p.x - offsetX) * tileSize;
-            const screenY = (p.y - offsetY) * tileSize;
+            const { x: isoX, y: isoY } = toScreen(p.x - offsetX, p.y - offsetY);
+            const screenX = isoX + halfW;
+            const screenY = isoY + halfH;
             const size = tileSize * 0.3; // Tamaño del proyectil
 
             ctx.fillStyle = p.color;
@@ -330,12 +332,17 @@ export class EffectsManager {
                 finalY = effect.y + Math.sin(effect.angle || 0) * (effect.radius || 0) * 0.3;
             }
 
-            const screenX = (finalX - offsetX) * tileSize;
-            const screenY = (finalY - offsetY - zOffset) * tileSize;
+            const { x: isoX, y: isoY } = toScreen(finalX - offsetX, finalY - offsetY);
+            const screenX = isoX + halfW;
+            // zOffset is height (up), in iso projection Y goes down, so up is -Y.
+            // But we usually just subtract Z from Y for height illusion.
+            // Also need to consider TILE_HEIGHT scaling? toScreen handles map projection.
+            // Z is pure vertical offset.
+            const screenY = isoY + halfH - (zOffset * tileSize);
 
             if (zOffset > 0.1 && !effect.isOrbiting) {
                 ctx.fillStyle = 'rgba(0,0,0,0.3)';
-                const shadowY = (finalY - offsetY) * tileSize;
+                const shadowY = isoY + halfH; // Shadow is at ground level
                 const shadowSize = effect.size * tileSize * (1 - zOffset * 0.5);
                 if (shadowSize > 0) ctx.fillRect(screenX, shadowY, shadowSize, shadowSize * 0.5);
             }
@@ -347,7 +354,7 @@ export class EffectsManager {
             const size = effect.size * tileSize;
 
             if (effect.style === 'rect') {
-                ctx.fillRect(screenX, screenY, size, size);
+                ctx.fillRect(screenX - size / 2, screenY - size / 2, size, size);
             } else if (effect.style === 'circle') {
                 ctx.beginPath(); ctx.arc(screenX, screenY, size, 0, Math.PI * 2); ctx.fill();
             } else if (effect.style === 'star') {
@@ -362,8 +369,9 @@ export class EffectsManager {
 
         // 3. DIBUJAR TEXTOS (Siempre encima)
         texts.forEach(effect => {
-            const screenX = (effect.x - offsetX) * tileSize;
-            const screenY = (effect.y - offsetY + effect.offsetY) * tileSize;
+            const { x: isoX, y: isoY } = toScreen(effect.x - offsetX, effect.y - offsetY);
+            const screenX = isoX + halfW;
+            const screenY = isoY + halfH + (effect.offsetY * tileSize);
 
             // Fade out al final
             const alpha = Math.min(1, effect.life / 20);
@@ -380,8 +388,8 @@ export class EffectsManager {
 
             ctx.lineWidth = effect.isCritical || effect.isSkillHit ? 4 : 2;
             ctx.strokeStyle = 'black';
-            ctx.strokeText(effect.text, screenX + tileSize / 2, screenY + tileSize / 2);
-            ctx.fillText(effect.text, screenX + tileSize / 2, screenY + tileSize / 2);
+            ctx.strokeText(effect.text, screenX, screenY);
+            ctx.fillText(effect.text, screenX, screenY);
         });
 
         ctx.restore();

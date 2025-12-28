@@ -1,4 +1,15 @@
 import { spriteManager } from '@/engine/core/SpriteManager';
+import { TILE_HEIGHT } from '@/data/constants';
+
+// Helper to draw the shadow used by items
+function drawIsoShadow(ctx: CanvasRenderingContext2D, x: number, y: number, size: number) {
+    const s = size;
+    ctx.fillStyle = "rgba(0, 0, 0, 0.35)";
+    ctx.beginPath();
+    // Center is x + s/2, y + s*0.85
+    ctx.ellipse(x + s * 0.5, y + s * 0.85, s * 0.3, s * 0.15, 0, 0, Math.PI * 2);
+    ctx.fill();
+}
 
 export const ENV_SPRITES: Record<string, { draw: (ctx: CanvasRenderingContext2D, x: number, y: number, size: number, ...args: any[]) => void }> = {
     torch: {
@@ -127,10 +138,8 @@ export const ENV_SPRITES: Record<string, { draw: (ctx: CanvasRenderingContext2D,
                     ctx.shadowBlur = 10;
                 }
 
-                ctx.fillStyle = "rgba(0,0,0,0.4)";
-                ctx.beginPath();
-                ctx.ellipse(x + s * 0.5, y + s * 0.85, s * 0.4, s * 0.15, 0, 0, Math.PI * 2);
-                ctx.fill();
+                drawIsoShadow(ctx, x, y, size);
+
                 ctx.fillStyle = c.outline;
                 ctx.fillRect(x + s * 0.15, y + s * 0.35, s * 0.7, s * 0.5);
                 ctx.fillStyle = c.woodMid;
@@ -184,52 +193,56 @@ export const ENV_SPRITES: Record<string, { draw: (ctx: CanvasRenderingContext2D,
     stairs: {
         draw: (ctx: CanvasRenderingContext2D, x: number, y: number, size: number) => {
             const s = size;
+            // Draw pseudo-3d stairs for iso
+            // Just draw flat rects stacking up?
+
             ctx.fillStyle = '#292524';
+            // Base rect
             ctx.fillRect(x + s * 0.05, y + s * 0.05, s * 0.9, s * 0.9);
-            ctx.fillStyle = '#0a0a0a';
-            ctx.fillRect(x + s * 0.1, y + s * 0.1, s * 0.8, s * 0.8);
+
             const steps = 5;
             const stepH = (s * 0.8) / steps;
+
             for (let i = 0; i < steps; i++) {
+                // For ISO, steps should go "up" visually.
+                // In 2D, they just went y + offset.
+                // In Iso, if "up" means North-East / North-West?
+                // Usually stairs go up/down a level.
+                // Let's keep the pseudo-3d look but maybe align it better.
+
                 const sy = y + s * 0.1 + (i * stepH);
                 ctx.fillStyle = '#57534e';
                 ctx.fillRect(x + s * 0.1, sy, s * 0.8, stepH * 0.6);
                 ctx.fillStyle = '#44403c';
                 ctx.fillRect(x + s * 0.1, sy + stepH * 0.6, s * 0.8, stepH * 0.4);
-                if (i % 2 === 0) {
-                    ctx.fillStyle = '#403c39';
-                    ctx.fillRect(x + s * 0.2 + (i * s * 0.1), sy + stepH * 0.2, s * 0.05, stepH * 0.2);
-                }
             }
-            const g = ctx.createLinearGradient(x, y + s * 0.1, x, y + s * 0.9);
-            g.addColorStop(0, 'rgba(0,0,0,0)');
-            g.addColorStop(1, 'rgba(0,0,0,0.85)');
-            ctx.fillStyle = g;
-            ctx.fillRect(x + s * 0.1, y + s * 0.1, s * 0.8, s * 0.8);
         }
     },
     wallTorch: {
         draw: (ctx: CanvasRenderingContext2D, x: number, y: number, size: number, frame: number = 0) => {
             const s = size;
+            // Wall torches typically offset higher
+            const drawY = y - s * 0.3;
+
             ctx.fillStyle = '#44403c';
-            ctx.fillRect(x + s * 0.45, y + s * 0.5, s * 0.1, s * 0.3);
+            ctx.fillRect(x + s * 0.45, drawY + s * 0.5, s * 0.1, s * 0.3);
             const flicker = Math.sin(frame * 0.5) * s * 0.05;
-            const gradient = ctx.createRadialGradient(x + s * 0.5, y + s * 0.4, 0, x + s * 0.5, y + s * 0.4, s * 0.6);
+            const gradient = ctx.createRadialGradient(x + s * 0.5, drawY + s * 0.4, 0, x + s * 0.5, drawY + s * 0.4, s * 0.6);
             gradient.addColorStop(0, 'rgba(251, 191, 36, 0.4)');
             gradient.addColorStop(1, 'rgba(251, 191, 36, 0)');
             ctx.fillStyle = gradient;
-            ctx.beginPath(); ctx.arc(x + s * 0.5, y + s * 0.4, s * 0.6, 0, Math.PI * 2); ctx.fill();
+            ctx.beginPath(); ctx.arc(x + s * 0.5, drawY + s * 0.4, s * 0.6, 0, Math.PI * 2); ctx.fill();
             ctx.fillStyle = '#ef4444';
             ctx.beginPath();
-            ctx.ellipse(x + s * 0.5, y + s * 0.4, s * 0.15, s * 0.2, 0, 0, Math.PI * 2);
+            ctx.ellipse(x + s * 0.5, drawY + s * 0.4, s * 0.15, s * 0.2, 0, 0, Math.PI * 2);
             ctx.fill();
             ctx.fillStyle = '#f59e0b';
             ctx.beginPath();
-            ctx.ellipse(x + s * 0.5 + flicker * 0.5, y + s * 0.38, s * 0.1, s * 0.15, 0, 0, Math.PI * 2);
+            ctx.ellipse(x + s * 0.5 + flicker * 0.5, drawY + s * 0.38, s * 0.1, s * 0.15, 0, 0, Math.PI * 2);
             ctx.fill();
             ctx.fillStyle = '#fef3c7';
             ctx.beginPath();
-            ctx.arc(x + s * 0.5 + flicker, y + s * 0.35, s * 0.06, 0, Math.PI * 2);
+            ctx.arc(x + s * 0.5 + flicker, drawY + s * 0.35, s * 0.06, 0, Math.PI * 2);
             ctx.fill();
         }
     },
@@ -407,8 +420,12 @@ export const ENV_SPRITES: Record<string, { draw: (ctx: CanvasRenderingContext2D,
     }
 };
 
-export function drawEnvironmentSprite(ctx: CanvasRenderingContext2D, type: string, x: number, y: number, size: number, ...args: any[]) {
+export function drawEnvironmentSprite(ctx: CanvasRenderingContext2D, type: string, isoX: number, isoY: number, size: number, ...args: any[]) {
+    // Calculate bounding box position
+    const drawX = isoX - size / 2;
+    const drawY = isoY + TILE_HEIGHT / 2 - size * 0.85;
+
     if (ENV_SPRITES[type]) {
-        ENV_SPRITES[type].draw(ctx, x, y, size, ...args);
+        ENV_SPRITES[type].draw(ctx, drawX, drawY, size, ...args);
     }
 }

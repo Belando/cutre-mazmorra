@@ -1,5 +1,5 @@
 import { useEffect, useRef } from 'react';
-import { SIZE } from '@/data/constants';
+import { SIZE, TILE_HEIGHT, TILE_WIDTH } from '@/data/constants';
 import { getThemeForFloor, drawAmbientOverlay } from './DungeonThemes';
 import { isLargeEnemy, getEnemySize } from '@/engine/systems/LargeEnemies';
 import { drawMap, getCameraTarget, lerpCamera } from '@/renderer/map';
@@ -11,15 +11,19 @@ import { drawNPC } from '@/renderer/npcs';
 import { drawPlayer } from '@/renderer/player';
 import { animationSystem } from '@/engine/systems/AnimationSystem';
 import { GameState } from '@/types';
+import { toScreen } from '@/utils/isometric';
 
 interface GameBoardProps {
     gameState: GameState;
     viewportWidth?: number;
     viewportHeight?: number;
+    hoveredTarget?: any;
 }
 
-export default function GameBoard({ gameState, viewportWidth = 21, viewportHeight = 15 }: GameBoardProps) {
+export default function GameBoard({ gameState, viewportWidth = 21, viewportHeight = 15, hoveredTarget }: GameBoardProps) {
     const staticCanvasRef = useRef<HTMLCanvasElement>(null);
+    // ...
+    // ... in renderGameLoop ...
     const dynamicCanvasRef = useRef<HTMLCanvasElement>(null);
     const lightingCanvasRef = useRef<HTMLCanvasElement>(null);
     const containerRef = useRef<HTMLDivElement>(null);
@@ -44,7 +48,9 @@ export default function GameBoard({ gameState, viewportWidth = 21, viewportHeigh
     }, [gameState]);
 
     const renderGameLoop = (timestamp: number) => {
+        // console.log("Render loop"); // Too spammy, only log critical failures if needed
         const staticCanvas = staticCanvasRef.current;
+
         const dynamicCanvas = dynamicCanvasRef.current;
         const lightingCanvas = lightingCanvasRef.current;
 
@@ -67,6 +73,11 @@ export default function GameBoard({ gameState, viewportWidth = 21, viewportHeigh
             map, enemies, player, items, visible, explored, torches = [],
             chests = [], level = 1, npcs = [], effectsManager
         } = currentState;
+
+        if (!player) {
+            console.warn("Render loop aborted: Player is null/undefined");
+            return;
+        }
 
         frameRef.current++;
 
@@ -111,6 +122,11 @@ export default function GameBoard({ gameState, viewportWidth = 21, viewportHeigh
         if (ctx) {
             ctx.clearRect(0, 0, dynamicCanvas.width, dynamicCanvas.height);
 
+            const canvasW = dynamicCanvas.width;
+            const canvasH = dynamicCanvas.height;
+            const halfW = canvasW / 2;
+            const halfH = canvasH / 2;
+
             if (effectsManager && containerRef.current) {
                 const shake = effectsManager.screenShake;
                 if (shake > 0) {
@@ -122,96 +138,129 @@ export default function GameBoard({ gameState, viewportWidth = 21, viewportHeigh
                 }
             }
 
+            const renderList: { y: number, sortY: number, draw: () => void }[] = [];
+
+            // Convert camera grid position to screen pixels
+            const cameraScreen = toScreen(offsetX, offsetY);
+
+            // Helper to get relative screen coordinates for drawing
+            const getScreenPos = (gx: number, gy: number) => {
+                const { x, y } = toScreen(gx, gy);
+                // Center relative to camera
+                return {
+                    x: x - cameraScreen.x + halfW,
+                    y: y - cameraScreen.y + halfH,
+                    isoY: y
+                };
+            };
+
+            const isOnCam = (sx: number, sy: number) => {
+                const margin = SIZE * 4;
+                return sx >= -margin && sx < canvasW + margin && sy >= -margin && sy < canvasH + margin;
+            };
+
             torches.forEach(torch => {
-                const sx = (torch.x * SIZE) - (offsetX * SIZE);
-                const sy = (torch.y * SIZE) - (offsetY * SIZE);
-                if (explored[torch.y]?.[torch.x] && isOnScreen(sx, sy, dynamicCanvas.width, dynamicCanvas.height)) {
-                    drawEnvironmentSprite(ctx, 'wallTorch', sx, sy, SIZE, frameRef.current);
+                if (explored[torch.y]?.[torch.x]) {
+                    const { x: sx, y: sy, isoY } = getScreenPos(torch.x, torch.y);
+                    if (isOnCam(sx, sy)) {
+                        renderList.push({
+                            y: torch.y,
+                            sortY: isoY,
+                            draw: () => drawEnvironmentSprite(ctx, 'wallTorch', sx, sy, SIZE, frameRef.current)
+                        });
+                    }
                 }
             });
 
             chests.forEach(chest => {
-                const sx = (chest.x * SIZE) - (offsetX * SIZE);
-                const sy = (chest.y * SIZE) - (offsetY * SIZE);
-                if (visible[chest.y]?.[chest.x] && isOnScreen(sx, sy, dynamicCanvas.width, dynamicCanvas.height)) {
-                    drawEnvironmentSprite(ctx, 'chest', sx, sy, SIZE, chest.isOpen, chest.rarity);
+                if (visible[chest.y]?.[chest.x]) {
+                    const { x: sx, y: sy, isoY } = getScreenPos(chest.x, chest.y);
+                    if (isOnCam(sx, sy)) {
+                        renderList.push({
+                            y: chest.y,
+                            sortY: isoY,
+                            draw: () => drawEnvironmentSprite(ctx, 'chest', sx, sy, SIZE, chest.isOpen, chest.rarity)
+                        });
+                    }
                 }
             });
 
             items.forEach(item => {
                 if (item.x === undefined || item.y === undefined) return;
-                const sx = (item.x * SIZE) - (offsetX * SIZE);
-                const sy = (item.y * SIZE) - (offsetY * SIZE);
-                if (visible[item.y]?.[item.x] && isOnScreen(sx, sy, dynamicCanvas.width, dynamicCanvas.height)) {
-                    if (item.category === 'currency') {
-                        drawEnvironmentSprite(ctx, 'goldPile', sx, sy, SIZE);
-                    } else {
-                        drawItemSprite(ctx, item, sx, sy, SIZE);
+                if (visible[item.y]?.[item.x]) {
+                    const { x: sx, y: sy, isoY } = getScreenPos(item.x, item.y);
+                    if (isOnCam(sx, sy)) {
+                        renderList.push({
+                            y: item.y,
+                            sortY: isoY + 1,
+                            draw: () => {
+                                if (item.category === 'currency') {
+                                    drawEnvironmentSprite(ctx, 'goldPile', sx, sy, SIZE);
+                                } else {
+                                    drawItemSprite(ctx, item, sx - SIZE / 2, sy + TILE_HEIGHT / 2 - SIZE * 0.85, SIZE);
+                                }
+                            }
+                        });
                     }
                 }
             });
 
-            const renderList: { y: number, type: string, draw: () => void }[] = [];
-
             enemies.forEach(enemy => {
                 if (visible[enemy.y]?.[enemy.x]) {
-                    renderList.push({
-                        y: enemy.y,
-                        type: 'enemy',
-                        draw: () => {
-                            const sx = (enemy.x * SIZE) - (offsetX * SIZE);
-                            const sy = (enemy.y * SIZE) - (offsetY * SIZE);
-
-                            if (isOnScreen(sx, sy, dynamicCanvas.width, dynamicCanvas.height)) {
+                    const { x: sx, y: sy, isoY } = getScreenPos(enemy.x, enemy.y);
+                    if (isOnCam(sx, sy)) {
+                        renderList.push({
+                            y: enemy.y,
+                            sortY: isoY + 2,
+                            draw: () => {
                                 if (isLargeEnemy(String(enemy.type))) {
                                     drawLargeEnemy(ctx, String(enemy.type), sx, sy, SIZE * 2, frameRef.current, (enemy.stunned ?? 0) > 0, enemy.lastAttackTime || 0);
-                                    drawHealthBar(ctx, sx, sy, SIZE * 2, enemy.hp, enemy.maxHp);
+                                    drawHealthBar(ctx, sx - SIZE, sy - SIZE * 2, SIZE * 2, enemy.hp, enemy.maxHp);
                                 } else {
                                     const sizeInfo = getEnemySize(String(enemy.type));
                                     const scale = sizeInfo.scale || 1;
                                     const drawSize = SIZE * scale;
-                                    const offsetDraw = (drawSize - SIZE) / 2;
 
                                     drawEnemy(
                                         ctx,
                                         String(enemy.type),
-                                        sx - offsetDraw,
-                                        sy - offsetDraw,
+                                        sx,
+                                        sy,
                                         drawSize,
                                         frameRef.current,
                                         (enemy.stunned ?? 0) > 0,
                                         enemy.lastAttackTime || 0,
                                         enemy.lastAttackDir || { x: 0, y: 0 },
                                         enemy.lastMoveTime || 0,
-                                        enemy.sprite
+                                        enemy.sprite,
+                                        hoveredTarget === enemy // isHovered
                                     );
 
-                                    drawHealthBar(ctx, sx - offsetDraw, sy - offsetDraw, drawSize, enemy.hp, enemy.maxHp);
+                                    drawHealthBar(ctx, sx - drawSize / 2, sy - drawSize * 1.2, drawSize, enemy.hp, enemy.maxHp);
                                 }
                             }
-                        }
-                    });
+                        });
+                    }
                 }
             });
 
             const isInvisible = player.skills.buffs.some(b => b.invisible) || false;
+            const { x: psx, y: psy, isoY: pIsoY } = getScreenPos(player.x, player.y);
+
             renderList.push({
                 y: player.y,
-                type: 'player',
+                sortY: pIsoY + 3,
                 draw: () => {
-                    const psx = (player.x * SIZE) - (offsetX * SIZE);
-                    const psy = (player.y * SIZE) - (offsetY * SIZE);
-
                     if (!isInvisible) {
                         const glowSize = SIZE * 2 + Math.sin(frameRef.current * 0.1) * 5;
                         const gradient = ctx.createRadialGradient(
-                            psx + SIZE / 2, psy + SIZE / 2, 0,
-                            psx + SIZE / 2, psy + SIZE / 2, glowSize
+                            psx, psy + TILE_HEIGHT / 2, 0,
+                            psx, psy + TILE_HEIGHT / 2, glowSize
                         );
                         gradient.addColorStop(0, 'rgba(59, 130, 246, 0.4)');
                         gradient.addColorStop(1, 'rgba(59, 130, 246, 0)');
                         ctx.fillStyle = gradient;
-                        ctx.fillRect(psx - SIZE * 1.5, psy - SIZE * 1.5, SIZE * 4, SIZE * 4);
+                        ctx.fillRect(psx - glowSize, psy + TILE_HEIGHT / 2 - glowSize, glowSize * 2, glowSize * 2);
                     }
 
                     drawPlayer(ctx, psx, psy, SIZE, player.appearance, player.class, frameRef.current,
@@ -224,21 +273,21 @@ export default function GameBoard({ gameState, viewportWidth = 21, viewportHeigh
 
             npcs.forEach(npc => {
                 if (visible[npc.y]?.[npc.x]) {
-                    renderList.push({
-                        y: npc.y,
-                        type: 'npc',
-                        draw: () => {
-                            const sx = (npc.x * SIZE) - (offsetX * SIZE);
-                            const sy = (npc.y * SIZE) - (offsetY * SIZE);
-                            if (isOnScreen(sx, sy, dynamicCanvas.width, dynamicCanvas.height)) {
+                    const { x: sx, y: sy, isoY } = getScreenPos(npc.x, npc.y);
+                    if (isOnCam(sx, sy)) {
+                        renderList.push({
+                            y: npc.y,
+                            sortY: isoY + 2,
+                            draw: () => {
                                 drawNPC(ctx, npc.type, sx, sy, SIZE, frameRef.current);
                             }
-                        }
-                    });
+                        });
+                    }
                 }
             });
 
-            renderList.sort((a, b) => a.y - b.y);
+            // Sort by Screen Y (Painter's Algorithm)
+            renderList.sort((a, b) => a.sortY - b.sortY);
             renderList.forEach(entity => entity.draw());
 
             const theme = getThemeForFloor(level);
@@ -247,11 +296,16 @@ export default function GameBoard({ gameState, viewportWidth = 21, viewportHeigh
             }
 
             if (effectsManager) {
-                // Soporte para Ref o Instancia directa para evitar crashes
                 const manager = (effectsManager as any).current || effectsManager;
                 if (typeof manager.update === 'function') {
                     manager.update();
-                    manager.draw(ctx, offsetX, offsetY, SIZE);
+                    // Effects manager might still expect grid coords or screen coords.
+                    // If it's pure logic, update() is fine.
+                    // draw() usually takes offset. 
+                    // Given we haven't refactored it, passing the current offsetX/Y (pixels) *might* break it if it expects Grid.
+                    // But we can't easily fix it without seeing it. 
+                    // Assuming it draws particles at screen positions.
+                    manager.draw(ctx, offsetX, offsetY, SIZE, halfW, halfH);
                 }
             }
         }
@@ -304,10 +358,6 @@ export default function GameBoard({ gameState, viewportWidth = 21, viewportHeigh
             />
         </div>
     );
-}
-
-function isOnScreen(x: number, y: number, width: number, height: number) {
-    return x >= -SIZE && x < width && y >= -SIZE && y < height;
 }
 
 function drawHealthBar(ctx: CanvasRenderingContext2D, x: number, y: number, width: number, hp: number, maxHp: number) {

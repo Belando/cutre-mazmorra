@@ -2,7 +2,7 @@ import { useState, useCallback, useEffect, useRef, useMemo } from 'react';
 import { usePlayer } from './usePlayer';
 import { useDungeon } from './useDungeon';
 import { useInventory } from './useInventory';
-import { useTurnSystem } from './useTurnSystem';
+import { useRealTimeSystem } from './useRealTimeSystem';
 import { useGameEffects } from "@/hooks/useGameEffects";
 import { useCombatLogic } from '@/hooks/useCombatLogic';
 import { useGameActions, GameActionsContext } from '@/hooks/useGameActions';
@@ -23,7 +23,7 @@ export function useGameEngine() {
         reorderInventory
     } = useInventory();
 
-    const { processTurn } = useTurnSystem();
+    const { updateGameState } = useRealTimeSystem();
     const { messages, setMessages, addMessage, effectsManager, showFloatingText } = useGameEffects();
 
     // 1. INSTANCIAR SPATIAL HASH
@@ -56,6 +56,18 @@ export function useGameEngine() {
     const [rangedTargets, setRangedTargets] = useState<Entity[]>([]);
     const [gameWon, setGameWon] = useState(false);
 
+    // Refs for loop
+    const gameStateRef = useRef({
+        player,
+        dungeon,
+        gameStarted,
+        gameOver
+    });
+
+    useEffect(() => {
+        gameStateRef.current = { player, dungeon, gameStarted, gameOver };
+    }, [player, dungeon, gameStarted, gameOver]);
+
     // 2. SINCRONIZAR HASH CUANDO CAMBIA EL NIVEL O SE CARGA JUEGO
     useEffect(() => {
         if (dungeon && dungeon.map && dungeon.map.length > 0) {
@@ -85,33 +97,46 @@ export function useGameEngine() {
         // El jugador se actualiza via updatePlayer en el turno
     }, [dungeon?.level, dungeon?.map, gameStarted]);
 
-    // 3. GESTIÓN DE AMBIENTE SONORO (NUEVO)
     // 3. AUDIO CONTROLLER
     useAudioController({ gameStarted, gameOver, gameWon, player, dungeon });
 
-    const executeTurn = useCallback((currentPlayerState: Player | null = player, enemiesOverride: Entity[] | null = null) => {
-        regenPlayer();
-        const dungeonState = enemiesOverride ? { ...dungeon, enemies: enemiesOverride } : dungeon;
+    // REAL-TIME GAME LOOP
+    useEffect(() => {
+        if (!gameStarted || gameOver) return;
 
-        if (!currentPlayerState) return;
+        const loopInterval = setInterval(() => {
+            const currentState = gameStateRef.current;
+            if (!currentState.player || !currentState.dungeon) return;
 
-        processTurn({
-            dungeon: dungeonState,
-            setDungeon,
-            player: currentPlayerState,
-            setPlayer,
-            addMessage,
-            setGameOver,
-            showFloatingText,
-            // Pasamos el hash actualizado a la IA
-            spatialHash: spatialHash.current
-        });
-        updateMapFOV(currentPlayerState.x, currentPlayerState.y);
-    }, [dungeon, player, regenPlayer, processTurn, updateMapFOV, addMessage, setPlayer, setDungeon, showFloatingText]);
+            updateGameState({
+                dungeon: currentState.dungeon,
+                setDungeon,
+                player: currentState.player,
+                setPlayer,
+                addMessage,
+                setGameOver,
+                showFloatingText,
+                spatialHash: spatialHash.current
+            });
+        }, 50); // 20 ticks/sec
 
-    const { handleEnemyDeath, executeSkillAction } = useCombatLogic({
+        const regenInterval = setInterval(() => {
+            const currentState = gameStateRef.current;
+            if (!currentState.player || !currentState.dungeon) return;
+            // Call regenerate (updates MP, cooldowns, buffs)
+            regenPlayer();
+        }, 1000); // 1 sec
+
+        return () => {
+            clearInterval(loopInterval);
+            clearInterval(regenInterval);
+        };
+    }, [gameStarted, gameOver, updateGameState, regenPlayer, addMessage, showFloatingText]);
+
+
+    const { handleEnemyDeath, executeSkillAction, performAttack } = useCombatLogic({
         dungeon, setDungeon, player: player!, updatePlayer, gainExp, setStats,
-        addMessage, addItem, effectsManager, executeTurn, setSelectedSkill, setGameWon,
+        addMessage, addItem, effectsManager, setSelectedSkill, setGameWon,
         spatialHash: spatialHash.current
     });
 
@@ -154,8 +179,8 @@ export function useGameEngine() {
             setSelectedAppearance, setPlayerClass
         },
         {
-            initGame, executeTurn, addMessage, showFloatingText, effectsManager,
-            handleEnemyDeath, executeSkillAction
+            initGame, addMessage, showFloatingText, effectsManager,
+            handleEnemyDeath, executeSkillAction, performAttack
         },
         {
             playerName, selectedAppearance, playerClass, selectedSkill, rangedMode, rangedTargets

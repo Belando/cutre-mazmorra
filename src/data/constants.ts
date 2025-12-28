@@ -1,5 +1,5 @@
-export const MAP_WIDTH = 50;
-export const MAP_HEIGHT = 35;
+export const MAP_WIDTH = 80;
+export const MAP_HEIGHT = 60;
 
 export const TILE = {
     WALL: 0,
@@ -54,3 +54,6 @@ export const NPC_TYPES = {
 } as const;
 
 export const SIZE = 96;
+export const TILE_WIDTH = 96;
+export const TILE_HEIGHT = 48; // Standard 2:1 isometric ratio
+
