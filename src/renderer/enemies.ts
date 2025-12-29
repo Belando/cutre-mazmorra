@@ -211,9 +211,13 @@ export function drawEnemy(
             const frame = sprite.currentFrameIndex || 0;
             const fw = sprite.frameSize?.x || 32;
             const fh = sprite.frameSize?.y || 32;
+            const cols = sprite.cols || 9999; // Default to single row/infinite cols if not specified
 
-            const sx = frame * fw;
-            const sy = 0;
+            const col = frame % cols;
+            const row = Math.floor(frame / cols);
+
+            const sx = col * fw;
+            const sy = row * fh;
 
             ctx.drawImage(img, sx, sy, fw, fh, drawX, drawY, size, size);
             ctx.restore();

@@ -1,12 +1,13 @@
 import { useEffect, useRef, useCallback } from 'react';
-// @ts-ignore
-import { QUICK_SLOT_HOTKEYS } from "@/components/ui/QuickSlots";
 import { getUnlockedSkills } from "@/engine/systems/SkillSystem";
 import { SKILLS } from '@/data/skills';
 import { GameActions } from './useGameActions';
-import { GameState, Entity } from '@/types';
+import { GameState, Entity, NPC } from '@/types';
 import { useKeyboardControls } from './useKeyboardControls';
 import { useGamepadControls } from './useGamepadControls';
+// NEW IMPORT
+import { InputIntent } from '@/engine/input/InputTypes';
+import { resolveIntents } from '@/engine/input/InputMapping';
 
 const INPUT_COOLDOWN = 160;
 
@@ -14,13 +15,13 @@ export interface InputHandlerModals {
     inventoryOpen: boolean;
     craftingOpen: boolean;
     skillTreeOpen: boolean;
-    activeNPC: any;
+    activeNPC: NPC | null;
     pauseMenuOpen: boolean;
     mapExpanded: boolean;
     setInventoryOpen: React.Dispatch<React.SetStateAction<boolean>>;
     setCraftingOpen: React.Dispatch<React.SetStateAction<boolean>>;
     setSkillTreeOpen: React.Dispatch<React.SetStateAction<boolean>>;
-    setActiveNPC: React.Dispatch<React.SetStateAction<any>>;
+    setActiveNPC: React.Dispatch<React.SetStateAction<NPC | null>>;
     setPauseMenuOpen: React.Dispatch<React.SetStateAction<boolean>>;
     setMapExpanded: React.Dispatch<React.SetStateAction<boolean>>;
 }
@@ -51,105 +52,12 @@ export function useInputHandler({
     const { inventoryOpen, craftingOpen, skillTreeOpen, activeNPC, pauseMenuOpen, setInventoryOpen, setCraftingOpen, setSkillTreeOpen, setActiveNPC, setPauseMenuOpen } = modals;
 
     const lastActionTime = useRef(0);
+    const lastIntentTime = useRef<number>(0);
 
-    // --- KEYBOARD HANDLER (Event Driven for specific actions) ---
-    const handleKeyDown = useCallback((e: KeyboardEvent) => {
-        // ... (existing keyboard logic) ...
-        // (We will keep the existing handleKeyDown mostly as is for keyboard support)
-        if (!gameStarted || gameOver) return;
+    const { pressedKeys: keyboardKeys } = useKeyboardControls(); // Removed handleKeyDown callback to prefer loop polling
+    const { pollGamepad, getCurrentState } = useGamepadControls();
 
-        // ... (copy existing logic inside handleKeyDown) ...
-        const key = e.key.toLowerCase();
-
-        if (e.key === 'Escape') {
-            if (activeNPC) setActiveNPC(null);
-            else if (skillTreeOpen) setSkillTreeOpen(false);
-            else if (craftingOpen) setCraftingOpen(false);
-            else if (inventoryOpen) setInventoryOpen(false);
-            else if (pauseMenuOpen) setPauseMenuOpen(false);
-            else if (modals.mapExpanded) modals.setMapExpanded(false); // Close map with ESC
-            else if (uiState.rangedMode) actions.setRangedMode(false);
-            else setPauseMenuOpen(true); // Open Pause Menu if nothing else is open
-            return;
-        }
-
-        const anyModalOpen = inventoryOpen || craftingOpen || skillTreeOpen || activeNPC || pauseMenuOpen || modals.mapExpanded;
-
-        if (key === 'i') {
-            if (!anyModalOpen || inventoryOpen) setInventoryOpen(p => !p);
-            return;
-        }
-        if (key === 't') {
-            if (!anyModalOpen || skillTreeOpen) setSkillTreeOpen(p => !p);
-            return;
-        }
-
-        if (anyModalOpen) return;
-
-        const now = Date.now();
-        if (now - lastActionTime.current < INPUT_COOLDOWN) return;
-
-        let actionTaken = false;
-
-        switch (e.key) {
-            case ' ':
-                if (uiState.selectedSkill) {
-                    const skill = (SKILLS as any)[uiState.selectedSkill];
-                    if (skill && skill.type !== 'melee') {
-                        const success = actions.executeSkillAction(uiState.selectedSkill);
-                        if (success) actionTaken = true;
-                    }
-                }
-                break;
-
-            case 'Enter':
-                actions.descend(e.shiftKey);
-                actionTaken = true;
-                break;
-            case 'g': case 'G':
-                actions.saveGame();
-                actionTaken = true;
-                break;
-            case 'e': case 'E': {
-                const result = actions.interact();
-                if (result?.type === 'npc') {
-                    setActiveNPC(result.data);
-                    return;
-                }
-                if (result?.type === 'chest') actionTaken = true;
-                break;
-            }
-        }
-
-        if (e.key >= '1' && e.key <= '6' && !e.code.startsWith('Numpad')) {
-            const index = parseInt(e.key) - 1;
-            if (gameState?.player?.skills && gameState?.player?.level !== undefined) {
-                const unlocked = getUnlockedSkills(gameState.player.level, gameState.player.skills.learned);
-                if (unlocked[index]) {
-                    actions.setSelectedSkill(uiState.selectedSkill === unlocked[index].id ? null : unlocked[index].id);
-                }
-            }
-        }
-
-        if ((QUICK_SLOT_HOTKEYS.includes(key) && key !== 'e') || (key === 'e' && !actionTaken)) {
-            const idx = QUICK_SLOT_HOTKEYS.indexOf(key);
-            if (idx !== -1) {
-                actions.useQuickSlot(idx);
-                actionTaken = true;
-            }
-        }
-
-        if (actionTaken) {
-            lastActionTime.current = now;
-            if (onAction) onAction();
-        }
-
-    }, [gameStarted, gameOver, uiState, actions, gameState, modals, onAction]);
-
-    const { pressedKeys: keyboardKeys } = useKeyboardControls(handleKeyDown);
-    const { pollGamepad, isPressing, getMovement } = useGamepadControls();
-
-    // --- GAME LOOP (Movement & Gamepad Polling) ---
+    // Loop de Juego Principal (Input Polling)
     useEffect(() => {
         if (!gameStarted || gameOver) return;
 
@@ -158,104 +66,83 @@ export function useInputHandler({
         const gameLoop = () => {
             const now = Date.now();
 
-            // 1. Poll Gamepad State
-            const padState = pollGamepad();
-            const anyModalOpen = modals.inventoryOpen || modals.craftingOpen || modals.skillTreeOpen || modals.activeNPC;
+            // 1. Gather all Inputs (Keyboard + Gamepad)
+            const padState = pollGamepad(); // This updates ref inside useGamepadControls
+            const currentIntents = resolveIntents(keyboardKeys.current, padState);
 
-            if (anyModalOpen) {
-                // Handle Menu Navigation with Gamepad here if desired
-                if (padState) {
-                    if (isPressing('buttonB') || isPressing('start')) {
-                        if (activeNPC) setActiveNPC(null);
-                        else if (skillTreeOpen) setSkillTreeOpen(false);
-                        else if (craftingOpen) setCraftingOpen(false);
-                        else if (inventoryOpen) setInventoryOpen(false);
-                    }
+            // 2. Global Toggles (Debounced) - UI Menus
+            // Check for single-press actions (Intents logic needs simple debounce or "just pressed" tracking)
+            // For now, using a simple timestamp for UI toggles to prevent flickering
+            if (now - lastIntentTime.current > 200) {
+                if (currentIntents.has(InputIntent.CLOSE_UI)) {
+                    lastIntentTime.current = now;
+                    if (activeNPC) setActiveNPC(null);
+                    else if (skillTreeOpen) setSkillTreeOpen(false);
+                    else if (craftingOpen) setCraftingOpen(false);
+                    else if (inventoryOpen) setInventoryOpen(false);
+                    else if (pauseMenuOpen) setPauseMenuOpen(false);
+                    else if (modals.mapExpanded) modals.setMapExpanded(false);
+                    else if (uiState.rangedMode) actions.setRangedMode(false);
+                    else setPauseMenuOpen(true);
+                } else if (currentIntents.has(InputIntent.TOGGLE_INVENTORY)) {
+                    lastIntentTime.current = now;
+                    if (!activeNPC && !skillTreeOpen) setInventoryOpen(p => !p);
+                } else if (currentIntents.has(InputIntent.TOGGLE_SKILLS)) {
+                    lastIntentTime.current = now;
+                    if (!activeNPC && !inventoryOpen) setSkillTreeOpen(p => !p);
+                } else if (currentIntents.has(InputIntent.TOGGLE_PAUSE)) {
+                    lastIntentTime.current = now;
+                    setPauseMenuOpen(p => !p);
+                } else if (currentIntents.has(InputIntent.SAVE_GAME)) {
+                    lastIntentTime.current = now;
+                    actions.saveGame();
                 }
-                animationFrameId = requestAnimationFrame(gameLoop);
-                return;
             }
 
-            // 2. Handle Actions (Movement & Buttons)
-            if (now - lastActionTime.current >= INPUT_COOLDOWN) {
-                let actionTaken = false;
+            // 3. Game Actions (Blocked by UI)
+            const anyModalOpen = inventoryOpen || craftingOpen || skillTreeOpen || activeNPC || pauseMenuOpen || modals.mapExpanded;
 
-                // --- MOVEMENT ---
+            if (!anyModalOpen && now - lastActionTime.current >= INPUT_COOLDOWN) {
+                let actionTaken = false;
                 let dx = 0;
                 let dy = 0;
 
-                // Keyboard
-                const keys = keyboardKeys.current;
-                if (keys.size > 0) {
-                    if (keys.has('w') || keys.has('arrowup')) dy -= 1;
-                    if (keys.has('s') || keys.has('arrowdown')) dy += 1;
-                    if (keys.has('a') || keys.has('arrowleft')) dx -= 1;
-                    if (keys.has('d') || keys.has('arrowright')) dx += 1;
+                // --- MOVEMENT ---
+                // Checking Intents allows combined input sources (stick + dpad + wasd + arrows) automatically
+                if (currentIntents.has(InputIntent.MOVE_UP)) dy -= 1;
+                if (currentIntents.has(InputIntent.MOVE_DOWN)) dy += 1;
+                if (currentIntents.has(InputIntent.MOVE_LEFT)) dx -= 1;
+                if (currentIntents.has(InputIntent.MOVE_RIGHT)) dx += 1;
 
-                    if (keys.has('home')) { dx = -1; dy = -1; }
-                    if (keys.has('pageup')) { dx = 1; dy = -1; }
-                    if (keys.has('end')) { dx = -1; dy = 1; }
-                    if (keys.has('pagedown')) { dx = 1; dy = 1; }
-                }
-
-                // Gamepad
-                if (padState) {
-                    const padMove = getMovement();
-                    if (padMove.dx !== 0 || padMove.dy !== 0) {
-                        dx = padMove.dx;
-                        dy = padMove.dy;
-                    }
-                }
+                if (currentIntents.has(InputIntent.MOVE_UP_LEFT)) { dx = -1; dy = -1; }
+                if (currentIntents.has(InputIntent.MOVE_UP_RIGHT)) { dx = 1; dy = -1; }
+                if (currentIntents.has(InputIntent.MOVE_DOWN_LEFT)) { dx = -1; dy = 1; }
+                if (currentIntents.has(InputIntent.MOVE_DOWN_RIGHT)) { dx = 1; dy = 1; }
 
                 if (dx !== 0 || dy !== 0) {
-                    // Isometric Rotation (Screen -> Grid)
-                    // Visual Up (0, -1) -> Grid (-1, -1)
-                    // Visual Right (1, 0) -> Grid (1, -1)
-                    // Visual Down (0, 1) -> Grid (1, 1)
-                    // Visual Left (-1, 0) -> Grid (-1, 1)
-
+                    // Isometric Rotation
                     const gridDx = dx + dy;
                     const gridDy = dy - dx;
-
-                    // We clamp to -1, 0, 1 to ensure single step movement logic holds
                     actions.move(Math.sign(gridDx), Math.sign(gridDy));
                     actionTaken = true;
                 }
 
-                // --- GAMEPAD BUTTON ACTIONS (Simulating keyboard shortcuts) ---
-                if (padState && !actionTaken) {
-                    // A -> Interact (E) or Descend (Enter) if on stairs? 
-                    // Let's make A = Interact for now.
-                    if (isPressing('buttonA')) {
-                        // Priority: Stairs > Interact
-                        // Validating if on stairs is logic for actions.interact or explicit check?
-                        // The original code has Enter for descend and E for interact.
-                        // Let's try interaction first.
+                // --- ACTIONS ---
+                if (!actionTaken) {
+                    if (currentIntents.has(InputIntent.INTERACT)) {
                         const result = actions.interact();
                         if (result?.type === 'npc') {
                             setActiveNPC(result.data);
                             actionTaken = true;
                         } else if (result?.type === 'chest') {
                             actionTaken = true;
-                        } else {
-                            // If no interact, try descend (Enter logic)
-                            // Warning: descend only works if on stairs.
-                            // We don't want to descend by accident if just trying to talk.
-                            // But interact() returns null if nothing nearby.
-                            // Note: interact() in useGameActions doesn't handle stairs. descend() does.
-                            // We might need a separate button or context sensitive 'A'.
-                            if (padState.buttonA) { // Simple check
-                                actions.descend(false);
-                                // We can't easily know if descend worked without return value, but we set actionTaken
-                                actionTaken = true;
-                            }
                         }
-                    }
-
-                    // X -> Attack (Space)
-                    if (isPressing('buttonX')) {
+                    } else if (currentIntents.has(InputIntent.DESCEND)) {
+                        actions.descend(false); // Shift key logic removed for now or needs mapping
+                        actionTaken = true;
+                    } else if (currentIntents.has(InputIntent.ATTACK)) {
                         if (uiState.selectedSkill) {
-                            const skill = (SKILLS as any)[uiState.selectedSkill];
+                            const skill = SKILLS[uiState.selectedSkill];
                             if (skill && skill.type !== 'melee') {
                                 const success = actions.executeSkillAction(uiState.selectedSkill);
                                 if (success) actionTaken = true;
@@ -263,21 +150,31 @@ export function useInputHandler({
                         }
                     }
 
-                    // Y -> Inventory (I)
-                    if (isPressing('buttonY')) {
-                        setInventoryOpen(prev => !prev);
-                        // Since this opens menu, we don't set actionTaken for cooldown on movement, 
-                        // but isPressing handles debounce for the button itself.
-                    }
+                    // --- QUICK SLOTS ---
+                    if (currentIntents.has(InputIntent.QUICK_SLOT_1)) { actions.useQuickSlot(0); actionTaken = true; }
+                    if (currentIntents.has(InputIntent.QUICK_SLOT_2)) { actions.useQuickSlot(1); actionTaken = true; }
+                    if (currentIntents.has(InputIntent.QUICK_SLOT_3)) { actions.useQuickSlot(2); actionTaken = true; }
 
-                    // Select -> Skills (T)
-                    if (isPressing('select')) {
-                        setSkillTreeOpen(prev => !prev);
-                    }
-
-                    // Start -> Pause/Menu (Esc logic handled above for closing, here maybe open pause menu?)
+                    // Specific numeric keys 1-6 for legacy skill selection (not yet in Intent Map fully)
+                    // We can keep this "direct" for now or map intents SKILL_1...SKILL_6
+                    // Keeping simple loop for now
+                    keyboardKeys.current.forEach(key => {
+                        if (key >= '1' && key <= '6') {
+                            const index = parseInt(key) - 1;
+                            if (gameState?.player?.skills && gameState?.player?.level !== undefined) {
+                                const unlocked = getUnlockedSkills(gameState.player.level, gameState.player.skills.learned);
+                                if (unlocked[index]) {
+                                    // Simple toggle logic (needs debounce or it will flicker if held)
+                                    // This is one case where 'event driven' (keyDown) was better.
+                                    // For polling, we rely on cooldown or specific "just pressed" check.
+                                    // Given INPUT_COOLDOWN is 160ms, it serves as a debounce for action selection too.
+                                    actions.setSelectedSkill(uiState.selectedSkill === unlocked[index].id ? null : unlocked[index].id);
+                                    actionTaken = true;
+                                }
+                            }
+                        }
+                    });
                 }
-
 
                 if (actionTaken) {
                     lastActionTime.current = now;
@@ -290,5 +187,5 @@ export function useInputHandler({
 
         animationFrameId = requestAnimationFrame(gameLoop);
         return () => cancelAnimationFrame(animationFrameId);
-    }, [gameStarted, gameOver, modals, actions, onAction, keyboardKeys, pollGamepad, isPressing, getMovement]); // Added necessary deps
+    }, [gameStarted, gameOver, modals, actions, onAction, keyboardKeys, pollGamepad, getCurrentState]); // Removed redundant dependencies
 }

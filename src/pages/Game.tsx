@@ -1,47 +1,77 @@
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { Button } from "@/components/ui/button";
-import { GiTreeGrowth, GiScrollQuill } from 'react-icons/gi';
-import { toGrid, toScreen } from '@/utils/isometric';
+import { toScreen } from '@/utils/isometric';
 
-import GameBoard from "@/components/game/GameBoard";
-import PlayerStats from '@/components/ui/PlayerStats';
-import MessageLog from '@/components/ui/MessageLog';
-import MiniMap from '@/components/game/MiniMap';
-import QuickSlots from '@/components/ui/QuickSlots';
-import SkillBar from '@/components/ui/SkillBar';
 import CharacterSelect from '@/components/ui/CharacterSelect';
 import GameOverlays from '@/components/overlays/GameOverlays';
-
 import PauseMenu from '@/components/ui/PauseMenu';
+import VirtualCursor from '@/components/ui/VirtualCursor';
 
-import { hasSaveGame, deleteSave } from '@/engine/systems/SaveSystem';
+// New Components
+import GameWorld from '@/components/game/GameWorld';
+import GameHUD from '@/components/game/GameHUD';
 
+// Hooks & Systems
 import { useGame } from '@/context/GameContext';
 import { useInputHandler } from '@/hooks/useInputHandler';
 import { useAssetLoader } from '@/hooks/useAssetLoader';
-import VirtualCursor from '@/components/ui/VirtualCursor';
+import { useGameUI } from '@/hooks/useGameUI';
 
 export default function Game() {
     const { gameState, gameStarted, gameOver, messages, stats, playerInfo, uiState, actions } = useGame();
 
-    const [inventoryOpen, setInventoryOpen] = useState(false);
-    const [craftingOpen, setCraftingOpen] = useState(false);
-    const [skillTreeOpen, setSkillTreeOpen] = useState(false);
-    const [activeNPC, setActiveNPC] = useState<any>(null);
-    const [pauseMenuOpen, setPauseMenuOpen] = useState(false);
-    const [mapExpanded, setMapExpanded] = useState(false);
+    // UI State Machine
+    const ui = useGameUI();
 
-    const modals = { inventoryOpen, setInventoryOpen, craftingOpen, setCraftingOpen, skillTreeOpen, setSkillTreeOpen, activeNPC, setActiveNPC, pauseMenuOpen, setPauseMenuOpen, mapExpanded, setMapExpanded };
-
+    // Temp Local State (Character Creation)
     const [tempName, setTempName] = useState("Héroe");
+    const [hoveredTarget, setHoveredTarget] = useState<any>(null);
 
+    // Sync Active NPC with Game State
     useEffect(() => {
-        if (gameState && activeNPC && gameState.player) {
-            const dist = Math.abs(activeNPC.x - gameState.player.x) + Math.abs(activeNPC.y - gameState.player.y);
-            if (dist > 1) setActiveNPC(null);
+        if (gameState && ui.activeNPC && gameState.player) {
+            const dist = Math.abs(ui.activeNPC.x - gameState.player.x) + Math.abs(ui.activeNPC.y - gameState.player.y);
+            if (dist > 1) ui.closeAll();
         }
-    }, [gameState, activeNPC]);
+    }, [gameState, ui.activeNPC, ui]);
+
+    // Input Handler Integration - Adapter for new useGameUI interface
+    // useInputHandler expects a 'modals' object with specific boolean setters. 
+    // We adapt our FSM to match this interface temporarily or update useInputHandler?
+    // We updated useInputHandler to take 'modals' interface. Let's adapt it here.
+    const modalsAdapter = {
+        inventoryOpen: ui.currentState === 'INVENTORY',
+        craftingOpen: ui.currentState === 'CRAFTING',
+        skillTreeOpen: ui.currentState === 'SKILLS',
+        activeNPC: ui.activeNPC,
+        pauseMenuOpen: ui.currentState === 'PAUSE_MENU',
+        mapExpanded: ui.currentState === 'MAP_EXPANDED',
+
+        setInventoryOpen: (val: boolean | ((p: boolean) => boolean)) => {
+            if (typeof val === 'function') ui.toggleInventory();
+            else val ? ui.openInventory() : ui.closeAll();
+        },
+        setCraftingOpen: (val: boolean | ((p: boolean) => boolean)) => {
+            // Not fully implemented toggles in hook for crafting, but simple open works
+            val ? ui.openCrafting() : ui.closeAll();
+        },
+        setSkillTreeOpen: (val: boolean | ((p: boolean) => boolean)) => {
+            if (typeof val === 'function') ui.toggleSkills();
+            else val ? ui.openSkills() : ui.closeAll();
+        },
+        setActiveNPC: (val: any) => {
+            if (val) ui.startDialog(val);
+            else ui.closeAll();
+        },
+        setPauseMenuOpen: (val: boolean | ((p: boolean) => boolean)) => {
+            if (typeof val === 'function') ui.togglePause();
+            else val ? ui.openPauseMenu() : ui.closeAll();
+        },
+        setMapExpanded: (val: boolean | ((p: boolean) => boolean)) => {
+            if (typeof val === 'function') ui.toggleMap();
+            else val ? ui.openMap() : ui.closeAll();
+        }
+    };
 
     useInputHandler({
         gameStarted,
@@ -49,13 +79,12 @@ export default function Game() {
         uiState,
         actions,
         gameState,
-        modals: modals as any
+        modals: modalsAdapter as any // Type assertion until strictly typed
     });
 
     const { loading: assetsLoading, progress: assetProgress } = useAssetLoader();
 
-    const [hoveredTarget, setHoveredTarget] = useState<any>(null);
-
+    // Mouse Logic (Targeting)
     const handleMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
         if (!gameState?.player || !gameState.map) return;
 
@@ -66,26 +95,18 @@ export default function Game() {
         // Player is centered
         const centerX = rect.width / 2;
         const centerY = rect.height / 2;
-
         const deltaX = mouseX - centerX;
         const deltaY = mouseY - centerY;
 
-        // Screen-space targeting (Select closest enemy to cursor)
-        const TILE_SIZE = 96; // Approximate hit radius
+        const TILE_SIZE = 96;
         let minDist = Infinity;
         let bestTarget = null;
 
         gameState.enemies.forEach((enemy: any) => {
-            // Calculate relative position of enemy to player (who is at center)
-            // We can use toScreen with relative grid coords
+            if (!gameState.player) return;
             const relX = enemy.x - gameState.player.x;
             const relY = enemy.y - gameState.player.y;
-
-            // Convert to screen delta
-            // toScreen returns {x, y} which is iso offset from center
             const screenPos = toScreen(relX, relY);
-
-            // Distance from mouse cursor (which is deltaX, deltaY from center)
             const dist = Math.hypot(screenPos.x - deltaX, screenPos.y - deltaY);
 
             if (dist < TILE_SIZE * 0.8 && dist < minDist) {
@@ -93,36 +114,29 @@ export default function Game() {
                 bestTarget = enemy;
             }
         });
-
         setHoveredTarget(bestTarget);
     };
 
     const handleMouseClick = (e: React.MouseEvent<HTMLDivElement>) => {
-        if (!gameState?.player || !gameState.map || inventoryOpen || craftingOpen || skillTreeOpen || activeNPC) return;
+        if (!gameState?.player || !gameState.map || ui.isModalOpen) return;
 
-        // If hovering an enemy, attack it
         if (hoveredTarget && actions.performAttack) {
-            // Find by ID instead of reference to avoid stale object issues
             const idx = gameState.enemies.findIndex((e: any) => e.id === hoveredTarget.id);
-            if (idx !== -1) {
+            if (idx !== -1 && gameState.player) {
                 const target = gameState.enemies[idx];
                 const player = gameState.player;
                 const dist = Math.max(Math.abs(target.x - player.x), Math.abs(target.y - player.y));
 
-                // Allow attack if adjacent (distance <= 1.5 to cover diagonals)
-                // TODO: Get weapon range? For now assume melee 1.5
-                if (dist <= 1.5) {
+                if (dist <= 1.5) { // Assuming global range for simplicity here, logic handled in action usually
                     actions.performAttack(target, idx);
                 } else {
                     actions.addMessage("¡Está demasiado lejos!", 'warning');
-                    if (actions.effectsManager && actions.effectsManager.current) {
-                        actions.effectsManager.current.addText(player.x, player.y, "Range?", '#94a3b8');
-                    }
                 }
             }
         }
     };
 
+    // Render Logic
     if (!gameStarted) {
         return (
             <div className="flex items-center justify-center min-h-screen p-4 bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950">
@@ -164,82 +178,62 @@ export default function Game() {
         );
     }
 
-    const player = gameState?.player;
-    const isInteractable = gameState && !activeNPC && player && (
-        gameState.npcs?.some((n: any) => Math.abs(n.x - player.x) + Math.abs(n.y - player.y) <= 1) ||
-        gameState.chests?.some((c: any) => Math.abs(c.x - player.x) + Math.abs(c.y - player.y) <= 1 && !c.isOpen)
+    const isInteractable = gameState && !ui.activeNPC && gameState.player && (
+        gameState.npcs?.some((n: any) => gameState.player && (Math.abs(n.x - gameState.player.x) + Math.abs(n.y - gameState.player.y) <= 1)) ||
+        gameState.chests?.some((c: any) => gameState.player && (Math.abs(c.x - gameState.player.x) + Math.abs(c.y - gameState.player.y) <= 1 && !c.isOpen))
     );
 
     return (
         <div className="min-h-screen p-2 bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950">
-            <div
-                className="relative w-screen h-screen overflow-hidden bg-black"
-                onClick={handleMouseClick}
+            {/* 1. Game World (Canvas & Interaction Layer) */}
+            <GameWorld
+                gameState={gameState}
+                hoveredTarget={hoveredTarget}
                 onMouseMove={handleMouseMove}
-            >
-
-                <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="relative pointer-events-auto">
-                        <GameBoard gameState={gameState} viewportWidth={24} viewportHeight={15} hoveredTarget={hoveredTarget} />
-
-                        {isInteractable && (
-                            <div className="absolute z-30 transform -translate-x-1/2 -translate-y-16 top-1/2 left-1/2 animate-bounce pointer-events-none">
-                                <div className="bg-slate-900/90 text-yellow-400 px-3 py-1.5 rounded-full text-xs font-bold border border-yellow-500/50 shadow-lg flex items-center gap-2">
-                                    <span className="w-5 h-5 bg-yellow-500 text-black rounded flex items-center justify-center text-[10px]">E</span>
-                                    Interactuar
-                                </div>
-                            </div>
-                        )}
-                    </motion.div>
-                </div>
-
-                {/* TOP LEFT: Player Stats */}
-                <div className="absolute top-4 left-4 z-20 w-64 pointer-events-none">
-                    {/* Remove background/border here, let components handle it or minimze styling */}
-                    <div className="pointer-events-auto">
-                        <PlayerStats player={gameState?.player} dungeonLevel={gameState?.level} />
-                    </div>
-                </div>
-
-                {/* TOP RIGHT: Minimap & System Buttons */}
-                <div className="absolute top-4 right-4 z-20 flex flex-col items-end gap-2 pointer-events-none">
-                    <div className="pointer-events-auto">
-                        <MiniMap gameState={gameState} expanded={mapExpanded} onExpandChange={setMapExpanded} />
-                        {/* System buttons moved to Pause Menu */}
-                    </div>
-                </div>
-
-                {/* BOTTOM LEFT: Message Log */}
-                <div className="absolute bottom-4 left-4 z-20 w-[400px] pointer-events-none">
-                    <div className="h-40 overflow-hidden pointer-events-auto">
-                        <MessageLog messages={messages} />
-                    </div>
-                </div>
-
-                {/* BOTTOM CENTER: Skills & QuickSlots (Horizontal) */}
-                <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-20 flex items-end gap-4 pointer-events-none">
-                    <div className="bg-slate-900/80 p-2 rounded-xl border border-slate-700/50 backdrop-blur-sm shadow-xl flex items-center gap-4 pointer-events-auto px-6">
-                        <SkillBar disabled={inventoryOpen || gameOver} />
-                        <div className="w-px h-8 bg-slate-700/50"></div>
-                        <QuickSlots quickSlots={uiState.quickSlots} onUseSlot={actions.useQuickSlot} disabled={inventoryOpen || gameOver} inventory={gameState?.inventory} />
-                    </div>
-                </div>
-            </div>
-
-            <PauseMenu
-                isOpen={pauseMenuOpen}
-                onResume={() => setPauseMenuOpen(false)}
-                onOpenInventory={() => { setPauseMenuOpen(false); setInventoryOpen(true); }}
-                onOpenSkills={() => { setPauseMenuOpen(false); setSkillTreeOpen(true); }}
-                onOpenQuests={() => { /* Placeholder for future Quest UI */ actions.addMessage("Sistema de misiones no implementado aún", 'info'); }}
-                onOpenMap={() => { setPauseMenuOpen(false); setMapExpanded(true); }}
-                onSave={() => { actions.saveGame(); setPauseMenuOpen(false); }}
-                onLoad={() => { actions.loadGame(); setPauseMenuOpen(false); }}
-                onExit={() => { window.location.reload(); }} // Simple restart for now
+                onClick={handleMouseClick}
+                activeNPC={ui.activeNPC}
+                isInteractable={!!isInteractable}
             />
 
-            <GameOverlays gameState={gameState} uiState={uiState} actions={actions} modals={modals as any} playerInfo={playerInfo} stats={stats} gameOver={gameOver} onRestart={actions.restart} />
-            <VirtualCursor isActive={!gameStarted || inventoryOpen || craftingOpen || skillTreeOpen || !!activeNPC || pauseMenuOpen} />
+            {/* 2. HUD (Stats, Minimap, Logs, Skills) */}
+            <GameHUD
+                gameState={gameState}
+                uiState={uiState}
+                actions={actions}
+                messages={messages}
+                mapExpanded={ui.currentState === 'MAP_EXPANDED'}
+                onExpandMap={(expanded) => expanded ? ui.openMap() : ui.closeAll()}
+                isInputDisabled={ui.isModalOpen || gameOver}
+            />
+
+            {/* 3. Menus & Overlays */}
+            <PauseMenu
+                isOpen={ui.currentState === 'PAUSE_MENU'}
+                onResume={ui.closeAll}
+                onOpenInventory={ui.openInventory}
+                onOpenSkills={ui.openSkills}
+                onOpenQuests={() => { actions.addMessage("Sistema de misiones no implementado aún", 'info'); }}
+                onOpenMap={ui.openMap}
+                onSave={() => { actions.saveGame(); ui.closeAll(); }}
+                onLoad={() => { actions.loadGame(); ui.closeAll(); }}
+                onExit={() => { window.location.reload(); }}
+            />
+
+            {/* 4. Global Overlays (Inventory, Crafting, GameOver, etc.) */}
+            {/* Note: GameOverlays uses 'modals' prop internally. We pass our adapter. */}
+            <GameOverlays
+                gameState={gameState}
+                uiState={uiState}
+                actions={actions}
+                modals={modalsAdapter as any}
+                playerInfo={playerInfo}
+                stats={stats}
+                gameOver={gameOver}
+                onRestart={actions.restart}
+            />
+
+            <VirtualCursor isActive={!gameStarted || ui.isModalOpen} />
         </div>
     );
 }
+

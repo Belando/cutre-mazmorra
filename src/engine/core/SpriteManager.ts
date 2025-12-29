@@ -30,7 +30,7 @@ export class SpriteManager {
             img.onload = () => {
                 // AUTO-PROCESS: Eliminar fondo blanco/gris
                 if (key.startsWith('warrior') || key.startsWith('door') || key.startsWith('chest') ||
-                    ['bones', 'rubble', 'bloodstain', 'crack', 'wall_stone', 'torch_v2'].includes(key)) {
+                    ['bones', 'rubble', 'bloodstain', 'crack', 'wall_stone', 'torch_v2', 'rat'].includes(key)) {
                     try {
                         const processed = this.removeWhiteBackground(img);
                         this.cache.set(key, processed);

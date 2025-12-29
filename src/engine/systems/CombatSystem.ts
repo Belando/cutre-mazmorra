@@ -4,11 +4,10 @@ import { getWeaponRange, calculateEquipmentStats } from './EquipmentSystem';
 // IMPORTAMOS las utilidades centralizadas
 import {
   getDistance,
-  isInRange,
   hasLineOfSight,
   getProjectilePath
 } from '@/engine/core/utils';
-import { Entity, Stats, Buff, Player, Enemy } from '@/types';
+import { Entity, Stats, Buff, Player, Enemy, EquipmentState } from '@/types';
 
 // --- COMBATE DEL JUGADOR ---
 
@@ -19,7 +18,7 @@ import { Entity, Stats, Buff, Player, Enemy } from '@/types';
  * @param map Terrain map for Line of Sight checks
  * @param equipment Current equipment to determine weapon range
  */
-export function getRangedTargets(player: Player, enemies: Enemy[], map: number[][], equipment: any): Enemy[] {
+export function getRangedTargets(player: Player, enemies: Enemy[], map: number[][], equipment: EquipmentState): Enemy[] {
   const range = getWeaponRange(equipment);
   if (range === 0) return [];
 
@@ -51,7 +50,7 @@ export interface AttackResult {
  * @param playerStats Aggregated player stats
  * @param map Map for LoS verification
  */
-export function executeRangedAttack(player: Player, target: Enemy, equipment: any, playerStats: Stats, map: number[][]): AttackResult {
+export function executeRangedAttack(player: Player, target: Enemy, equipment: EquipmentState, playerStats: Stats, map: number[][]): AttackResult {
   const range = getWeaponRange(equipment);
   const dist = getDistance(player, target);
 
@@ -67,14 +66,12 @@ export function executeRangedAttack(player: Player, target: Enemy, equipment: an
   }
 
   const baseDamage = attackPower;
-  const defense = target.defense || 0;
+  const defense = target.stats?.defense || 0;
   const damage = Math.max(1, Math.floor(baseDamage * (1 - rangePenalty) - defense));
 
   const critChance = (playerStats.critChance || 5) / 100;
   const isCrit = Math.random() < critChance;
   const finalDamage = isCrit ? Math.floor(damage * 1.5) : damage;
-
-  const targetEnemy = target as Enemy; // Explicit cast for properties existing on BaseEntity or extending interfaces
 
   return {
     success: true,
@@ -94,8 +91,8 @@ export function executeRangedAttack(player: Player, target: Enemy, equipment: an
  * @param attackerStats Attacker's stats
  */
 export function calculateMeleeDamage(attacker: Entity, defender: Entity, attackerStats: Stats): { damage: number, isCrit: boolean } {
-  const baseDamage = attackerStats.attack || (attacker as any).attack || 5;
-  const defense = (defender as any).defense || 0;
+  const baseDamage = attackerStats.attack || attacker.stats?.attack || 5;
+  const defense = defender.stats?.defense || 0;
 
   const variance = Math.floor(Math.random() * 3) - 1;
   const damage = Math.max(1, baseDamage - defense + variance);
@@ -127,7 +124,7 @@ export function calculatePlayerHit(player: Player, targetEnemy: Enemy): { damage
   }
 
   const critChance = (stats.critChance || 5) + (buffs.critChance || 0);
-  const enemyDef = targetEnemy.defense || 0;
+  const enemyDef = targetEnemy.stats?.defense || 0;
 
   const variance = Math.floor(Math.random() * 3);
   let damage = Math.max(1, attackPower - enemyDef + variance);
@@ -170,7 +167,7 @@ export function processEnemyRangedAttack(enemy: Entity, player: Entity, map: num
   if (dist > info.range || dist < 2) return null;
   if (!hasLineOfSight(map, enemy.x, enemy.y, player.x, player.y)) return null;
 
-  const enemyAtk = enemy.attack || 0;
+  const enemyAtk = enemy.stats?.attack || 0;
   const damage = Math.floor(enemyAtk * 0.8);
   return { type: 'ranged', attackType: info.type, damage, color: info.color };
 }
@@ -200,7 +197,7 @@ export function calculateEnemyDamage(enemy: Enemy, playerStats: Stats, playerBuf
     return { damage: 0, evaded: true };
   }
 
-  const absorbPercent = playerBuffs.reduce((sum, b) => sum + ((b as any).absorb || 0), 0);
+  const absorbPercent = playerBuffs.reduce((sum, b) => sum + (b.absorb || 0), 0);
   if (absorbPercent > 0) {
     baseDamage = Math.floor(baseDamage * (1 - absorbPercent));
   }
@@ -279,7 +276,7 @@ export function applyClassBonus(damage: number, playerClass: string, attackType:
   return Math.floor(damage * mult);
 }
 
-export function calculateEffectiveDefense(baseDef: number, playerClass: string, equipment: any): number {
+export function calculateEffectiveDefense(baseDef: number, playerClass: string, equipment: EquipmentState): number {
   const bonuses = CLASS_COMBAT_BONUSES[playerClass];
   let defense = baseDef;
 

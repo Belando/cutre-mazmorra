@@ -4,7 +4,7 @@ export const ASSET_MANIFEST = [
     { key: 'orc', src: '/sprites/goblin_sheet.svg' }, // Fallback orc to goblin for now
     { key: 'goblin', src: '/sprites/goblin_sheet.svg' },
     { key: 'bat', src: '/sprites/rat_sheet.svg' }, // Fallback
-    { key: 'rat', src: '/sprites/rat_sheet.svg' },
+    { key: 'rat', src: '/sprites/rat.png' },
     { key: 'spider', src: '/sprites/rat_sheet.svg' }, // Fallback
     { key: 'slime', src: '/sprites/slime_sheet.png' },
     { key: 'ghost', src: '/sprites/skeleton_sheet.svg' }, // Fallback

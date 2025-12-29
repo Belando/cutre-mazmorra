@@ -28,6 +28,7 @@ export interface Buff {
     type?: string;
     value?: number;
     icon?: any;
+    absorb?: number;
 }
 
 export interface SkillState {
@@ -42,11 +43,12 @@ export interface SkillState {
 
 export interface SpriteComponent {
     texture: string;
-    frameSize: Point; // { x: 32, y: 32 }
+    frameSize: Point;
+    cols?: number; // Added for grid support
     anims: Record<string, number[]>; // "idle": [0,1], "run": [2,3]
     currentAnim: string;
-    frameTimer: number;
     currentFrameIndex: number;
+    frameTimer: number;
     frameDuration: number;
     // Multi-file support
     isMultiFile?: boolean;
@@ -136,6 +138,12 @@ export interface Item {
     symbol?: any; // React Component or string
 
     upgradeLevel?: number;
+
+    // Equipment specific
+    weaponType?: string;
+    armorType?: string;
+    slot?: string;
+    stats?: Stats;
 
     // Location (if on ground)
     x?: number;

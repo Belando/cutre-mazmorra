@@ -1,11 +1,11 @@
-import { Item, Stats, Rarity } from '@/types';
+import { Item, Stats, Rarity, EquipmentState } from '@/types';
 
 export interface EquipmentSlotInfo {
     name: string;
     icon: string;
 }
 
-export type EquipmentSlot = 'weapon' | 'offhand' | 'helmet' | 'chest' | 'legs' | 'boots' | 'gloves' | 'ring' | 'earring' | 'necklace';
+export type EquipmentSlot = keyof EquipmentState;
 
 export const EQUIPMENT_SLOTS: Record<EquipmentSlot, EquipmentSlotInfo> = {
     weapon: { name: 'Arma', icon: '⚔️' },
@@ -81,7 +81,7 @@ export function canEquipItem(item: Item | null | undefined, playerClass: string)
 }
 
 // Get weapon range (0 = melee)
-export function getWeaponRange(equipment: Record<string, Item> | undefined): number {
+export function getWeaponRange(equipment: EquipmentState | undefined): number {
     const weapon = equipment?.weapon;
     if (!weapon || !weapon.weaponType) return 0;
 
@@ -90,12 +90,12 @@ export function getWeaponRange(equipment: Record<string, Item> | undefined): num
 }
 
 // Check if weapon is ranged
-export function isRangedWeapon(equipment: Record<string, Item> | undefined): boolean {
+export function isRangedWeapon(equipment: EquipmentState | undefined): boolean {
     return getWeaponRange(equipment) > 0;
 }
 
 // Calculate all equipment bonuses
-export function calculateEquipmentStats(equipment: Record<string, Item> | undefined): Stats {
+export function calculateEquipmentStats(equipment: EquipmentState | undefined): Stats {
     const stats: Stats = {
         attack: 0,
         defense: 0,
