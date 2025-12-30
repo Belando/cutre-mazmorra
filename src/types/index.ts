@@ -53,6 +53,7 @@ export interface SpriteComponent {
     // Multi-file support
     isMultiFile?: boolean;
     textureKeys?: Record<string, string[]>;
+    flipLeft?: boolean;
 }
 
 export interface BaseEntity extends Point {

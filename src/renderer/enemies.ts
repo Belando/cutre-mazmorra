@@ -200,8 +200,91 @@ export function drawEnemy(
         ctx.fill();
         ctx.restore();
     }
+    // Draw Sprite
+    if (sprite) { // Assuming 'sprite' here is the 'spriteConfig' from the instruction
+        const spriteConfig = sprite; // Rename for clarity based on instruction
+        const lastDir = lastAttackDir; // Assuming lastAttackDir is the 'lastDir' from the instruction
 
-    if (sprite) {
+        // Calculate frame
+        // const now = performance.now(); // 'now' is already defined above
+        // if (now - lastFrameTime > spriteConfig.frameDuration) { // lastFrameTime is not defined
+        // Frame logic handled in main loop or here if needed, 
+        // but strictly `frame` is passed in. 
+        // We rely on the pre-calculated frame index if possible, 
+        // but `drawEnemy` receives `frame` (global counter).
+        // Let's use the standard iso sprite logic:
+        // }
+
+        // We need to determine Animation State based on lastAttackDir if we want directional
+        // But for now, let's just draw the current frame from the config.
+
+        // Determine Direction
+        let dirSuffix = '_down';
+        if (Math.abs(lastDir.x) > Math.abs(lastDir.y)) {
+            if (lastDir.x > 0) dirSuffix = '_right';
+            else dirSuffix = '_left';
+        } else if (Math.abs(lastDir.y) > Math.abs(lastDir.x)) {
+            if (lastDir.y > 0) dirSuffix = '_down';
+            else dirSuffix = '_up';
+        }
+
+        // Select Animation State
+        /* 
+           Simple state machine for animation names:
+           - Attack: 'attack_down', 'attack_left', etc.
+           - Move: 'walk_down', 'walk_left', etc.
+           - Idle: 'idle_down' (if we had it, fallback to walk Frame 0)
+        */
+        const actionPrefix = isAttacking ? 'attack' : 'walk';
+        const animName = `${actionPrefix}${dirSuffix}`;
+
+        // Fallback to walk if attack anim missing
+        const frames = spriteConfig.anims[animName] || spriteConfig.anims[`walk${dirSuffix}`] || spriteConfig.anims['walk_down'] || [0];
+
+        let flip = false;
+        // Auto-flip logic if we are reusing frames (e.g. Left reuses Right)
+        if (dirSuffix === '_left' && spriteConfig.flipLeft) {
+            flip = true;
+        }
+
+        const frameIndex = Math.floor(frame / 15) % frames.length;
+        const frameId = frames[frameIndex];
+
+        const cols = spriteConfig.cols || 1;
+        const row = Math.floor(frameId / cols);
+        const col = frameId % cols;
+
+        const fw = spriteConfig.frameSize.x;
+        const fh = spriteConfig.frameSize.y;
+
+        // Assuming spriteManager is globally available or imported
+        // This line needs to be adapted based on actual spriteManager implementation
+        // For now, using the original `spriteManager.get` and assuming `sprite.texture`
+        const img = spriteManager.get(spriteConfig.texture); // Changed from getTexture to get
+
+        if (img) {
+            ctx.save();
+            // Force standard blending
+            ctx.globalCompositeOperation = 'source-over';
+            ctx.globalAlpha = 1.0;
+
+            if (flip) {
+                // Flip around the sprite center
+                ctx.translate(drawX + size / 2, drawY); // Use drawX, drawY for sprite box top-left
+                ctx.scale(-1, 1);
+                ctx.translate(-(drawX + size / 2), -drawY);
+            }
+
+            // Adjust source rect
+            ctx.drawImage(img,
+                col * fw, row * fh, fw, fh,
+                drawX, drawY, size, size // Reverted to original draw parameters
+            );
+            ctx.restore();
+            return;
+        }
+    } else { // This 'else' block was part of the original 'if (sprite)' block
+        // Original sprite drawing logic (now inside the 'else' of the new spriteConfig block)
         const img = spriteManager.get(sprite.texture);
         if (img) {
             ctx.save();

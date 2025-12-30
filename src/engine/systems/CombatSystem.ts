@@ -123,13 +123,13 @@ export function calculatePlayerHit(player: Player, targetEnemy: Enemy): { damage
     damageType = 'magical';
   }
 
-  const critChance = (stats.critChance || 5) + (buffs.critChance || 0);
+  const critChance = ((stats.critChance || 5) + (buffs.critChance || 0)) / 100;
   const enemyDef = targetEnemy.stats?.defense || 0;
 
   const variance = Math.floor(Math.random() * 3);
   let damage = Math.max(1, attackPower - enemyDef + variance);
 
-  const isCrit = Math.random() * 100 < critChance;
+  const isCrit = Math.random() < critChance;
   if (isCrit) {
     damage = Math.floor(damage * 1.5);
   }

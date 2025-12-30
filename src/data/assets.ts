@@ -1,11 +1,11 @@
 export const ASSET_MANIFEST = [
     { key: 'player', src: '/sprites/player_sheet.svg' },
-    { key: 'skeleton', src: '/sprites/skeleton_sheet.svg' },
-    { key: 'orc', src: '/sprites/goblin_sheet.svg' }, // Fallback orc to goblin for now
-    { key: 'goblin', src: '/sprites/goblin_sheet.svg' },
-    { key: 'bat', src: '/sprites/rat_sheet.svg' }, // Fallback
-    { key: 'rat', src: '/sprites/rat.png' },
-    { key: 'spider', src: '/sprites/rat_sheet.svg' }, // Fallback
+    { key: 'skeleton', src: '/sprites/skeleton.png' },
+    { key: 'orc', src: '/sprites/goblin.png' }, // Fallback orc to goblin for now
+    { key: 'goblin', src: '/sprites/goblin.png' },
+    { key: 'bat', src: '/sprites/bat.png' },
+    { key: 'rat', src: '/sprites/rat_v4.png' },
+    { key: 'spider', src: '/sprites/spider.png' },
     { key: 'slime', src: '/sprites/slime_sheet.png' },
     { key: 'ghost', src: '/sprites/skeleton_sheet.svg' }, // Fallback
     { key: 'chest_closed', src: '/sprites/chest_closed.png' },
@@ -18,4 +18,10 @@ export const ASSET_MANIFEST = [
     { key: 'potion', src: '/sprites/item_potion.png' },
     { key: 'shield', src: '/sprites/item_shield.png' },
     { key: 'gold', src: '/sprites/item_gold.png' },
+    { key: 'wolf', src: '/sprites/wolf.png' },
+    { key: 'goblin_king', src: '/sprites/goblin_king.png' },
+    { key: 'merchant', src: '/sprites/merchant.png' },
+    { key: 'quest_elder', src: '/sprites/elder.png' },
+    { key: 'sage', src: '/sprites/sage.png' },
+    { key: 'blacksmith', src: '/sprites/blacksmith.png' },
 ];

@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { toScreen } from '@/utils/isometric';
+import { Enemy, NPC, Chest } from '@/types';
 
 import CharacterSelect from '@/components/ui/CharacterSelect';
 import GameOverlays from '@/components/overlays/GameOverlays';
@@ -25,7 +26,7 @@ export default function Game() {
 
     // Temp Local State (Character Creation)
     const [tempName, setTempName] = useState("Héroe");
-    const [hoveredTarget, setHoveredTarget] = useState<any>(null);
+    const [hoveredTarget, setHoveredTarget] = useState<Enemy | null>(null);
 
     // Sync Active NPC with Game State
     useEffect(() => {
@@ -36,9 +37,6 @@ export default function Game() {
     }, [gameState, ui.activeNPC, ui]);
 
     // Input Handler Integration - Adapter for new useGameUI interface
-    // useInputHandler expects a 'modals' object with specific boolean setters. 
-    // We adapt our FSM to match this interface temporarily or update useInputHandler?
-    // We updated useInputHandler to take 'modals' interface. Let's adapt it here.
     const modalsAdapter = {
         inventoryOpen: ui.currentState === 'INVENTORY',
         craftingOpen: ui.currentState === 'CRAFTING',
@@ -52,7 +50,6 @@ export default function Game() {
             else val ? ui.openInventory() : ui.closeAll();
         },
         setCraftingOpen: (val: boolean | ((p: boolean) => boolean)) => {
-            // Not fully implemented toggles in hook for crafting, but simple open works
             val ? ui.openCrafting() : ui.closeAll();
         },
         setSkillTreeOpen: (val: boolean | ((p: boolean) => boolean)) => {
@@ -102,7 +99,7 @@ export default function Game() {
         let minDist = Infinity;
         let bestTarget = null;
 
-        gameState.enemies.forEach((enemy: any) => {
+        gameState.enemies.forEach((enemy: Enemy) => {
             if (!gameState.player) return;
             const relX = enemy.x - gameState.player.x;
             const relY = enemy.y - gameState.player.y;
@@ -121,7 +118,7 @@ export default function Game() {
         if (!gameState?.player || !gameState.map || ui.isModalOpen) return;
 
         if (hoveredTarget && actions.performAttack) {
-            const idx = gameState.enemies.findIndex((e: any) => e.id === hoveredTarget.id);
+            const idx = gameState.enemies.findIndex((e: Enemy) => e.id === hoveredTarget.id);
             if (idx !== -1 && gameState.player) {
                 const target = gameState.enemies[idx];
                 const player = gameState.player;
@@ -179,8 +176,8 @@ export default function Game() {
     }
 
     const isInteractable = gameState && !ui.activeNPC && gameState.player && (
-        gameState.npcs?.some((n: any) => gameState.player && (Math.abs(n.x - gameState.player.x) + Math.abs(n.y - gameState.player.y) <= 1)) ||
-        gameState.chests?.some((c: any) => gameState.player && (Math.abs(c.x - gameState.player.x) + Math.abs(c.y - gameState.player.y) <= 1 && !c.isOpen))
+        gameState.npcs?.some((n: NPC) => gameState.player && (Math.abs(n.x - gameState.player.x) + Math.abs(n.y - gameState.player.y) <= 1)) ||
+        gameState.chests?.some((c: Chest) => gameState.player && (Math.abs(c.x - gameState.player.x) + Math.abs(c.y - gameState.player.y) <= 1 && !c.isOpen))
     );
 
     return (
@@ -236,4 +233,3 @@ export default function Game() {
         </div>
     );
 }
-

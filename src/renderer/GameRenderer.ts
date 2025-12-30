@@ -95,6 +95,10 @@ export class GameRenderer {
             const halfH = canvasH / 2;
 
             ctx.clearRect(0, 0, canvasW, canvasH);
+            ctx.globalAlpha = 1;
+            ctx.globalCompositeOperation = 'source-over';
+            ctx.filter = 'none';
+            ctx.shadowBlur = 0;
 
             const cameraScreen = toScreen(offsetX, offsetY);
             const getScreenPos = (gx: number, gy: number) => {
