@@ -9,12 +9,16 @@ import { drawNPC } from "./npcs";
 import { drawPlayer } from "./player";
 import { isLargeEnemy, getEnemySize } from "@/engine/systems/LargeEnemies";
 import { toScreen } from "@/utils/isometric";
-import { SIZE, TILE_HEIGHT } from "@/data/constants";
+import { SIZE, TILE_HEIGHT, ENTITY } from "@/data/constants";
 
 export class GameRenderer {
     private staticCanvas: HTMLCanvasElement | null = null;
     private dynamicCanvas: HTMLCanvasElement | null = null;
     private lightingCanvas: HTMLCanvasElement | null = null;
+
+    private staticCtx: CanvasRenderingContext2D | null = null;
+    private dynamicCtx: CanvasRenderingContext2D | null = null;
+    private lightingCtx: CanvasRenderingContext2D | null = null;
 
     private frame: number = 0;
     private cameraPos = { x: 0, y: 0, initialized: false };
@@ -23,9 +27,9 @@ export class GameRenderer {
     private lastStaticRender = {
         cameraX: -999,
         cameraY: -999,
-        mapRef: null as any,
-        visibleRef: null as any,
-        exploredRef: null as any,
+        mapRef: null as number[][] | null,
+        visibleRef: null as boolean[][] | null,
+        exploredRef: null as boolean[][] | null,
         level: -1
     };
 
@@ -39,6 +43,10 @@ export class GameRenderer {
         this.staticCanvas = staticCanvas;
         this.dynamicCanvas = dynamicCanvas;
         this.lightingCanvas = lightingCanvas;
+
+        this.staticCtx = staticCanvas.getContext('2d', { alpha: false }); // Alpha false for optimization if background is opaque
+        this.dynamicCtx = dynamicCanvas.getContext('2d');
+        this.lightingCtx = lightingCanvas.getContext('2d');
     }
 
     public render(
@@ -75,9 +83,8 @@ export class GameRenderer {
         const levelChanged = level !== this.lastStaticRender.level;
 
         if (cameraMoved || mapChanged || fovChanged || levelChanged) {
-            const staticCtx = this.staticCanvas.getContext('2d');
-            if (staticCtx) {
-                drawMap(staticCtx, state, offsetX, offsetY, viewportWidth, viewportHeight);
+            if (this.staticCtx) {
+                drawMap(this.staticCtx, state, offsetX, offsetY, viewportWidth, viewportHeight);
             }
             this.lastStaticRender = {
                 cameraX: offsetX, cameraY: offsetY,
@@ -87,7 +94,7 @@ export class GameRenderer {
         }
 
         // --- DYNAMIC LAYER (Entities) ---
-        const ctx = this.dynamicCanvas.getContext('2d');
+        const ctx = this.dynamicCtx;
         if (ctx) {
             const canvasW = this.dynamicCanvas.width;
             const canvasH = this.dynamicCanvas.height;
@@ -128,6 +135,39 @@ export class GameRenderer {
                     }
                 }
             });
+
+            // 1.5 Static Entities (Trees, Rocks, Gate, Workbench) from Grid
+            // Iterate visible range to avoid scanning whole map?
+            // We can iterate the 'state.entities' using the same bounds as map drawing or visible checking
+            if (state.entities) {
+                // Optimization: Iterate over visible bounds only?
+                // But visible bounds logic is in map drawing.
+                // We can reuse 'visible' grid keys?
+                // Let's iterate over visible tiles.
+                state.entities.forEach((row, y) => {
+                    if (!visible[y]) return;
+                    row.forEach((entityType, x) => {
+                        if (entityType === ENTITY.NONE || !visible[y][x]) return;
+
+                        const { x: sx, y: sy, isoY } = getScreenPos(x, y);
+                        if (isOnCam(sx, sy)) {
+                            let drawType = '';
+                            if (entityType === ENTITY.TREE) drawType = 'tree';
+                            else if (entityType === ENTITY.ROCK) drawType = 'rock';
+                            else if (entityType === ENTITY.PLANT) drawType = 'plant';
+                            else if (entityType === ENTITY.DUNGEON_GATE) drawType = 'dungeon_gate';
+                            // else if (entityType === ENTITY.WORKBENCH) drawType = 'workbench'; // Disabled to remove artifact
+
+                            if (drawType) {
+                                renderList.push({
+                                    y: y, sortY: isoY + 1.5, // Sort slightly above floor, below actors
+                                    draw: () => drawEnvironmentSprite(ctx, drawType, sx, sy, SIZE, x, y)
+                                });
+                            }
+                        }
+                    });
+                });
+            }
 
             // 2. Chests
             chests.forEach(chest => {
@@ -212,7 +252,7 @@ export class GameRenderer {
                     if (isOnCam(sx, sy)) {
                         renderList.push({
                             y: npc.y, sortY: isoY + 2,
-                            draw: () => drawNPC(ctx, npc.type, sx, sy, SIZE, this.frame)
+                            draw: () => drawNPC(ctx, npc, sx, sy, SIZE, this.frame)
                         });
                     }
                 }
@@ -237,7 +277,7 @@ export class GameRenderer {
         }
 
         // --- LIGHTING LAYER ---
-        const lightCtx = this.lightingCanvas.getContext('2d');
+        const lightCtx = this.lightingCtx;
         if (lightCtx) {
             if (this.lightingCanvas.width !== this.dynamicCanvas.width) {
                 this.lightingCanvas.width = this.dynamicCanvas.width;

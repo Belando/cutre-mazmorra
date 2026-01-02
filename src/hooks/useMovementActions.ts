@@ -21,7 +21,7 @@ export interface MovementActionsContext {
     selectedSkill: string | null;
     inventory: Item[];
     setInventory: React.Dispatch<React.SetStateAction<Item[]>>;
-    initGame: (level: number, player?: Player | null) => void;
+    initGame: (level?: any, player?: Player | null, startLocation?: 'home' | 'dungeon') => void;
 }
 
 export function useMovementActions(
@@ -76,6 +76,7 @@ export function useMovementActions(
         const entitiesAtTarget = spatialHash.get(nx, ny);
 
         // Bloqueos
+        // Bloqueos
         if (entitiesAtTarget.some(e => e.type === 'chest')) {
             addMessage("Un cofre bloquea el camino (Usa 'E')", 'info');
             soundManager.play('error');
@@ -84,6 +85,14 @@ export function useMovementActions(
         if (entitiesAtTarget.some(e => e.type === 'npc')) {
             addMessage("Un NPC bloquea el camino (Usa 'E')", 'info');
             soundManager.play('error');
+            return;
+        }
+
+        // Blocking Obstacles (Trees, Rocks, Gate, Invisible Blockers)
+        const obstacle = entitiesAtTarget.find(e => ['tree', 'rock', 'dungeon_gate', 'blocker'].includes(String(e.type)));
+        if (obstacle) {
+            // Optional: Play a "thud" sound?
+            // soundManager.play('error'); 
             return;
         }
 
@@ -158,14 +167,23 @@ export function useMovementActions(
         if (goUp && dungeon.stairsUp && player.x === dungeon.stairsUp.x && player.y === dungeon.stairsUp.y) {
             if (dungeon.level > 1) {
                 soundManager.play('stairs');
-                context.initGame(dungeon.level - 1, player);
+                // Going up from > 1 stays in dungeon
+                context.initGame({ level: dungeon.level - 1, player, startLocation: 'dungeon' });
+            } else if (dungeon.level === 1) {
+                // Going up from level 1 goes to Home
+                soundManager.play('stairs');
+                context.initGame({ level: 0, player, startLocation: 'home' });
             }
             else addMessage("No puedes salir aún", 'info');
         } else if (!goUp && dungeon.stairs && player.x === dungeon.stairs.x && player.y === dungeon.stairs.y) {
             if (dungeon.enemies.some(e => (e as Enemy).isBoss)) addMessage("¡Mata al jefe primero!", 'info');
             else {
                 soundManager.play('stairs');
-                context.initGame(dungeon.level + 1, player);
+                // Going down from Home (0) or Dungeon (>0) always targets 'dungeon'
+                // If Home (0) -> Level 1
+                // If Dungeon (L) -> Level L+1
+                const nextLevel = dungeon.level === 0 ? 1 : dungeon.level + 1;
+                context.initGame({ level: nextLevel, player, startLocation: 'dungeon' });
             }
         } else {
             addMessage("No hay escaleras aquí", 'info');

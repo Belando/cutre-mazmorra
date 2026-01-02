@@ -18,6 +18,25 @@ export interface Stats {
     [key: string]: number | undefined;
 }
 
+export interface IEffectsManager {
+    update: () => void;
+    draw: (ctx: CanvasRenderingContext2D, cameraX: number, cameraY: number, size: number, halfW: number, halfH: number) => void;
+    addText: (x: number, y: number, text: string, color: string, isCritical?: boolean, isSmall?: boolean) => void;
+    addSparkles: (x: number, y: number, color: string) => void;
+    current?: IEffectsManager;
+}
+
+export interface ISpatialHash {
+    rebuild: (state: any) => void;
+    move: (oldX: number, oldY: number, newX: number, newY: number, entity: any) => void;
+    add: (x: number, y: number, entity: any) => void;
+    remove: (x: number, y: number, entity: any) => void;
+    get: (x: number, y: number) => any[];
+    find: (x: number, y: number, predicate: (e: any) => boolean) => any | null;
+    isBlocked: (x: number, y: number) => boolean;
+    updatePlayer: (player: any) => void;
+}
+
 export interface Buff {
     id: string;
     name: string;
@@ -174,11 +193,23 @@ export interface Chest extends Point {
     item?: Item;
 }
 
+export interface RenderTile {
+    variant: number; // 0=default, 1=flower, etc.
+    noise: number; // Raw noise value for coloring
+    rotation: number; // 0, 90, 180, 270 (for variety)
+    tint?: string; // Pre-calculated tint color
+}
+
+export type RenderMap = RenderTile[][];
+
 export interface GameState {
     player: Player | null;
     map: number[][];
+    renderMap?: RenderMap; // Pre-calculated visual data
+    entities: number[][]; // Grid for static entities
     enemies: Enemy[];
     torches: Point[];
+    location: 'home' | 'dungeon'; // New location state
     level: number;
     items: Item[];
     chests: Chest[];
@@ -193,6 +224,6 @@ export interface GameState {
     equipment: EquipmentState;
     questProgress: Record<string, any>;
     materials: Record<string, number>;
-    effectsManager?: any;
-    spatialHash?: any;
+    effectsManager?: IEffectsManager;
+    spatialHash?: ISpatialHash;
 }

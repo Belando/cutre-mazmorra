@@ -77,9 +77,9 @@ export class SpatialHash {
     }
 
     // Reconstrucción total (útil al cambiar de nivel o cargar partida)
-    rebuild(gameState: GameState): void {
+    rebuild(gameState: GameState & { entities?: number[][] }): void {
         this.grid.clear();
-        const { enemies, chests, npcs, items, player } = gameState;
+        const { enemies, chests, npcs, items, player, entities } = gameState;
 
         // Registramos todo con una propiedad 'type' auxiliar para identificarlo rápido
         if (player) this.add(player.x, player.y, { ...player, type: 'player', ref: player });
@@ -93,6 +93,34 @@ export class SpatialHash {
             const iy = i.y ?? 0;
             this.add(ix, iy, { ...i, x: ix, y: iy, type: 'item', ref: i });
         });
+
+        // Scan entities grid for static interactables (Home Base)
+        if (entities) {
+            const height = entities.length;
+            const width = entities[0]?.length || 0;
+            for (let y = 0; y < height; y++) {
+                for (let x = 0; x < width; x++) {
+                    const id = entities[y][x];
+                    if (id > 0) { // Assuming 0 is NONE
+                        // Map specific IDs to types
+                        // We need to import ENTITY/CONSTANTS conceptually, but avoiding cyclic dep.
+                        // Let's rely on ID ranges or values known.
+                        // TREE: 200, ROCK: 201, WORKBENCH: 202, GATE: 203
+                        let type = '';
+                        if (id === 200) type = 'tree';
+                        else if (id === 201) type = 'rock';
+                        else if (id === 202) type = 'workbench';
+                        else if (id === 203) type = 'dungeon_gate';
+                        else if (id === 204) type = 'plant';
+                        else if (id === 299) type = 'blocker';
+
+                        if (type) {
+                            this.add(x, y, { x, y, type, id, ref: { x, y, id, type } });
+                        }
+                    }
+                }
+            }
+        }
     }
 
     updatePlayer(player: any): void {

@@ -1,4 +1,5 @@
 import { soundManager } from "@/engine/systems/SoundSystem";
+import { spriteManager } from "@/engine/core/SpriteManager";
 import { TILE_HEIGHT } from '@/data/constants';
 
 // Reusing the shadow logic concept, but keeping it local to avoid circular deps if any
@@ -13,56 +14,16 @@ const drawIsoShadow = (ctx: CanvasRenderingContext2D, x: number, y: number, size
 
 export const NPC_SPRITES: Record<string, { draw: (ctx: CanvasRenderingContext2D, x: number, y: number, size: number, frame: number) => void }> = {
     merchant: {
+        // Merchant is handled by generic sprite drawer now, or we can add specific logic here if needed.
+        // For now, leaving it empty to fall through to generic sprite drawer in drawNPC,
+        // OR defining a simple opacity/visual fix if needed.
         draw: (ctx: CanvasRenderingContext2D, x: number, y: number, size: number, frame: number) => {
-            const s = size;
-            const breath = Math.sin(frame * 0.05) * s * 0.02;
-
-            ctx.fillStyle = "#78350f";
-            ctx.fillRect(x + s * 0.1, y + s * 0.85, s * 0.8, s * 0.15);
-            ctx.fillStyle = "#b45309";
-            ctx.fillRect(x + s * 0.05, y + s * 0.85, s * 0.05, s * 0.15);
-            ctx.fillRect(x + s * 0.9, y + s * 0.85, s * 0.05, s * 0.15);
-
-            ctx.fillStyle = "#5c3a21";
-            ctx.fillRect(x + s * 0.1, y + s * 0.5, s * 0.25, s * 0.25);
-            ctx.fillStyle = "#3e2515";
-            ctx.fillRect(x + s * 0.12, y + s * 0.52, s * 0.21, s * 0.21);
-            ctx.fillStyle = "#ef4444";
-            ctx.beginPath(); ctx.arc(x + s * 0.22, y + s * 0.55, s * 0.06, 0, Math.PI * 2); ctx.fill();
-
-            ctx.fillStyle = "#854d0e";
-            ctx.beginPath();
-            ctx.moveTo(x + s * 0.5, y + s * 0.25 + breath);
-            ctx.lineTo(x + s * 0.8, y + s * 0.9);
-            ctx.lineTo(x + s * 0.3, y + s * 0.9);
-            ctx.closePath();
-            ctx.fill();
-
-            ctx.fillStyle = "#d4a574";
-            ctx.beginPath();
-            ctx.arc(x + s * 0.5, y + s * 0.28 + breath, s * 0.14, 0, Math.PI * 2);
-            ctx.fill();
-
-            ctx.fillStyle = "#78716c";
-            ctx.beginPath();
-            ctx.ellipse(x + s * 0.5, y + s * 0.38 + breath, s * 0.1, s * 0.08, 0, 0, Math.PI);
-            ctx.fill();
-
-            ctx.fillStyle = "#f59e0b";
-            ctx.beginPath();
-            ctx.arc(x + s * 0.5, y + s * 0.2 + breath, s * 0.13, Math.PI, Math.PI * 2);
-            ctx.fill();
-            ctx.fillRect(x + s * 0.3, y + s * 0.18 + breath, s * 0.4, s * 0.06);
-
-            const float = Math.sin(frame * 0.1) * s * 0.05;
-            ctx.fillStyle = "#fbbf24";
-            ctx.beginPath();
-            ctx.arc(x + s * 0.75, y + s * 0.5 + float, s * 0.08, 0, Math.PI * 2);
-            ctx.fill();
-            ctx.fillStyle = "#fff";
-            ctx.beginPath();
-            ctx.arc(x + s * 0.77, y + s * 0.48 + float, s * 0.02, 0, Math.PI * 2);
-            ctx.fill();
+            // Placeholder to satisfy type, though drawNPC prefers spriteManager.
+            // If we return, drawNPC continues? No, drawNPC checks if spriteKey exists in NPC_SPRITES.
+            // Actually drawNPC checks spriteManager FIRST.
+            // If spriteManager has 'merchant', it uses that.
+            // So this entry in NPC_SPRITES is ignored for 'merchant' if assets.ts has it.
+            // But valid JS object cannot have duplicate keys.
         },
     },
 
@@ -162,177 +123,138 @@ export const NPC_SPRITES: Record<string, { draw: (ctx: CanvasRenderingContext2D,
         },
     },
 
-    blacksmith: {
-        draw: (ctx: CanvasRenderingContext2D, x: number, y: number, size: number, frame: number) => {
-            const s = size * 1.2;
-            const adjX = x - size * 0.1;
-            const adjY = y - size * 0.4;
+    // Old blacksmith removed
 
-            const c = {
-                skin: "#854d0e",
-                beard: "#0f172a",
-                apron: "#a16207",
-                apronDark: "#713f12",
-                shirt: "#d4d4d8",
-                metalDark: "#334155",
-                metalMid: "#475569",
-                metalLight: "#94a3b8",
-                metalHighlight: "#cbd5e1",
-                stoneDark: "#292524",
-                stoneMid: "#44403c",
-                stoneLight: "#78716c",
-                fire: ["#ef4444", "#f97316", "#facc15", "#ffffff"],
-                hotMetal: "#fca5a5",
-                smoke: "rgba(200, 200, 200, 0.3)",
-                wood: "#451a03",
-                woodGrain: "#351202"
-            };
-
-            const forgeX = adjX + size * 0.9;
-            const forgeY = adjY + s * 0.1;
-
-            ctx.fillStyle = "#1c1917";
-            ctx.fillRect(forgeX + s * 0.05, forgeY + s * 0.05, s * 1.1, s * 0.95);
-            ctx.fillStyle = c.stoneDark;
-            ctx.fillRect(forgeX, forgeY, s * 1.1, s * 0.95);
-            ctx.fillStyle = c.stoneMid;
-            for (let i = 0; i < 5; i++) {
-                let off = (i % 2 === 0) ? 0 : s * 0.1;
-                ctx.fillRect(forgeX + off + s * 0.05, forgeY + i * s * 0.18 + s * 0.05, s * 0.35, s * 0.12);
-                ctx.fillRect(forgeX + off + s * 0.5, forgeY + i * s * 0.18 + s * 0.05, s * 0.35, s * 0.12);
-            }
-
-            ctx.fillStyle = "#1c1917";
-            ctx.beginPath(); ctx.arc(forgeX + s * 0.55, forgeY + s * 0.75, s * 0.45, Math.PI, 0); ctx.fill();
-            ctx.fillStyle = c.stoneDark; ctx.beginPath(); ctx.moveTo(forgeX + s * 0.15, forgeY + s * 0.75); ctx.arc(forgeX + s * 0.55, forgeY + s * 0.75, s * 0.4, Math.PI, 0); ctx.lineTo(forgeX + s * 0.95, forgeY + s * 0.95); ctx.lineTo(forgeX + s * 0.15, forgeY + s * 0.95); ctx.fill();
-            ctx.strokeStyle = c.stoneLight; ctx.lineWidth = s * 0.08; ctx.beginPath(); ctx.arc(forgeX + s * 0.55, forgeY + s * 0.75, s * 0.4, Math.PI, 0); ctx.stroke();
-            const fireAnim = Math.sin(frame * 0.3); const fireX = forgeX + s * 0.55; const fireY = forgeY + s * 0.85;
-            ctx.fillStyle = c.fire[0]; ctx.beginPath(); ctx.arc(fireX, fireY, s * 0.25, 0, Math.PI * 2); ctx.fill();
-            ctx.fillStyle = c.fire[1]; ctx.beginPath(); ctx.arc(fireX, fireY - s * 0.05, s * (0.2 + fireAnim * 0.02), 0, Math.PI * 2); ctx.fill();
-
-            ctx.fillStyle = c.stoneDark;
-            ctx.beginPath();
-            ctx.moveTo(forgeX + s * 0.15, forgeY - s * 0.15);
-            ctx.lineTo(forgeX + s * 0.95, forgeY - s * 0.15);
-            ctx.lineTo(forgeX + s * 0.75, forgeY - s * 0.5);
-            ctx.lineTo(forgeX + s * 0.35, forgeY - s * 0.5);
-            ctx.closePath();
-            ctx.fill();
-
-            ctx.fillStyle = "#1c1917";
-            ctx.fillRect(forgeX + s * 0.15, forgeY - s * 0.15, s * 0.8, s * 0.05);
-            ctx.fillStyle = c.stoneMid;
-            ctx.fillRect(forgeX + s * 0.15, forgeY - s * 0.2, s * 0.8, s * 0.05);
-
-            ctx.fillStyle = c.smoke;
-            for (let i = 0; i < 4; i++) {
-                const smokeOffset = (frame * 1.5 + i * 30) % 120; const t = smokeOffset / 120;
-                const smokeY = (forgeY - s * 0.5) - (smokeOffset * s * 0.015);
-                const spread = (Math.random() - 0.5) * s * 0.2;
-                const smokeX = (forgeX + s * 0.55) + Math.sin(smokeOffset * 0.08) * s * 0.2 * t + spread * t;
-                ctx.globalAlpha = 1 - t; ctx.beginPath(); ctx.arc(smokeX, smokeY, s * (0.1 + t * 0.25), 0, Math.PI * 2); ctx.fill(); ctx.globalAlpha = 1.0;
-            }
-
-            const anvilX = adjX + s * 0.75;
-            const anvilY = adjY + s * 0.75;
-
-            ctx.fillStyle = c.wood; ctx.fillRect(anvilX - s * 0.1, anvilY + s * 0.2, s * 0.5, s * 0.25);
-            ctx.fillStyle = c.woodGrain; ctx.fillRect(anvilX, anvilY + s * 0.25, s * 0.3, s * 0.05); ctx.fillRect(anvilX - s * 0.05, anvilY + s * 0.35, s * 0.4, s * 0.03);
-
-            ctx.fillStyle = c.metalDark;
-            ctx.fillRect(anvilX - s * 0.1, anvilY + s * 0.2, s * 0.6, s * 0.05);
-            ctx.beginPath(); ctx.moveTo(anvilX - s * 0.25, anvilY + s * 0.02); ctx.lineTo(anvilX + s * 0.5, anvilY + s * 0.02); ctx.lineTo(anvilX + s * 0.45, anvilY + s * 0.2); ctx.lineTo(anvilX + s * 0.05, anvilY + s * 0.2); ctx.fill();
-
-            ctx.fillStyle = c.metalMid;
-            ctx.fillRect(anvilX, anvilY + s * 0.02, s * 0.5, s * 0.1);
-            ctx.beginPath(); ctx.moveTo(anvilX, anvilY + s * 0.02); ctx.lineTo(anvilX, anvilY + s * 0.12); ctx.quadraticCurveTo(anvilX - s * 0.15, anvilY + s * 0.08, anvilX - s * 0.25, anvilY + s * 0.02); ctx.fill();
-
-            ctx.fillStyle = c.metalLight;
-            ctx.beginPath(); ctx.moveTo(anvilX - s * 0.25, anvilY); ctx.lineTo(anvilX + s * 0.5, anvilY); ctx.lineTo(anvilX + s * 0.5, anvilY + s * 0.05); ctx.lineTo(anvilX + s * 0.05, anvilY + s * 0.05); ctx.quadraticCurveTo(anvilX, anvilY + s * 0.08, anvilX - s * 0.25, anvilY); ctx.fill();
-
-            ctx.fillStyle = c.metalHighlight; ctx.fillRect(anvilX, anvilY, s * 0.5, s * 0.02);
-            ctx.fillStyle = c.metalDark; ctx.fillRect(anvilX + s * 0.35, anvilY + s * 0.01, s * 0.06, s * 0.06);
-
-            const smithX = adjX + s * 0.25;
-            const smithY = adjY + s * 0.3;
-            const breath = Math.sin(frame * 0.08) * s * 0.01;
-            const ingotX = anvilX + s * 0.15; const ingotY = anvilY - s * 0.05;
-
-            const cycle = frame % 60;
-            let armRot = 0, forearmRot = 0, hit = false, metalGlow = 0;
-            if (cycle < 30) { const t = cycle / 30; armRot = -Math.PI / 1.8 * t; forearmRot = -Math.PI / 3 * t; }
-            else if (cycle < 40) { armRot = -Math.PI / 1.8; forearmRot = -Math.PI / 3; }
-            else if (cycle < 45) { const t = (cycle - 40) / 5; armRot = -Math.PI / 1.8 + (Math.PI / 1.8 + 0.1) * t; forearmRot = -Math.PI / 3 + (Math.PI / 3 + 0.2) * t; if (cycle >= 43) { hit = true; metalGlow = 1; } }
-            else { const t = (cycle - 45) / 15; armRot = 0.1 - 0.1 * t; forearmRot = 0.2 - 0.2 * t; metalGlow = 1 - t; }
-
-            if (cycle === 43) {
-                soundManager.play('anvil');
-            }
-
-            ctx.save();
-            ctx.translate(smithX + s * 0.35, smithY + s * 0.25 + breath);
-            ctx.rotate(armRot);
-            ctx.fillStyle = "#6b3d0a"; ctx.fillRect(0, -s * 0.06, s * 0.25, s * 0.14);
-            ctx.translate(s * 0.25, 0); ctx.rotate(forearmRot); ctx.fillRect(0, -s * 0.05, s * 0.12, s * 0.12);
-            ctx.translate(s * 0.12, 0); ctx.rotate(Math.PI / 2);
-            ctx.fillStyle = c.wood; ctx.fillRect(-s * 0.05, -s * 0.1, s * 0.1, s * 0.15);
-            ctx.fillStyle = c.metalDark; ctx.fillRect(-s * 0.12, -s * 0.25, s * 0.24, s * 0.15);
-            ctx.fillStyle = c.metalLight; ctx.fillRect(-s * 0.12, -s * 0.12, s * 0.24, s * 0.03);
-            ctx.restore();
-
-            ctx.fillStyle = "#292524"; ctx.fillRect(smithX + s * 0.05, smithY + s * 0.65, s * 0.12, s * 0.3); ctx.fillRect(smithX + s * 0.25, smithY + s * 0.7, s * 0.12, s * 0.3);
-            ctx.fillStyle = "#0f0f0f"; ctx.fillRect(smithX + s * 0.03, smithY + s * 0.9, s * 0.16, s * 0.1); ctx.fillRect(smithX + s * 0.23, smithY + s * 0.95, s * 0.16, s * 0.1);
-
-            ctx.fillStyle = c.shirt;
-            ctx.fillRect(smithX + s * 0.05, smithY + s * 0.15 + breath, s * 0.35, s * 0.5);
-
-            ctx.fillStyle = c.apron; ctx.beginPath(); ctx.moveTo(smithX + s * 0.1, smithY + s * 0.25 + breath); ctx.lineTo(smithX + s * 0.4, smithY + s * 0.3 + breath); ctx.lineTo(smithX + s * 0.4, smithY + s * 0.8 + breath); ctx.lineTo(smithX + s * 0.05, smithY + s * 0.75 + breath); ctx.fill();
-            ctx.fillStyle = c.apronDark; ctx.fillRect(smithX + s * 0.05, smithY + s * 0.45 + breath, s * 0.35, s * 0.08);
-
-            ctx.fillStyle = c.skin; ctx.fillRect(smithX + s * 0.1, smithY - s * 0.05 + breath, s * 0.25, s * 0.25);
-            ctx.fillStyle = c.beard; ctx.beginPath(); ctx.moveTo(smithX + s * 0.35, smithY + s * 0.05 + breath); ctx.lineTo(smithX + s * 0.45, smithY + s * 0.25 + breath); ctx.lineTo(smithX + s * 0.2, smithY + s * 0.3 + breath); ctx.lineTo(smithX + s * 0.1, smithY + s * 0.2 + breath); ctx.fill();
-            ctx.fillRect(smithX + s * 0.05, smithY - s * 0.08 + breath, s * 0.3, s * 0.1);
-            ctx.fillStyle = "#000"; ctx.fillRect(smithX + s * 0.3, smithY + s * 0.05 + breath, s * 0.04, s * 0.03);
-
-            ctx.save();
-            ctx.translate(smithX + s * 0.25, smithY + s * 0.35 + breath);
-            ctx.rotate(0.6);
-            ctx.fillStyle = c.skin;
-            ctx.fillRect(0, -s * 0.05, s * 0.45, s * 0.1);
-            ctx.translate(s * 0.45, 0);
-            ctx.fillStyle = c.metalDark; ctx.fillRect(0, -s * 0.05, s * 0.3, s * 0.05); ctx.fillRect(0, s * 0.05, s * 0.3, s * 0.05); ctx.fillRect(s * 0.3, -s * 0.05, s * 0.05, s * 0.15);
-            ctx.restore();
-
-            ctx.fillStyle = metalGlow > 0 ? "#ffffff" : c.hotMetal; ctx.shadowColor = c.fire[1]; ctx.shadowBlur = metalGlow * 25; ctx.fillRect(ingotX, ingotY, s * 0.25, s * 0.06); ctx.shadowBlur = 0;
-            if (hit) {
-                ctx.fillStyle = "#fbbf24";
-                for (let i = 0; i < 10; i++) {
-                    const angle = -Math.PI / 4 + (Math.random() - 0.5) * 0.8; const dist = s * (0.1 + Math.random() * 0.3);
-                    ctx.fillRect(ingotX + s * 0.1 + Math.cos(angle) * dist, ingotY + Math.sin(angle) * dist, s * (0.02 + Math.random() * 0.03), s * (0.02 + Math.random() * 0.03));
-                }
-            }
-        },
-    },
 };
 
-export function drawNPC(ctx: CanvasRenderingContext2D, npcType: string, isoX: number, isoY: number, size: number, frame: number = 0) {
+// Helper to determine row based on direction (assuming standard: 0:Down, 1:Left, 2:Right, 3:Up)
+const getDirRow = (dx: number, dy: number): number => {
+    if (Math.abs(dx) > Math.abs(dy)) {
+        return dx > 0 ? 2 : 1; // Right : Left
+    } else {
+        return dy > 0 ? 0 : 3; // Down : Up (screen y goes down)
+    }
+    return 0; // Default Down
+};
+
+export function drawNPC(ctx: CanvasRenderingContext2D, npc: any, isoX: number, isoY: number, size: number, frame: number = 0) {
     // Calculate bounding box position
     const drawX = isoX - size / 2;
     const drawY = isoY + TILE_HEIGHT / 2 - size * 0.85;
 
+    // Draw Shadow
     drawIsoShadow(ctx, drawX, drawY, size);
 
-    const spriteKey = npcType === "merchant" ? "merchant" :
-        npcType === "quest_giver" ? "quest_elder" :
-            npcType === "sage" ? "sage" :
-                npcType === "blacksmith" ? "blacksmith" : null;
+    const npcType = npc.type || npc;
 
-    if (spriteKey && NPC_SPRITES[spriteKey]) {
-        NPC_SPRITES[spriteKey].draw(ctx, drawX, drawY, size, frame);
-    } else {
-        ctx.fillStyle = "#fbbf24";
-        ctx.beginPath();
-        ctx.arc(drawX + size / 2, drawY + size / 2, size / 3, 0, Math.PI * 2);
-        ctx.fill();
+    // --- 1. SPECIAL: BLACKSMITH (Composite) ---
+    if (npcType === 'blacksmith') {
+        // SCALE CONFIG
+        const anvilScale = 1.3;
+        const workerScale = 3.0;
+
+        // 1. Draw Static Anvil
+        const anvilImg = spriteManager.get('anvil');
+        const anvilSize = size * anvilScale;
+
+        // Anvil Position: Center of tile, slightly lower
+        const anvilX = drawX - (anvilSize - size) / 2;
+        const anvilY = drawY - (anvilSize - size) + size * 0.5; // Push down more
+
+        if (anvilImg) {
+            ctx.drawImage(anvilImg as HTMLImageElement, anvilX, anvilY, anvilSize, anvilSize);
+        }
+
+        // 2. Draw Animated Worker
+        const workerImg = spriteManager.get('blacksmith_worker');
+        if (workerImg) {
+            const img = workerImg as HTMLImageElement;
+            const cols = 4;
+            const rows = 1;
+            const frameWidth = img.width / cols;
+            const frameHeight = img.height / rows;
+            const speed = 24;
+            const safeFrame = Math.floor(frame / speed) % cols;
+
+            // Worker Position
+            const workerSize = size * workerScale;
+            // Center horizontally rel to tile, then offset
+            const workerX = drawX - (workerSize - size) / 2 + size * 0.1;
+            // Fix floating: Move DOWN significantly.
+            // Using size * 0.7 pushes him down further (was 0.6)
+            const workerY = drawY - (workerSize - size) + size * 0.7;
+
+            ctx.drawImage(img,
+                safeFrame * frameWidth, 0, frameWidth, frameHeight,
+                workerX, workerY, workerSize, workerSize
+            );
+        }
+        return;
     }
+
+    // --- 2. SPECIAL: MERCHANT (1x4 Sheet Correction) ---
+    if (npcType === 'merchant') {
+        const img = spriteManager.get('merchant');
+        if (img) {
+            const image = img as HTMLImageElement;
+            const cols = 4; // Force 4 columns
+            const rows = 1; // Force 1 row
+            const frameWidth = image.width / cols;
+            const frameHeight = image.height / rows;
+            const speed = 24;
+            const safeFrame = Math.floor(frame / speed) % cols;
+
+            // SCALED UP MERCHANT: 2.0x (Previously 1.5x)
+            const drawSize = size * 2.0;
+            const offsetX = (size - drawSize) / 2;
+            // Tune Y offset for larger size
+            const adjustedOffsetY = (size - drawSize) + (size * 0.5);
+
+            ctx.drawImage(image,
+                safeFrame * frameWidth, 0, frameWidth, frameHeight,
+                drawX + offsetX, drawY + adjustedOffsetY, drawSize, drawSize
+            );
+            return;
+        }
+    }
+
+    // --- 3. GENERIC SPRITE FALLBACK (Elder, Sage, etc.) ---
+    const spriteKey = npcType === "quest_giver" ? "quest_elder" :
+        npcType === "sage" ? "sage" :
+            npcType; // default to type name
+
+    const img = spriteManager.get(spriteKey);
+    if (img) {
+        const image = img as HTMLImageElement;
+        const cols = 4;
+        const rows = 1;
+        const frameWidth = image.width / cols;
+        const frameHeight = image.height / rows;
+        const speed = 24;
+        const safeFrame = Math.floor(frame / speed) % cols;
+
+        const drawSize = size * 1.5;
+        const offsetX = (size - drawSize) / 2;
+        const adjustedOffsetY = (size - drawSize) + (size * 0.35);
+
+        ctx.drawImage(image,
+            safeFrame * frameWidth, 0, frameWidth, frameHeight,
+            drawX + offsetX, drawY + adjustedOffsetY, drawSize, drawSize
+        );
+        return;
+    }
+
+    // --- 4. PROCEDURAL FALLBACKS (If any left in NPC_SPRITES) ---
+    if (NPC_SPRITES[npcType]) {
+        NPC_SPRITES[npcType].draw(ctx, drawX, drawY, size, frame);
+        return;
+    }
+
+    // --- 5. FINAL ERROR FALLBACK ---
+    ctx.fillStyle = "#fbbf24";
+    ctx.beginPath();
+    ctx.arc(drawX + size / 2, drawY + size / 2, size / 3, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.strokeStyle = "#000";
+    ctx.stroke();
 }

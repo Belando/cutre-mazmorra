@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { toScreen } from '@/utils/isometric';
 import { Enemy, NPC, Chest } from '@/types';
+import { ENTITY } from '@/data/constants';
 
 import CharacterSelect from '@/components/ui/CharacterSelect';
 import GameOverlays from '@/components/overlays/GameOverlays';
@@ -177,7 +178,22 @@ export default function Game() {
 
     const isInteractable = gameState && !ui.activeNPC && gameState.player && (
         gameState.npcs?.some((n: NPC) => gameState.player && (Math.abs(n.x - gameState.player.x) + Math.abs(n.y - gameState.player.y) <= 1)) ||
-        gameState.chests?.some((c: Chest) => gameState.player && (Math.abs(c.x - gameState.player.x) + Math.abs(c.y - gameState.player.y) <= 1 && !c.isOpen))
+        gameState.chests?.some((c: Chest) => gameState.player && (Math.abs(c.x - gameState.player.x) + Math.abs(c.y - gameState.player.y) <= 1 && !c.isOpen)) ||
+        // Check for adjacent interactable entities (Resources)
+        (() => {
+            if (!gameState.entities || !gameState.player) return false;
+            const { x, y } = gameState.player;
+            const adjacentCoords = [[0, 1], [0, -1], [1, 0], [-1, 0]];
+            return adjacentCoords.some(([dx, dy]) => {
+                const tx = x + dx;
+                const ty = y + dy;
+                if (ty >= 0 && ty < gameState.entities.length && tx >= 0 && tx < gameState.entities[0].length) {
+                    const id = gameState.entities[ty][tx];
+                    return id === ENTITY.TREE || id === ENTITY.ROCK || id === ENTITY.PLANT;
+                }
+                return false;
+            });
+        })()
     );
 
     return (

@@ -1,7 +1,8 @@
 // Generador procedimental de mazmorras para roguelike
 import { generateLevelItems } from './ItemSystem';
 import { TILE, ENTITY } from '@/data/constants';
-import { Entity, Point, Item, Chest } from '@/types';
+import { Entity, Point, Item, Chest, RenderMap, RenderTile } from '@/types';
+import { GAME_CONFIG } from '@/data/config';
 import { ENEMY_STATS } from '@/data/enemies';
 
 // Modules
@@ -12,6 +13,7 @@ import { placeEntities, placeBoss, createEnemiesFromGrid } from './dungeon/Entit
 
 export interface DungeonResult {
   map: number[][];
+  renderMap: RenderMap;
   entities: number[][];
   enemies: Entity[];
   rooms: Room[];
@@ -76,10 +78,17 @@ export function generateDungeon(width: number, height: number, level: number, pl
   const enemyTypes = getEnemiesForLevel(level);
   const enemyCount = 8 + level * 2 + Math.floor(Math.random() * 5);
   const lastRoomIndex = rooms.length - 1;
-  const entityCount = placeEntities(map, entitiesGrid, rooms, enemyTypes, enemyCount, [0, lastRoomIndex]); // Updated to capture return if needed, but void is fine
+  const entityCount = placeEntities(map, entitiesGrid, rooms, enemyTypes, enemyCount, [0, lastRoomIndex]);
+  // Use entityCount or void it
+  void entityCount;
 
   const bossType = getBossForLevel(level);
   placeBoss(map, entitiesGrid, stairsX, stairsY, bossType);
+
+  // 9.5 Place Resources (Rocks, Plants)
+  // More rocks in deeper levels? Plants in early levels?
+  const resourceTypes = [ENTITY.ROCK, ENTITY.PLANT]; // Maybe add mushrooms later
+  placeEntities(map, entitiesGrid, rooms, resourceTypes, 10 + level * 2, [0, lastRoomIndex]);
 
   // 10. Loot
   const generatedItems = generateLevelItems(level, rooms, map, [0]);
@@ -114,8 +123,30 @@ export function generateDungeon(width: number, height: number, level: number, pl
   // 12. Create Enemy Objects
   const enemies = createEnemiesFromGrid(entitiesGrid, level, playerLevel);
 
+  // 13. Generate Render Map (Pre-calculate visual variants)
+  const renderMap: RenderMap = Array(height).fill(null).map((_, y) =>
+    Array(width).fill(null).map((_, x) => {
+      // Simple noise simulation for prototype
+      const noise = Math.sin(x * 0.1) + Math.cos(y * 0.1) + Math.sin((x + y) * 0.05); // Same as map.ts calc
+      let variant = 0;
+
+      // Logic copied from map.ts to pre-calculate
+      if (noise > GAME_CONFIG.MAP.NOISE.LUSH_THRESHOLD) variant = 3; // Lush
+      else if (noise > GAME_CONFIG.MAP.NOISE.FLOWERS_THRESHOLD) variant = 1; // Flowers
+      else if (noise < GAME_CONFIG.MAP.NOISE.SPARSE_THRESHOLD) variant = 2; // Sparse
+      else variant = 0; // Plain
+
+      return {
+        variant,
+        noise,
+        rotation: Math.floor(Math.random() * 4) * 90
+      } as RenderTile;
+    })
+  );
+
   return {
     map,
+    renderMap,
     entities: entitiesGrid,
     enemies,
     rooms,

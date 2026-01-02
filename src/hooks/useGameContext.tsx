@@ -46,6 +46,16 @@ export function useGameContext(
         playerName, selectedAppearance, playerClass, selectedSkill, rangedMode, rangedTargets
     } = extraState;
 
+    // Helper for legacy material system (kept for HUD compatibility)
+    const addMaterial = (type: string, amount: number) => {
+        if (setMaterials) {
+            setMaterials((prev: any) => ({
+                ...prev,
+                [type]: (prev[type] || 0) + amount
+            }));
+        }
+    };
+
     return useMemo((): GameActionsContext => ({
         player, setPlayer, updatePlayer, gainExp,
         dungeon, setDungeon,
@@ -61,6 +71,7 @@ export function useGameContext(
         questProgress, setQuestProgress,
         initGame, addMessage, showFloatingText, effectsManager,
         handleEnemyDeath, executeSkillAction, performAttack, // Add performAttack
+        addMaterial, // Exposed helper
         setGameStarted, setGameOver, setPlayerName, setSelectedSkill, setRangedMode, setRangedTargets, setMessages, updateMapFOV, setGameWon,
         playerName, selectedAppearance, setSelectedAppearance, setPlayerClass,
         selectedSkill,

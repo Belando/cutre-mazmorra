@@ -43,6 +43,146 @@ export const ENV_SPRITES: Record<string, { draw: (ctx: CanvasRenderingContext2D,
             ctx.shadowBlur = 0;
         }
     },
+    tree: {
+        draw: (ctx: CanvasRenderingContext2D, x: number, y: number, size: number, vx: number = 0, vy: number = 0) => {
+            const img = spriteManager.get('tree');
+            if (img && (img as HTMLImageElement).width > 0) { // Ensure loaded
+                // Trees Sheet: 2x2 Grid
+                const sheetCols = 2;
+                const sheetRows = 2;
+
+                const seed = Math.abs((vx * 17 + vy * 23)) % 4; // 0, 1, 2, 3
+                const col = seed % sheetCols;
+                const row = Math.floor(seed / sheetCols);
+
+                // Assuming usage of HTMLImageElement properties
+                // Safe cast since we checked it exists
+                const image = img as HTMLImageElement;
+                const sw = image.width / sheetCols;
+                const sh = image.height / sheetRows;
+
+                // Render larger than tile
+                const aspect = sh / sw;
+                const w = size * 2.5;
+                const h = w * aspect;
+
+                // Adjust draw position to center bottom anchor
+                ctx.drawImage(image, col * sw, row * sh, sw, sh, x - (w - size) / 2, y - h + size, w, h);
+            } else {
+                ctx.fillStyle = '#166534';
+                ctx.beginPath();
+                ctx.moveTo(x + size / 2, y - size);
+                ctx.lineTo(x + size, y + size);
+                ctx.lineTo(x, y + size);
+                ctx.fill();
+            }
+        }
+    },
+    plant: {
+        draw: (ctx: CanvasRenderingContext2D, x: number, y: number, size: number, vx: number = 0, vy: number = 0) => {
+            const img = spriteManager.get('plant');
+            if (img && (img as HTMLImageElement).width > 0) {
+                // Plant Sprite (Single Image)
+                const s = size * 0.8; // Slightly smaller than tile
+                const ox = x + (size - s) / 2;
+                const oy = y + (size - s) / 2 - s * 0.2; // Lift slightly
+
+                drawIsoShadow(ctx, x, y, size * 0.5);
+                ctx.drawImage(img as HTMLImageElement, ox, oy, s, s);
+            } else {
+                // Fallback (Canvas)
+                const s = size;
+                drawIsoShadow(ctx, x, y, size * 0.6);
+                ctx.fillStyle = '#15803d';
+                ctx.fillRect(x + s * 0.45, y + s * 0.5, s * 0.1, s * 0.3);
+                ctx.fillStyle = '#22c55e';
+                ctx.beginPath();
+                ctx.arc(x + s * 0.5, y + s * 0.4, s * 0.15, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.fillStyle = '#f472b6';
+                ctx.beginPath();
+                ctx.arc(x + s * 0.5, y + s * 0.4, s * 0.05, 0, Math.PI * 2);
+                ctx.fill();
+            }
+        }
+    },
+    rock: {
+        draw: (ctx: CanvasRenderingContext2D, x: number, y: number, size: number, vx: number = 0, vy: number = 0) => {
+            const img = spriteManager.get('rock');
+            if (img && (img as HTMLImageElement).width > 0) {
+                // Rocks Sheet: 2x2 grid
+                const sheetCols = 2;
+                const sheetRows = 2;
+
+                const seed = Math.abs((vx * 31 + vy * 37)) % 4;
+                const col = seed % sheetCols;
+                const row = Math.floor(seed / sheetCols);
+
+                const image = img as HTMLImageElement;
+                const sw = image.width / sheetCols;
+                const sh = image.height / sheetRows;
+
+                // Rocks are roughly tile size, maybe slightly bigger
+                const w = size * 1.2;
+                const h = w * (sh / sw);
+
+                ctx.drawImage(image, col * sw, row * sh, sw, sh, x - (w - size) / 2, y - (h - size), w, h);
+            } else {
+                ctx.fillStyle = '#57534e';
+                ctx.beginPath();
+                ctx.arc(x + size / 2, y + size / 2, size / 3, 0, Math.PI * 2);
+                ctx.fill();
+            }
+        }
+    },
+    dungeon_gate: {
+        draw: (ctx: CanvasRenderingContext2D, x: number, y: number, size: number) => {
+            const img = spriteManager.get('dungeon_gate');
+            if (img) {
+                // New sprite is 2.5D, might need more vertical space
+                // Target: Occupy 2x2 visual space (approx 192px width)
+                const w = size * 3.5; // ~336px - Big and menacing
+                const h = size * 3.5;
+
+
+
+                // Draw Gate Sprite
+                // Align bottom of sprite (stones) with tile center/feet
+                // User requested it to be "at the wall", so we shift it up further
+                const drawY = y - h * 0.75;
+
+                ctx.drawImage(img, x - (w - size) / 2, drawY, w, h);
+            } else {
+                ctx.fillStyle = '#000';
+                ctx.fillRect(x, y, size, size);
+            }
+        }
+    },
+    workbench: {
+        draw: (ctx: CanvasRenderingContext2D, x: number, y: number, size: number) => {
+            const img = spriteManager.get('workbench');
+            if (img && (img as HTMLImageElement).width > 0) {
+                // Workbench sprite is small, scale up
+                const s = size * 1.5;
+                ctx.drawImage(img, x - (s - size) / 2, y - (s - size) / 2, s, s);
+            } else {
+                // Better fallback than orange box
+                const s = size;
+                ctx.fillStyle = '#451a03'; // Dark wood
+                // Table top
+                ctx.beginPath();
+                ctx.moveTo(x, y + s * 0.5);
+                ctx.lineTo(x + s * 0.5, y + s * 0.75);
+                ctx.lineTo(x + s, y + s * 0.5);
+                ctx.lineTo(x + s * 0.5, y + s * 0.25);
+                ctx.fill();
+                // Legs
+                ctx.fillStyle = '#292524';
+                ctx.fillRect(x + s * 0.1, y + s * 0.5, s * 0.1, s * 0.4);
+                ctx.fillRect(x + s * 0.8, y + s * 0.5, s * 0.1, s * 0.4);
+            }
+        }
+    },
     door_closed: {
         draw: (ctx: CanvasRenderingContext2D, x: number, y: number, size: number) => {
             const img = spriteManager.get('door_closed');

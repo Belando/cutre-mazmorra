@@ -6,7 +6,7 @@ import CraftingPanel from '@/components/ui/CraftingPanel';
 import SkillTree from '@/components/ui/SkillTree';
 import GameOver from './GameOver';
 import VictoryScreen from './VictoryScreen';
-import { GameState } from '@/types';
+import { GameState, Item } from '@/types';
 
 interface GameOverlaysProps {
     gameState: GameState;
@@ -59,14 +59,15 @@ export default function GameOverlays({
                         isOpen={inventoryOpen}
                         onClose={() => setInventoryOpen(false)}
                         inventory={gameState.inventory}
-                        equipment={gameState.equipment}
-                        player={gameState.player as any}
+                        equipment={gameState.equipment as unknown as Record<string, Item | null>}
+                        player={gameState.player!}
                         onUseItem={actions.useItem}
                         onEquipItem={actions.equipItem}
                         onUnequipItem={actions.unequipItem}
                         onDropItem={actions.dropItem}
                         onAssignQuickSlot={actions.assignToQuickSlot}
                         onReorder={actions.reorderInventory}
+                        materials={gameState.materials}
                     />
                 )}
 
@@ -91,8 +92,8 @@ export default function GameOverlays({
                         isOpen={showCrafting}
                         onClose={closeCrafting}
                         inventory={gameState.inventory}
-                        equipment={gameState.equipment}
-                        gold={gameState.player.gold}
+                        equipment={gameState.equipment as unknown as Record<string, Item | null>}
+                        gold={gameState.player?.gold || 0}
                         onCraft={actions.craftItem}
                         onUpgrade={actions.upgradeItem}
                         npc={activeNPC}
@@ -104,11 +105,11 @@ export default function GameOverlays({
                         isOpen={skillTreeOpen}
                         onClose={() => setSkillTreeOpen(false)}
                         playerClass={playerInfo.class}
-                        playerLevel={gameState.player.level}
-                        learnedSkills={gameState.player.skills.learned}
-                        skillLevels={gameState.player.skills.skillLevels}
-                        skillPoints={gameState.player.skills.skillPoints}
-                        evolvedClass={gameState.player.skills.evolvedClass}
+                        playerLevel={gameState.player?.level || 1}
+                        learnedSkills={gameState.player?.skills.learned || []}
+                        skillLevels={gameState.player?.skills.skillLevels || {}}
+                        skillPoints={gameState.player?.skills.skillPoints || 0}
+                        evolvedClass={gameState.player?.skills.evolvedClass}
                         onLearnSkill={actions.learnSkill}
                         onUpgradeSkill={actions.upgradeSkill}
                         onEvolve={actions.evolveClass}

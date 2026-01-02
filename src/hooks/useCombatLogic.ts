@@ -156,15 +156,7 @@ export function useCombatLogic({
                 }
             }
 
-            const stats: Record<string, number> = {
-                maxHp: player.maxHp || 0,
-                hp: player.hp || 0,
-                attack: player.stats?.attack || 0, // Access from stats object
-                defense: player.stats?.defense || 0,
-                magicAttack: player.stats?.magicAttack || 0,
-                magicDefense: player.stats?.magicDefense || 0,
-                speed: player.stats?.speed || 0
-            };
+
 
             const updates: Partial<Player> = {};
 
@@ -178,19 +170,16 @@ export function useCombatLogic({
             const newSkills: SkillState = {
                 ...player.skills,
                 buffs: currentBuffs,
-                cooldowns: { ...player.skills.cooldowns, [skillId]: res.cooldown }
+                cooldowns: { ...player.skills.cooldowns, [skillId]: res.cooldown || 0 }
             };
-            updates.skills = newSkills;
-            updates.lastSkillId = skillId;
-            updates.lastSkillTime = Date.now();
 
-            if (res.heal) {
-                updates.hp = Math.min(player.maxHp, player.hp + res.heal);
-                if (effectsManager.current) {
-                    effectsManager.current.addText(player.x, player.y, `+${res.heal}`, '#22c55e');
-                    effectsManager.current.addSparkles(player.x, player.y, '#4ade80');
-                }
+            updates.skills = newSkills;
+
+            if (res.heal && effectsManager.current) {
+                effectsManager.current.addText(player.x, player.y, `+${res.heal}`, '#22c55e');
+                effectsManager.current.addSparkles(player.x, player.y, '#4ade80');
             }
+
 
             updatePlayer(updates);
 
@@ -243,5 +232,27 @@ export function useCombatLogic({
         }
     };
 
-    return { handleEnemyDeath, executeSkillAction };
+    const performAttack = (targetEnemy: Entity, enemyIdx: number) => {
+        // Basic Attack Logic
+        const pStats = calculatePlayerStats(player);
+        const damage = Math.max(1, Math.floor(pStats.attack || 1));
+
+        targetEnemy.hp = (targetEnemy.hp || 0) - damage;
+
+        // Visuals
+        if (effectsManager.current) {
+            effectsManager.current.addExplosion(targetEnemy.x, targetEnemy.y, '#fff');
+            effectsManager.current.addText(targetEnemy.x, targetEnemy.y, damage.toString(), '#fff');
+        }
+        soundManager.play('hit');
+
+        updatePlayer({ lastAttackTime: Date.now() });
+
+        // Death check
+        if ((targetEnemy.hp || 0) <= 0) {
+            handleEnemyDeath(enemyIdx);
+        }
+    };
+
+    return { handleEnemyDeath, executeSkillAction, performAttack };
 }

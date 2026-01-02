@@ -1,13 +1,13 @@
 import React, { useState, useEffect } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion } from 'framer-motion';
 import { X, Trash2, Shield, Sword, Heart, Zap, ArrowRight, ArrowDown, Users } from 'lucide-react';
 import { Button } from './button';
 import { getItemIcon, EQUIPMENT_SLOTS } from '@/data/icons';
 import { canClassEquip, canAssignToQuickSlot } from '@/engine/systems/ItemSystem';
 import { WEAPON_TYPES, ARMOR_TYPES } from '@/data/items';
-import { GiBackpack, GiCoins, GiMagicTrident, GiMagicShield } from 'react-icons/gi';
+import { GiBackpack, GiCoins, GiMagicTrident, GiMagicShield, GiWoodPile, GiStoneBlock } from 'react-icons/gi';
 import { Item, Entity } from '@/types';
-import { Player } from '@/hooks/usePlayer';
+import { Player } from '@/types';
 
 const CLASS_NAMES: Record<string, string> = {
     warrior: 'Guerrero',
@@ -170,13 +170,14 @@ interface InventoryPanelProps {
     onDropItem: (index: number) => void;
     onAssignQuickSlot: (index: number, itemId: string) => void;
     onReorder: (source: number, target: number) => void;
+    materials: Record<string, number>;
 }
 
 import { useMenuNavigation } from '@/hooks/useMenuNavigation';
 
 export default function InventoryPanel({
     isOpen, onClose, inventory, equipment, player,
-    onUseItem, onEquipItem, onUnequipItem, onDropItem, onAssignQuickSlot, onReorder
+    onUseItem, onEquipItem, onUnequipItem, onDropItem, onAssignQuickSlot, onReorder, materials
 }: InventoryPanelProps) {
     const [selectedItemState, setSelectedItemState] = useState<any>(null); // renamed to differentiate from gamepad nav
 
@@ -320,9 +321,24 @@ export default function InventoryPanel({
                         <h2 className="flex items-center gap-2 text-lg font-bold text-amber-100">
                             <GiBackpack className="w-6 h-6 text-amber-500" /> Mochila
                         </h2>
-                        <div className="flex items-center gap-2 px-3 py-1 border rounded-full bg-black/40 border-amber-900/30">
-                            <GiCoins className="w-4 h-4 text-yellow-400" />
-                            <span className="font-mono font-bold text-yellow-100">{player.gold}</span>
+                        <div className="flex items-center gap-3">
+                            {/* Materials Display */}
+                            <div className="flex items-center gap-3 px-3 py-1 mr-2 border rounded-full bg-black/40 border-slate-700">
+                                <div className="flex items-center gap-1.5" title="Madera">
+                                    <GiWoodPile className="w-4 h-4 text-amber-600" />
+                                    <span className="text-sm font-bold text-slate-300">{materials?.wood || 0}</span>
+                                </div>
+                                <div className="w-px h-4 bg-slate-700"></div>
+                                <div className="flex items-center gap-1.5" title="Piedra">
+                                    <GiStoneBlock className="w-4 h-4 text-slate-400" />
+                                    <span className="text-sm font-bold text-slate-300">{materials?.stone || 0}</span>
+                                </div>
+                            </div>
+
+                            <div className="flex items-center gap-2 px-3 py-1 border rounded-full bg-black/40 border-amber-900/30">
+                                <GiCoins className="w-4 h-4 text-yellow-400" />
+                                <span className="font-mono font-bold text-yellow-100">{player.gold}</span>
+                            </div>
                         </div>
                     </div>
 
@@ -446,7 +462,7 @@ export default function InventoryPanel({
                                                     {STAT_LABELS[key] || key}
                                                 </span>
                                                 <span className="font-mono font-bold text-emerald-400">
-                                                    {(val as number) > 0 ? `+${val}` : val}
+                                                    {(val as number) > 0 ? `+${val}` : String(val)}
                                                 </span>
                                             </div>
                                         ))}

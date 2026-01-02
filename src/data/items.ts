@@ -12,7 +12,9 @@ import {
   // Light Armor (Tela)
   GiPointyHat, GiRobe, GiSkirt, GiBoots, GiGloves,
   // Accesorios
-  GiRing, GiNecklace, GiEarrings
+  GiRing, GiNecklace, GiEarrings,
+  // Materiales imports
+  GiStoneBlock, GiWoodPile, GiHerbsBundle
 } from 'react-icons/gi';
 import { Stats } from '../types';
 
@@ -54,13 +56,14 @@ export const WEAPON_TYPES: Record<string, WeaponTypeInfo> = {
 
 export interface ItemTemplate {
   name: string;
-  category: 'weapon' | 'armor' | 'accessory' | 'potion';
+  category: 'weapon' | 'armor' | 'accessory' | 'potion' | 'material';
   slot?: 'helmet' | 'chest' | 'legs' | 'boots' | 'gloves' | 'weapon' | 'offhand' | 'ring' | 'necklace' | 'earring';
   weaponType?: string;
   armorType?: 'heavy' | 'medium' | 'light';
   symbol: any; // React Icon component
   description?: string;
   stackable?: boolean;
+  value?: number;
   baseStats?: Stats;
 }
 
@@ -109,6 +112,11 @@ export const ITEM_TEMPLATES: Record<string, ItemTemplate> = {
   ring: { name: 'Anillo', category: 'accessory', slot: 'ring', symbol: GiRing, baseStats: { attack: 1, magicAttack: 1 } },
   necklace: { name: 'Collar', category: 'accessory', slot: 'necklace', symbol: GiNecklace, baseStats: { maxHp: 10, maxMp: 10 } },
   earring: { name: 'Pendiente', category: 'accessory', slot: 'earring', symbol: GiEarrings, baseStats: { evasion: 2, critChance: 2 } },
+
+  // --- MATERIALES ---
+  wood: { name: 'Madera', category: 'material', symbol: GiWoodPile, description: 'Recurso de construcción básico.', stackable: true, value: 5 },
+  stone: { name: 'Piedra', category: 'material', symbol: GiStoneBlock, description: 'Fragmento de roca sólida.', stackable: true, value: 5 },
+  herb: { name: 'Hierba Medicinal', category: 'material', symbol: GiHerbsBundle, description: 'Planta con propiedades curativas.', stackable: true, value: 10 },
 };
 
 export interface RarityInfo {

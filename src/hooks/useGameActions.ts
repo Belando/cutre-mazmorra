@@ -22,13 +22,21 @@ export type GameActionsContext = MovementActionsContext &
         setGameWon: (won: boolean) => void;
         setSelectedAppearance: (app: string) => void;
         setPlayerClass: (cls: string) => void;
-        initGame: (level?: number, player?: Entity | null) => void;
+        initGame: (level?: number, player?: Entity | null, startLocation?: 'home' | 'dungeon') => void;
         executeSkillAction: (skillId: string, target?: Entity | null) => boolean;
         handleEnemyDeath: (index: number) => Entity[];
         performAttack?: (enemy: Entity, enemyIdx: number) => Entity[]; // Optional context passing
         spatialHash: any;
         setMessages: (msgs: any[]) => void;
         updateMapFOV: (map: any[][], player: any) => void;
+        addMaterial: (type: string, amount: number) => void;
+        playerName: string;
+        selectedAppearance: string;
+        playerClass: string;
+        selectedSkill: string | null;
+        activeQuests: string[];
+        completedQuests: string[];
+        questProgress: any;
     };
 
 export interface GameActions {
@@ -71,7 +79,7 @@ export interface GameActions {
     setGameWon: (won: boolean) => void;
     setSelectedAppearance: (app: string) => void;
     setPlayerClass: (cls: string) => void;
-    initGame: (level?: number, player?: Entity | null) => void;
+    initGame: (level?: number, player?: Entity | null, startLocation?: 'home' | 'dungeon') => void;
 
     setMessages: (msgs: any[]) => void;
     updateMapFOV: (map: any[][], player: any) => void;

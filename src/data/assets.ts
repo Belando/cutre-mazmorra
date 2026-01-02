@@ -20,8 +20,19 @@ export const ASSET_MANIFEST = [
     { key: 'gold', src: '/sprites/item_gold.png' },
     { key: 'wolf', src: '/sprites/wolf.png' },
     { key: 'goblin_king', src: '/sprites/goblin_king.png' },
-    { key: 'merchant', src: '/sprites/merchant.png' },
-    { key: 'quest_elder', src: '/sprites/elder.png' },
-    { key: 'sage', src: '/sprites/sage.png' },
-    { key: 'blacksmith', src: '/sprites/blacksmith.png' },
+    { key: 'merchant', src: '/sprites/merchant_sheet.png' },
+    { key: 'quest_elder', src: '/sprites/elder_sheet.png' },
+    { key: 'sage', src: '/sprites/sage_sheet.png' },
+    { key: 'blacksmith_worker', src: '/sprites/blacksmith_worker_sheet.png' },
+    { key: 'anvil', src: '/sprites/anvil.png' },
+    { key: 'tree', src: '/sprites/trees_sheet_v2.png' }, // Updated to v2 (Lighter Dark Forest)
+    { key: 'rock', src: '/sprites/rocks_sheet_v2.png' }, // Updated to v2 (Lighter Dark Forest)
+    { key: 'dungeon_gate', src: '/sprites/dungeon_gate_v4.png' },
+    { key: 'floor_grass', src: '/sprites/floor_grass_v5.png' }, // Dark Forest Opaque
+    { key: 'floor_grass_v6', src: '/sprites/floor_grass_v6.png' }, // Light
+    { key: 'floor_grass_v7', src: '/sprites/floor_grass_v7.png' }, // Mid-Dark
+    { key: 'floor_grass_v8', src: '/sprites/floor_grass_v8.png' }, // Dark Variant
+    { key: 'floor_dirt', src: '/sprites/floor_dirt_v3.png' }, // Updated to v3 (Smoother)
+    { key: 'workbench', src: '/sprites/workbench.png' },
+    { key: 'plant', src: '/sprites/plant.png' },
 ];

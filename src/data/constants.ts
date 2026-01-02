@@ -8,6 +8,8 @@ export const TILE = {
     DOOR: 3,
     STAIRS_UP: 4,
     DOOR_OPEN: 5,
+    FLOOR_GRASS: 6,
+    FLOOR_DIRT: 7,
 } as const;
 
 export const ENTITY = {
@@ -43,6 +45,13 @@ export const ENTITY = {
     // Jefes Nuevos
     BOSS_VAMPIRE_LORD: 107,
     BOSS_GOLEM_KING: 108,
+    // Home Base Entities
+    TREE: 200,
+    ROCK: 201,
+    WORKBENCH: 202,
+    DUNGEON_GATE: 203,
+    PLANT: 204,
+    BLOCKER: 299,
 } as const;
 
 // Tipos de NPC (traído de NPCSystem.jsx)

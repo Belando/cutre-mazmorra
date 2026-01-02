@@ -19,7 +19,9 @@ export interface UpdateGameStateParams {
     spatialHash: SpatialHash;
 }
 
-const ENEMY_BASE_SPEED = 800; // ms
+import { GAME_CONFIG } from '@/data/config';
+
+const ENEMY_BASE_SPEED = GAME_CONFIG.ENTITIES.ENEMY_BASE_SPEED; // ms
 
 export function useRealTimeSystem() {
 
