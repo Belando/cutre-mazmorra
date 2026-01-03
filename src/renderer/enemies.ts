@@ -156,6 +156,48 @@ export const SPRITES: Record<string, { draw: (ctx: CanvasRenderingContext2D, x: 
             ctx.fillStyle = "#ef4444"; ctx.beginPath(); ctx.arc(xAnim + s * 0.5, yAnim + s * 0.5, s * 0.35 + pulse, 0, Math.PI * 2); ctx.fill();
             ctx.fillStyle = "#fff"; ctx.fillRect(xAnim + s * 0.35, yAnim + s * 0.4, s * 0.1, s * 0.1); ctx.fillRect(xAnim + s * 0.55, yAnim + s * 0.4, s * 0.1, s * 0.1);
         },
+    },
+    goblin_king: {
+        draw: (ctx, x, y, size, frame, isAttacking, attackProgress, attackDir, lastMoveTime) => {
+            // Reuse goblin logic but bigger and with crown
+            const s = size * 0.85; const offsetX = (size - s) / 2; const offsetY = (size - s); const gx = x + offsetX; const gy = y + offsetY;
+            const now = Date.now(); const isMoving = lastMoveTime ? (now - lastMoveTime) < 300 : false;
+            const walkCycle = isMoving ? Math.sin(now * 0.015) : 0; const bodyBob = isMoving ? Math.abs(walkCycle) * s * 0.05 : Math.sin(frame * 0.05) * s * 0.02;
+            const yAnim = gy - bodyBob;
+
+            // Body (Darker Green)
+            ctx.fillStyle = "#15803d"; ctx.fillRect(gx + s * 0.35, yAnim + s * 0.75, s * 0.12, s * 0.25); ctx.fillRect(gx + s * 0.53, yAnim + s * 0.75, s * 0.12, s * 0.25);
+            ctx.fillStyle = "#451a03"; ctx.beginPath(); ctx.moveTo(gx + s * 0.3, yAnim + s * 0.45); ctx.lineTo(gx + s * 0.7, yAnim + s * 0.45); ctx.lineTo(gx + s * 0.75, yAnim + s * 0.75); ctx.lineTo(gx + s * 0.25, yAnim + s * 0.75); ctx.fill();
+            // Cape (Red)
+            ctx.fillStyle = "#b91c1c"; ctx.fillRect(gx + s * 0.3, yAnim + s * 0.45, s * 0.4, s * 0.3);
+
+            // Head (Bigger)
+            ctx.fillStyle = "#22c55e"; ctx.beginPath(); ctx.arc(gx + s * 0.5, yAnim + s * 0.35, s * 0.22, 0, Math.PI * 2); ctx.fill();
+            // Crown (Gold)
+            ctx.fillStyle = "#fbbf24";
+            ctx.beginPath();
+            ctx.moveTo(gx + s * 0.3, yAnim + s * 0.2);
+            ctx.lineTo(gx + s * 0.3, yAnim + s * 0.1); ctx.lineTo(gx + s * 0.4, yAnim + s * 0.2);
+            ctx.lineTo(gx + s * 0.5, yAnim + s * 0.05);
+            ctx.lineTo(gx + s * 0.6, yAnim + s * 0.2); ctx.lineTo(gx + s * 0.7, yAnim + s * 0.1);
+            ctx.lineTo(gx + s * 0.7, yAnim + s * 0.2);
+            ctx.fill();
+
+            // Eyes (Red for Boss)
+            ctx.fillStyle = "#dc2626"; ctx.beginPath(); ctx.arc(gx + s * 0.42, yAnim + s * 0.32, s * 0.04, 0, Math.PI * 2); ctx.arc(gx + s * 0.58, yAnim + s * 0.32, s * 0.04, 0, Math.PI * 2); ctx.fill();
+
+            // Staff/Scepter
+            ctx.save(); ctx.translate(gx + s * 0.75, yAnim + s * 0.5);
+            if (isAttacking) {
+                const angle = Math.atan2(attackDir.y, attackDir.x);
+                ctx.rotate(angle);
+            } else {
+                ctx.rotate(-0.2);
+            }
+            ctx.fillStyle = "#78350f"; ctx.fillRect(-s * 0.05, -s * 0.4, s * 0.1, s * 0.8);
+            ctx.fillStyle = "#f59e0b"; ctx.beginPath(); ctx.arc(0, -s * 0.45, s * 0.1, 0, Math.PI * 2); ctx.fill();
+            ctx.restore();
+        }
     }
 };
 
@@ -280,29 +322,6 @@ export function drawEnemy(
                 col * fw, row * fh, fw, fh,
                 drawX, drawY, size, size // Reverted to original draw parameters
             );
-            ctx.restore();
-            return;
-        }
-    } else { // This 'else' block was part of the original 'if (sprite)' block
-        // Original sprite drawing logic (now inside the 'else' of the new spriteConfig block)
-        const img = spriteManager.get(sprite.texture);
-        if (img) {
-            ctx.save();
-            if (isStunned) ctx.filter = 'grayscale(100%) brightness(1.5)';
-            if (isHovered) ctx.filter = (ctx.filter !== 'none' ? ctx.filter : '') + ' drop-shadow(0 0 5px orange)';
-
-            const frame = sprite.currentFrameIndex || 0;
-            const fw = sprite.frameSize?.x || 32;
-            const fh = sprite.frameSize?.y || 32;
-            const cols = sprite.cols || 9999; // Default to single row/infinite cols if not specified
-
-            const col = frame % cols;
-            const row = Math.floor(frame / cols);
-
-            const sx = col * fw;
-            const sy = row * fh;
-
-            ctx.drawImage(img, sx, sy, fw, fh, drawX, drawY, size, size);
             ctx.restore();
             return;
         }

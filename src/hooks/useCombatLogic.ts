@@ -125,14 +125,9 @@ export function useCombatLogic({
 
         if (res.success) {
             if (skill.type === 'ranged' && targetEnemy) {
-                let projColor = '#fff';
-                let projStyle = 'circle';
-
-                if (skillId === 'fireball') { projColor = '#f97316'; projStyle = 'circle'; }
-                else if (skillId === 'ice_shard') { projColor = '#06b6d4'; projStyle = 'circle'; }
-                else if (skillId === 'throwing_knife' || skillId === 'multishot') { projColor = '#cbd5e1'; projStyle = 'arrow'; }
-                else if ((skill as any).tree === 'mage' || (skill as any).tree === 'arcane') { projColor = '#a855f7'; projStyle = 'circle'; }
-                else if ((skill as any).tree === 'archer') { projColor = '#f59e0b'; projStyle = 'arrow'; }
+                // Phase 2 Audit: Moved visual logic to skills.ts
+                const projColor = skill.projectileColor || '#fff';
+                const projStyle = skill.projectileStyle || 'circle';
 
                 if (effectsManager.current) {
                     effectsManager.current.addProjectile(player.x, player.y, targetEnemy.x, targetEnemy.y, projColor, projStyle);

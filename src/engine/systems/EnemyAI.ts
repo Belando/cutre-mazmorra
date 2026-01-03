@@ -1,16 +1,10 @@
 import { findPath } from '@/engine/core/pathfinding';
-import { ENEMY_RANGED_INFO } from '@/data/enemies';
+import { ENEMY_RANGED_INFO, ENEMY_STATS } from '@/data/enemies';
 import { hasLineOfSight } from '@/engine/core/utils';
-import { TILE } from '@/data/constants';
-import { Entity, Enemy, Player, Point } from '@/types';
+import { TILE, ENTITY } from '@/data/constants';
+import { Entity, Enemy, Player, Point, ISpatialHash } from '@/types';
 
 import { AI_CONFIG, AI_BEHAVIORS } from '@/data/ai';
-
-// SpatialHash interface (inferred)
-export interface SpatialHash {
-    isBlocked(x: number, y: number): boolean;
-    move(oldX: number, oldY: number, newX: number, newY: number, entity: any): void;
-}
 
 export interface EnemyAction {
     action: string;
@@ -45,7 +39,7 @@ export function isRangedEnemy(enemyType: number | string): boolean {
     return !!ENEMY_RANGED_INFO[type];
 }
 
-export function getEnemyRangedInfo(enemyType: number | string): any {
+export function getEnemyRangedInfo(enemyType: number | string): any | null {
     const type = String(enemyType);
     return ENEMY_RANGED_INFO[type] || null;
 }
@@ -58,7 +52,7 @@ export function getEnemyRange(enemyType: number | string): number {
 // --- FUNCIONES DE MOVIMIENTO (OPTIMIZADAS CON SPATIAL HASH) ---
 
 // Comprueba si una casilla está libre de obstáculos
-function isTileFree(x: number, y: number, map: number[][], spatialHash: SpatialHash): boolean {
+function isTileFree(x: number, y: number, map: number[][], spatialHash: ISpatialHash): boolean {
     // 1. Límites del mapa
     if (y < 0 || y >= map.length || x < 0 || x >= map[0].length) return false;
 
@@ -80,7 +74,7 @@ function isTileFree(x: number, y: number, map: number[][], spatialHash: SpatialH
  * Calculates a flanking position for pack enemies.
  * Tries to find a spot opposite to an existing ally relative to the player.
  */
-function getFlankingPosition(player: Player, allies: Enemy[], map: number[][], spatialHash: SpatialHash): Point | null {
+function getFlankingPosition(player: Player, allies: Enemy[], map: number[][], spatialHash: ISpatialHash): Point | null {
     const directions = [
         { dx: 1, dy: 0 }, { dx: -1, dy: 0 },
         { dx: 0, dy: 1 }, { dx: 0, dy: -1 },
@@ -109,7 +103,7 @@ function getFlankingPosition(player: Player, allies: Enemy[], map: number[][], s
 }
 
 // Moverse lejos del objetivo (Huida/Cautela)
-function moveAway(enemy: Entity, player: Entity, map: number[][], spatialHash: SpatialHash): Point | null {
+function moveAway(enemy: Entity, player: Entity, map: number[][], spatialHash: ISpatialHash): Point | null {
     const dx = Math.sign(enemy.x - player.x);
     const dy = Math.sign(enemy.y - player.y);
 
@@ -127,7 +121,7 @@ function moveAway(enemy: Entity, player: Entity, map: number[][], spatialHash: S
 }
 
 // Movimiento lateral (Strafe)
-function getLateralMove(enemy: Entity, player: Entity, map: number[][], spatialHash: SpatialHash): Point | null {
+function getLateralMove(enemy: Entity, player: Entity, map: number[][], spatialHash: ISpatialHash): Point | null {
     const dx = player.x - enemy.x;
     const dy = player.y - enemy.y;
 
@@ -146,7 +140,7 @@ function getLateralMove(enemy: Entity, player: Entity, map: number[][], spatialH
 }
 
 // Movimiento aleatorio (cuando no te ven)
-function moveRandomly(enemy: Entity, map: number[][], spatialHash: SpatialHash, player: Entity): Point | null {
+function moveRandomly(enemy: Entity, map: number[][], spatialHash: ISpatialHash, player: Entity): Point | null {
     const dirs = [[0, 1], [0, -1], [1, 0], [-1, 0]];
     const randomDir = dirs[Math.floor(Math.random() * dirs.length)];
     const target = { x: enemy.x + randomDir[0], y: enemy.y + randomDir[1] };
@@ -161,7 +155,7 @@ function moveRandomly(enemy: Entity, map: number[][], spatialHash: SpatialHash, 
 }
 
 // Mover hacia el objetivo usando lógica Híbrida (A* o Directa)
-function moveToward(enemy: Entity, targetX: number, targetY: number, map: number[][], spatialHash: SpatialHash): Point | null {
+function moveToward(enemy: Entity, targetX: number, targetY: number, map: number[][], spatialHash: ISpatialHash): Point | null {
     const dist = Math.abs(enemy.x - targetX) + Math.abs(enemy.y - targetY);
 
     // OPTIMIZACIÓN 1: INTELIGENTE (Solo si está cerca)
@@ -231,7 +225,7 @@ function moveToward(enemy: Entity, targetX: number, targetY: number, map: number
  * @param visible Visibility map (FoV)
  * @param spatialHash Spatial hash for optimizing collision checks
  */
-export function processEnemyTurn(enemy: Enemy, player: Player, enemies: Enemy[], map: number[][], visible: boolean[][], spatialHash: SpatialHash): EnemyAction {
+export function processEnemyTurn(enemy: Enemy, player: Player, enemies: Enemy[], map: number[][], visible: boolean[][], spatialHash: ISpatialHash): EnemyAction {
 
     // OPTIMIZACIÓN 3: CULLING (IA DORMIDA)
     // Si el enemigo está muy lejos, retornamos inmediatamente.
@@ -353,6 +347,11 @@ export function processEnemyTurn(enemy: Enemy, player: Player, enemies: Enemy[],
 
         case AI_BEHAVIORS.BOSS:
             if (canSee || dist <= 15) {
+                if (enemy.type === ENTITY.BOSS_GOBLIN_KING || enemy.type === 'goblin_king') {
+                    // Goblin King Specific Logic
+                    return processGoblinKingTurn(enemy, player, enemies, map, spatialHash);
+                }
+
                 if (dist <= 2 && Math.random() < 0.3) {
                     newPos = moveAway(enemy, player, map, spatialHash);
                 } else {
@@ -370,6 +369,96 @@ export function processEnemyTurn(enemy: Enemy, player: Player, enemies: Enemy[],
         enemy.y = newPos.y;
         enemy.lastMoveTime = Date.now();
         return { action: 'move', x: newPos.x, y: newPos.y };
+    }
+
+    return { action: 'wait' };
+}
+
+function processGoblinKingTurn(boss: Enemy, player: Player, enemies: Enemy[], map: number[][], spatialHash: ISpatialHash): EnemyAction {
+    const now = Date.now();
+    const dist = Math.abs(boss.x - player.x) + Math.abs(boss.y - player.y);
+    const isEnraged = (boss.hp / boss.maxHp) < 0.3;
+
+    // 1. SUMMONING (Every 10s roughly, starts on CD)
+    const SUMMON_COOLDOWN = isEnraged ? 8000 : 12000;
+    if (!boss.lastSummonTime) boss.lastSummonTime = now + 2000; // Delay first summon slightly
+
+    if (now - boss.lastSummonTime > SUMMON_COOLDOWN) {
+        // Try to summon
+        const minionType = Math.random() < 0.7 ? ENTITY.ENEMY_GOBLIN : ENTITY.ENEMY_RAT;
+        const summonCount = isEnraged ? 2 : 1;
+        let summoned = 0;
+
+        for (let i = 0; i < summonCount; i++) {
+            // Find free spot
+            const spawnPoints = [
+                { x: boss.x + 1, y: boss.y }, { x: boss.x - 1, y: boss.y },
+                { x: boss.x, y: boss.y + 1 }, { x: boss.x, y: boss.y - 1 },
+                { x: boss.x + 1, y: boss.y + 1 }, { x: boss.x - 1, y: boss.y - 1 },
+                { x: boss.x + 1, y: boss.y - 1 }, { x: boss.x - 1, y: boss.y + 1 }
+            ];
+
+            // Shuffle
+            spawnPoints.sort(() => Math.random() - 0.5);
+
+            for (const sp of spawnPoints) {
+                if (isTileFree(sp.x, sp.y, map, spatialHash)) {
+                    // Create Minion
+                    const template = ENEMY_STATS[minionType];
+                    const minion: Enemy = {
+                        x: sp.x, y: sp.y,
+                        id: Date.now() + Math.random(),
+                        type: minionType,
+                        name: template.name,
+                        level: boss.level,
+                        hp: template.hp,
+                        maxHp: template.hp,
+                        mp: 0, maxMp: 0,
+                        stats: { attack: template.attack, defense: template.defense, speed: 1000 },
+                        lastActionTime: now + 1000 // Summon sickness (1s delay)
+                    };
+
+                    // Add to lists
+                    enemies.push(minion);
+                    spatialHash.add(minion.x, minion.y, { ...minion, type: 'enemy' });
+                    summoned++;
+                    break; // One per loop iteration
+                }
+            }
+        }
+
+        if (summoned > 0) {
+            boss.lastSummonTime = now;
+            boss.lastAction = 'summon';
+            return { action: 'special_summon' }; // This string can be used for speech bubbles later
+        }
+    }
+
+    // 2. ENRAGED AGGRESSION
+    if (dist <= 1) {
+        return { action: 'melee_attack', damage: isEnraged ? (boss.stats.attack || 0) * 1.5 : undefined };
+    }
+
+    // 3. MOVEMENT
+    if (isEnraged) {
+        // Relentless pursuit
+        const move = moveToward(boss, player.x, player.y, map, spatialHash);
+        if (move) {
+            spatialHash.move(boss.x, boss.y, move.x, move.y, { ...boss, type: 'enemy' });
+            boss.x = move.x; boss.y = move.y;
+            boss.lastMoveTime = now;
+            return { action: 'move', x: move.x, y: move.y };
+        }
+    } else {
+        // Tactical movement (keep minions between boss and player?)
+        // For now, standard aggressive
+        const move = moveToward(boss, player.x, player.y, map, spatialHash);
+        if (move) {
+            spatialHash.move(boss.x, boss.y, move.x, move.y, { ...boss, type: 'enemy' });
+            boss.x = move.x; boss.y = move.y;
+            boss.lastMoveTime = now;
+            return { action: 'move', x: move.x, y: move.y };
+        }
     }
 
     return { action: 'wait' };

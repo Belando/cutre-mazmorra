@@ -1,7 +1,7 @@
 // Enhanced Skill System with Class Evolution
 import { CLASS_EVOLUTIONS, SKILL_TREES, SKILLS, Skill } from '@/data/skills';
 import { hasLineOfSight } from '@/engine/core/utils';
-import { Entity, Stats, SkillState, Buff } from '@/types';
+import { Entity, Stats, SkillState, Buff, Player } from '@/types';
 
 // Initialize skills state
 export function initializeSkills(playerClass: string = 'warrior'): SkillState {
@@ -149,7 +149,7 @@ export function useSkill(skillId: string, player: Entity, playerStats: Stats, ta
     const skill = SKILLS[skillId];
     if (!skill) return { success: false, message: 'Habilidad desconocida' };
 
-    const skillLevel = player.skills?.skillLevels?.[skillId] || 1;
+    const skillLevel = (player as Player).skills?.skillLevels?.[skillId] || 1;
     const { cooldown } = getSkillEffectiveStats(skill, skillLevel);
 
     const result: SkillActionResult = {
@@ -217,6 +217,8 @@ export function updateBuffs(buffs: Buff[]): Buff[] {
 export interface BuffBonuses {
     attackBonus: number;
     defenseBonus: number;
+    magicAttackBonus: number;
+    critChance: number;
     isInvisible: boolean;
     evasionBonus: number;
     absorbPercent: number;
@@ -224,7 +226,7 @@ export interface BuffBonuses {
 
 // Calculate buff bonuses
 export function calculateBuffBonuses(buffs: Buff[], playerStats: Stats): BuffBonuses {
-    let attackBonus = 0, defenseBonus = 0, isInvisible = false, evasionBonus = 0, absorbPercent = 0;
+    let attackBonus = 0, defenseBonus = 0, magicAttackBonus = 0, critChance = 0, isInvisible = false, evasionBonus = 0, absorbPercent = 0;
 
     buffs.forEach(buff => {
         if (buff.stats?.attack) attackBonus += Math.floor((playerStats.attack || 0) * buff.stats.attack);
@@ -233,10 +235,13 @@ export function calculateBuffBonuses(buffs: Buff[], playerStats: Stats): BuffBon
         if (buff.stats?.defense) defenseBonus += Math.floor((playerStats.defense || 0) * buff.stats.defense);
         if ((buff as any).defense) defenseBonus += Math.floor((playerStats.defense || 0) * (buff as any).defense);
 
+        if (buff.stats?.magicAttack) magicAttackBonus += Math.floor((playerStats.magicAttack || 0) * buff.stats.magicAttack);
+        if (buff.stats?.critChance) critChance += buff.stats.critChance;
+
         if (buff.invisible) isInvisible = true;
         if (buff.evasion) evasionBonus += buff.evasion;
         if ((buff as any).absorb) absorbPercent += (buff as any).absorb;
     });
 
-    return { attackBonus, defenseBonus, isInvisible, evasionBonus, absorbPercent };
+    return { attackBonus, defenseBonus, magicAttackBonus, critChance, isInvisible, evasionBonus, absorbPercent };
 }

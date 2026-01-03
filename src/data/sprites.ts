@@ -3,6 +3,27 @@ import { SpriteComponent } from '@/types';
 
 // Helper para configurar el sprite según el tipo de enemigo
 export function getSpriteForEnemy(type: number | string): SpriteComponent | null {
+    // Check if it's a specific sprite key first (for NPCs passed as strings)
+    if (typeof type === 'string' && (type === 'blacksmith_sheet' || type === 'blacksmith_worker')) {
+        return {
+            texture: type,
+            frameSize: { x: 64, y: 64 }, // Standard NPC size
+            cols: 6, // Assuming standard LPC or similar sheet
+            anims: {
+                walk_down: [18, 19, 20, 21, 22, 23],
+                walk_left: [9, 10, 11, 12, 13, 14],
+                walk_right: [27, 28, 29, 30, 31, 32],
+                walk_up: [0, 1, 2, 3, 4, 5],
+                idle_down: [18]
+            },
+            flipLeft: false,
+            currentAnim: 'idle_down',
+            currentFrameIndex: 0,
+            frameTimer: 0,
+            frameDuration: 150
+        };
+    }
+
     // Mapeo de IDs a texturas (SVG placeholders generados)
     let texture: string | null = null;
     const t = typeof type === 'string' ? parseInt(type) : type;

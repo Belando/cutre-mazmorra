@@ -147,46 +147,29 @@ export function drawNPC(ctx: CanvasRenderingContext2D, npc: any, isoX: number, i
 
     const npcType = npc.type || npc;
 
-    // --- 1. SPECIAL: BLACKSMITH (Composite) ---
+    // --- 1. SPECIAL: BLACKSMITH (New Sheet) ---
     if (npcType === 'blacksmith') {
-        // SCALE CONFIG
-        const anvilScale = 1.3;
-        const workerScale = 3.0;
+        const img = spriteManager.get('blacksmith_sheet');
+        if (img) {
+            const image = img as HTMLImageElement;
+            const cols = 6; // Configured in sprites.ts as 6 cols
+            const rows = 1; // Single row strip usually? Or check getSpriteForEnemy config
+            // Actually getSpriteForEnemy defined it as 6 cols. 
+            // Let's assume standard sheet behavior or use the logic for animated sprites.
 
-        // 1. Draw Static Anvil
-        const anvilImg = spriteManager.get('anvil');
-        const anvilSize = size * anvilScale;
-
-        // Anvil Position: Center of tile, slightly lower
-        const anvilX = drawX - (anvilSize - size) / 2;
-        const anvilY = drawY - (anvilSize - size) + size * 0.5; // Push down more
-
-        if (anvilImg) {
-            ctx.drawImage(anvilImg as HTMLImageElement, anvilX, anvilY, anvilSize, anvilSize);
-        }
-
-        // 2. Draw Animated Worker
-        const workerImg = spriteManager.get('blacksmith_worker');
-        if (workerImg) {
-            const img = workerImg as HTMLImageElement;
-            const cols = 4;
-            const rows = 1;
-            const frameWidth = img.width / cols;
-            const frameHeight = img.height / rows;
+            const frameWidth = image.width / cols;
+            const frameHeight = image.height;
             const speed = 24;
             const safeFrame = Math.floor(frame / speed) % cols;
 
-            // Worker Position
-            const workerSize = size * workerScale;
-            // Center horizontally rel to tile, then offset
-            const workerX = drawX - (workerSize - size) / 2 + size * 0.1;
-            // Fix floating: Move DOWN significantly.
-            // Using size * 0.7 pushes him down further (was 0.6)
-            const workerY = drawY - (workerSize - size) + size * 0.7;
+            // Scale
+            const drawSize = size * 1.5;
+            const offsetX = (size - drawSize) / 2;
+            const adjustedOffsetY = (size - drawSize) + (size * 0.4);
 
-            ctx.drawImage(img,
+            ctx.drawImage(image,
                 safeFrame * frameWidth, 0, frameWidth, frameHeight,
-                workerX, workerY, workerSize, workerSize
+                drawX + offsetX, drawY + adjustedOffsetY, drawSize, drawSize
             );
         }
         return;

@@ -1,6 +1,5 @@
 import { TILE, ENTITY } from '@/data/constants';
-import { Entity, Point, NPC, RenderMap, RenderTile, Item, Chest } from '@/types';
-import { NPC_TYPES } from '@/data/constants';
+import { Point, NPC, RenderMap, RenderTile, Item, Chest } from '@/types';
 
 const HOME_WIDTH = 30;
 const HOME_HEIGHT = 30;
@@ -43,19 +42,37 @@ export function generateHome(): HomeResult {
         }
     }
 
-    // 4. Place Dungeon Gate (North)
+    // 4. Place Dungeon Gate (Logical at Y=0 - Wall Gap)
     const gateX = centerX;
-    const gateY = centerY - 8;
-    // Clearing area for gate
-    // Clearing area for gate
-    map[gateY][gateX] = TILE.FLOOR_DIRT;
+    const gateY = 0; // Moved back to wall as requested
+
+    // Clear path to gate and BEHIND gate (so wall doesn't show through arch)
+    map[0][gateX] = TILE.FLOOR_DIRT; // Remove wall behind gate (Left side)
+    if (gateX + 1 < HOME_WIDTH) map[0][gateX + 1] = TILE.FLOOR_DIRT; // Remove wall behind gate (Right side - User requested)
+
+    map[1][gateX] = TILE.FLOOR_DIRT;
+    map[2][gateX] = TILE.FLOOR_DIRT;
+    map[3][gateX] = TILE.FLOOR_DIRT; // Carpet continues
+
+    // Dungeon Gate (Visual)
     entities[gateY][gateX] = ENTITY.DUNGEON_GATE;
 
-    // Place invisible blockers for 2x2 collision
-    // Gate is at (gateX, gateY). We block (gateX+1, gateY), (gateX, gateY+1), (gateX+1, gateY+1)
-    if (gateX + 1 < HOME_WIDTH) entities[gateY][gateX + 1] = ENTITY.BLOCKER;
-    if (gateY + 1 < HOME_HEIGHT) entities[gateY + 1][gateX] = ENTITY.BLOCKER;
-    if (gateX + 1 < HOME_WIDTH && gateY + 1 < HOME_HEIGHT) entities[gateY + 1][gateX + 1] = ENTITY.BLOCKER;
+    // Dungeon Gate (Extra Logic Trigger for wide entrance)
+    if (gateX + 1 < HOME_WIDTH) {
+        entities[gateY][gateX + 1] = ENTITY.DUNGEON_GATE_TRIGGER;
+    }
+
+    // Gate is at (gateX, gateY). 
+    // We already placed the Trigger at gateX+1, so we don't need a generic Blocker.
+    // The Trigger itself will act as the interaction point.
+    // Collision logic for entities depends on SpatialHash.isBlocked.
+    // If 'dungeon_gate' is not in the blocking list, we might need to add it, 
+    // OR if we want it walkable but interactive, we leave it.
+    // Assuming we want to enter by walking INTO it or interact FROM adjacent.
+    // Original gate was solid?
+
+    // For now, removing the overwrite.
+    // We DO NOT block Y+1 (Y=3) to allow access.
 
     // 5. Place Workbench (Near Center) - REMOVED to avoid artifact overlap with Blacksmith
     // const benchX = centerX + 3;
@@ -66,29 +83,33 @@ export function generateHome(): HomeResult {
 
     // Random placement but avoiding center house area
     // clusters using simple noise-like heuristic
-    for (let y = 1; y < HOME_HEIGHT - 1; y++) {
-        for (let x = 1; x < HOME_WIDTH - 1; x++) {
+    // 7. NPCs (Removed per user request)
+    const npcs: NPC[] = [];
+
+    // 6. Resources (Trees & Rocks)
+    // Random placement but avoiding center house area
+    // Increase margin to 2 to avoid overlapping walls (at 0 and WIDTH-1)
+    for (let y = 2; y < HOME_HEIGHT - 2; y++) {
+        for (let x = 2; x < HOME_WIDTH - 2; x++) {
             // Check if far enough from center house
             const dist = Math.sqrt(Math.pow(x - centerX, 2) + Math.pow(y - centerY, 2));
-            if (dist > 8) {
-                // Simple cellular/noise simulation for clustering
-                // Use a combination of sin/cos for deterministic "noise" or just random clumps
+
+            // NEW: Exclude Gate Approach (Safety Zone)
+            const distGate = Math.sqrt(Math.pow(x - centerX, 2) + Math.pow(y - 3, 2));
+
+            if (dist > 8 && distGate > 4) {
                 const noise = Math.sin(x * 0.5) * Math.cos(y * 0.5) + Math.sin((x + y) * 0.2);
 
-                // Trees in positive noise areas
                 if (noise > 0.5) {
                     if (Math.random() < 0.6) entities[y][x] = ENTITY.TREE;
-                    else if (Math.random() < 0.2) entities[y][x] = ENTITY.PLANT; // Some undergrowth
+                    else if (Math.random() < 0.2) entities[y][x] = ENTITY.PLANT;
                 }
-                // Rocks in negative noise areas
                 else if (noise < -0.6) {
                     if (Math.random() < 0.4) entities[y][x] = ENTITY.ROCK;
                 }
-                // Plants in transition areas
                 else if (noise > -0.2 && noise < 0.2) {
                     if (Math.random() < 0.15) entities[y][x] = ENTITY.PLANT;
                 }
-                // Scattered random
                 else if (Math.random() < 0.02) {
                     const r = Math.random();
                     if (r < 0.4) entities[y][x] = ENTITY.TREE;
@@ -99,42 +120,17 @@ export function generateHome(): HomeResult {
         }
     }
 
-    // 7. NPCs (Merchant, Blacksmith)
-    const npcs: NPC[] = [
-        {
-            id: 'merchant_home',
-            type: NPC_TYPES.MERCHANT,
-            name: "Garrick",
-            level: 1,
-            hp: 100, maxHp: 100, mp: 0, maxMp: 0,
-            stats: {},
-            x: centerX - 3,
-            y: centerY + 2
-        },
-        {
-            id: 'blacksmith_home',
-            type: NPC_TYPES.BLACKSMITH,
-            name: "Brokk",
-            level: 1,
-            hp: 100, maxHp: 100, mp: 0, maxMp: 0,
-            stats: {},
-            x: centerX + 3,
-            y: centerY + 2
-        }
-    ];
-
     // Player Start
     const playerStart = { x: centerX, y: centerY };
 
     // Generate Render Map for Home
     const renderMap: RenderMap = Array(HOME_HEIGHT).fill(null).map((_, y) =>
         Array(HOME_WIDTH).fill(null).map((_, x) => {
-            // Simpler noise for home (mostly lush)
             const noise = Math.sin(x * 0.1) + Math.cos(y * 0.1);
             let variant = 0;
-            if (noise > 0.5) variant = 3; // Lush
-            else if (noise < -0.5) variant = 0; // Plain
-            else variant = 1; // Flowers
+            if (noise > 0.5) variant = 3;
+            else if (noise < -0.5) variant = 0;
+            else variant = 1;
 
             return {
                 variant,
@@ -152,9 +148,9 @@ export function generateHome(): HomeResult {
         npcs,
         items: [],
         chests: [],
-        torches: [], // Maybe add some later
+        torches: [],
         location: 'home',
-        stairs: { x: gateX, y: gateY }, // Gate acts as stairs?
+        stairs: { x: gateX, y: gateY },
         stairsUp: null
     };
 }

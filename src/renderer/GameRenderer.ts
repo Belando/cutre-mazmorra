@@ -1,4 +1,4 @@
-import { GameState } from "@/types";
+import { GameState, RenderItem } from "@/types";
 import { drawMap, getCameraTarget, lerpCamera } from "./map";
 import { getThemeForFloor, drawAmbientOverlay } from "@/components/game/DungeonThemes";
 import { renderLighting } from "./lighting";
@@ -10,6 +10,7 @@ import { drawPlayer } from "./player";
 import { isLargeEnemy, getEnemySize } from "@/engine/systems/LargeEnemies";
 import { toScreen } from "@/utils/isometric";
 import { SIZE, TILE_HEIGHT, ENTITY } from "@/data/constants";
+import { drawEffects } from "./effects";
 
 export class GameRenderer {
     private staticCanvas: HTMLCanvasElement | null = null;
@@ -84,7 +85,9 @@ export class GameRenderer {
 
         if (cameraMoved || mapChanged || fovChanged || levelChanged) {
             if (this.staticCtx) {
-                drawMap(this.staticCtx, state, offsetX, offsetY, viewportWidth, viewportHeight);
+                // Clear and Draw FLOOR Only
+                // drawMap(this.staticCtx, state, offsetX, offsetY, viewportWidth, viewportHeight, undefined, 'floor');
+                drawMap(this.staticCtx, state, offsetX, offsetY, viewportWidth, viewportHeight, undefined, 'floor');
             }
             this.lastStaticRender = {
                 cameraX: offsetX, cameraY: offsetY,
@@ -121,7 +124,11 @@ export class GameRenderer {
                 return sx >= -margin && sx < canvasW + margin && sy >= -margin && sy < canvasH + margin;
             };
 
-            const renderList: { y: number, sortY: number, draw: () => void }[] = [];
+            const renderList: RenderItem[] = [];
+
+            // 0. WALLS (Dynamic Sorting)
+            // drawMap will PUSH draw calls to renderList instead of executed immediate.
+            drawMap(ctx, state, offsetX, offsetY, viewportWidth, viewportHeight, renderList, 'wall');
 
             // 1. Torches
             torches.forEach(torch => {
@@ -159,8 +166,30 @@ export class GameRenderer {
                             // else if (entityType === ENTITY.WORKBENCH) drawType = 'workbench'; // Disabled to remove artifact
 
                             if (drawType) {
+                                // Customized Z-sorting
+                                let zOffset = 1.5;
+                                if (drawType === 'dungeon_gate') {
+                                    // User Request: "Don't let gate cove player"
+                                    // BUT: "Don't let wall cover gate".
+                                    // Conflict? Player is Y=3 approx. Gate is Y=0.
+                                    // Wall is Y=0.
+                                    // Gate needs to be TOP of Wall (Y=0).
+                                    // Player (Y=3) needs to be TOP of Gate.
+                                    // So: Wall(SortY=?) < Gate(SortY=?) < Player(SortY=?)
+                                    // Wall SortY is isoY + 1.5.
+                                    // Gate is at Y=0. IsoY is 0.
+                                    // We need Gate > Wall. So zOffset > 1.5.
+                                    // Let's try zOffset = 2.0.
+                                    // Player at Y=3 will have SortY ~ 3*TILE_H... much higher.
+                                    // So Gate = 2.0 should be safe.
+                                    // CAREFUL: Previous logic was -100 to force BEHIND player.
+                                    // But -100 puts it BEHIND Wall (1.5).
+                                    // We want: Wall < Gate < Player.
+                                    zOffset = 2.0;
+                                }
+
                                 renderList.push({
-                                    y: y, sortY: isoY + 1.5, // Sort slightly above floor, below actors
+                                    y: y, sortY: isoY + zOffset,
                                     draw: () => drawEnvironmentSprite(ctx, drawType, sx, sy, SIZE, x, y)
                                 });
                             }
@@ -238,7 +267,9 @@ export class GameRenderer {
                         ctx.fillStyle = gradient;
                         ctx.fillRect(psx - glowSize, psy + TILE_HEIGHT / 2 - glowSize, glowSize * 2, glowSize * 2);
                     }
-                    drawPlayer(ctx, psx, psy, SIZE, player.appearance, player.class, this.frame,
+                    // User Request: Reduce player size to 75% -> Then increase 10% -> Then increase 5% (0.825 * 1.05 = 0.866)
+                    const PLAYER_SIZE = SIZE * 0.866;
+                    drawPlayer(ctx, psx, psy, PLAYER_SIZE, player.appearance, player.class, this.frame,
                         player.lastAttackTime || 0, player.lastAttackDir || { x: 0, y: 0 },
                         player.lastSkillTime || 0, player.lastSkillId || null, isInvisible, player.lastMoveTime || 0,
                         player.sprite);
@@ -272,7 +303,10 @@ export class GameRenderer {
             if (effectsManager) {
                 const manager = (effectsManager as any).current || effectsManager;
                 if (typeof manager.update === 'function') manager.update();
-                if (typeof manager.draw === 'function') manager.draw(ctx, offsetX, offsetY, SIZE, halfW, halfH);
+                // Use decoupled renderer
+                if (manager.effects) {
+                    drawEffects(ctx, manager.effects, offsetX, offsetY, SIZE, halfW, halfH);
+                }
             }
         }
 

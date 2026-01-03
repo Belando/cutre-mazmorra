@@ -51,6 +51,7 @@ export const ENTITY = {
     WORKBENCH: 202,
     DUNGEON_GATE: 203,
     PLANT: 204,
+    DUNGEON_GATE_TRIGGER: 205,
     BLOCKER: 299,
 } as const;
 

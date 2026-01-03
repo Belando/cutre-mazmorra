@@ -26,15 +26,31 @@ export interface IEffectsManager {
     current?: IEffectsManager;
 }
 
+export interface AttackResult {
+    success?: boolean;
+    hit?: boolean;
+    damage: number;
+    isCritical?: boolean; // Unified: usages might toggle between isCrit/isCritical. Let's support both or standardize. CombatSystem uses 'isCrit'.
+    isCrit?: boolean;     // Add alias for now
+    isKill?: boolean;
+    evaded?: boolean;
+    message?: string;
+    target?: Entity;
+    path?: Point[]; // Typed path
+    type?: string;
+    attackType?: string;
+    color?: string;
+}
+
 export interface ISpatialHash {
-    rebuild: (state: any) => void;
-    move: (oldX: number, oldY: number, newX: number, newY: number, entity: any) => void;
-    add: (x: number, y: number, entity: any) => void;
-    remove: (x: number, y: number, entity: any) => void;
-    get: (x: number, y: number) => any[];
-    find: (x: number, y: number, predicate: (e: any) => boolean) => any | null;
+    rebuild: (state: GameState) => void;
+    move: (oldX: number, oldY: number, newX: number, newY: number, entity: Entity | any) => void; // Keeping | any for safety during migration
+    add: (x: number, y: number, entity: Entity | any) => void;
+    remove: (x: number, y: number, entity: Entity | any) => void;
+    get: (x: number, y: number) => (Entity | any)[];
+    find: (x: number, y: number, predicate: (e: Entity | any) => boolean) => (Entity | any) | null;
     isBlocked: (x: number, y: number) => boolean;
-    updatePlayer: (player: any) => void;
+    updatePlayer: (player: Player) => void;
 }
 
 export interface Buff {
@@ -48,6 +64,7 @@ export interface Buff {
     value?: number;
     icon?: any;
     absorb?: number;
+    evasion?: number;
 }
 
 export interface SkillState {
@@ -133,6 +150,7 @@ export interface Enemy extends BaseEntity {
     type: string | number; // Enemy template ID
     isBoss?: boolean;
     slowedTurn?: boolean;
+    lastSummonTime?: number;
 }
 
 export interface NPC extends BaseEntity {
@@ -201,6 +219,12 @@ export interface RenderTile {
 }
 
 export type RenderMap = RenderTile[][];
+
+export interface RenderItem {
+    y: number;
+    sortY: number;
+    draw: () => void;
+}
 
 export interface GameState {
     player: Player | null;

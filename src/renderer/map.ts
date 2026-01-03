@@ -13,9 +13,7 @@ import { spriteManager } from "@/engine/core/SpriteManager";
 // Let's stick to globalCompositeOperation for now. It might cause frame drops on low end.
 // BETTER: Draw the sprite, then draw a semi-transparent colored tile over it using "multiply" or "overlay" blending.
 
-
-
-import { RenderTile } from "@/types";
+import { RenderTile, RenderItem } from "@/types";
 
 function drawSpriteIsoFloor(ctx: CanvasRenderingContext2D, x: number, y: number, w: number, h: number, color: string, tileType: number, renderTile: RenderTile | null) {
     let spriteKey = 'floor';
@@ -185,18 +183,32 @@ export function drawMap(
     offsetX: number,
     offsetY: number,
     viewportWidth: number,
-    viewportHeight: number
+    viewportHeight: number,
+    renderList?: RenderItem[], // Strongly typed
+    layer: 'all' | 'floor' | 'wall' = 'all'
 ) {
     const { map, renderMap, explored, visible, level } = state;
+    // DEBUG: Check values causing Home Base fail
+    // console.log("DRAW MAP: Location:", state.location, "Level:", level);
     const theme = getThemeForFloor(level);
 
-    ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
-    ctx.fillStyle = "#050505";
-    ctx.fillRect(0, 0, ctx.canvas.width, ctx.canvas.height);
+    if (layer === 'all' || layer === 'floor') {
+        ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
 
-    if (theme.fogColor) {
-        ctx.fillStyle = theme.fogColor;
+        // Background Color
+        if (state.location === 'home') {
+            // Dark Green to match grass, hiding the void edges
+            ctx.fillStyle = "#1e2820";
+        } else {
+            // Dungeon Black
+            ctx.fillStyle = "#050505";
+        }
         ctx.fillRect(0, 0, ctx.canvas.width, ctx.canvas.height);
+
+        if (theme.fogColor && state.location !== 'home') {
+            ctx.fillStyle = theme.fogColor;
+            ctx.fillRect(0, 0, ctx.canvas.width, ctx.canvas.height);
+        }
     }
 
     const centerX = ctx.canvas.width / 2;
@@ -207,105 +219,167 @@ export function drawMap(
     const rangeX = Math.ceil(viewportWidth / 2) + padding;
     const rangeY = Math.ceil(viewportHeight / 2) + padding;
 
-    const startX = Math.max(0, Math.floor(offsetX - rangeX));
-    const endX = Math.min(map[0].length, Math.ceil(offsetX + rangeX + 4));
-    const startY = Math.max(0, Math.floor(offsetY - rangeY));
-    const endY = Math.min(map.length, Math.ceil(offsetY + rangeY + 4));
+    let startX = Math.floor(offsetX - rangeX);
+    let endX = Math.ceil(offsetX + rangeX + 4);
+    let startY = Math.floor(offsetY - rangeY);
+    let endY = Math.ceil(offsetY + rangeY + 4);
 
+    // For Dungeon, clamp to map bounds. For Home, allow infinite scrolling (drawing).
+    const isHome = state.location === 'home' || state.level === 0;
+
+    if (!isHome) {
+        startX = Math.max(0, startX);
+        endX = Math.min(map[0].length, endX);
+        startY = Math.max(0, startY);
+        endY = Math.min(map.length, endY);
+    } else {
+        // FORCE MASSIVE OVERDRAW FOR HOME BASE DEBUGGING
+        // This ensures the loop definitely runs outside the map array
+        startX = -60;
+        endX = 100;
+        startY = -60;
+        endY = 100;
+    }
+
+    // console.log(`Ranges: X[${startX}, ${endX}] Y[${startY}, ${endY}] isHome: ${isHome}`);
+
+    // PASS 1: FLOORS & SHADOWS
+    if (layer !== 'wall') {
+        for (let y = startY; y < endY; y++) {
+            for (let x = startX; x < endX; x++) {
+
+                // --- INFINITE GRASS FOR HOME ---
+                const isOutOfBounds = !map[y] || map[y][x] === undefined;
+
+                if (isOutOfBounds) {
+                    if (isHome) {
+                        const isoPos = toScreen(x, y);
+                        const screenX = centerX + (isoPos.x - cameraScreen.x);
+                        const screenY = centerY + (isoPos.y - cameraScreen.y);
+
+                        const drawX = screenX - TILE_WIDTH / 2;
+                        const drawY = screenY;
+
+                        // Procedural generation
+                        const noise = Math.sin(x * 0.1) + Math.cos(y * 0.1);
+                        let variant = 0;
+                        if (noise > 0.5) variant = 3;
+                        else if (noise < -0.5) variant = 0;
+                        else variant = 1;
+
+                        const virtualRenderTile = { variant, noise, rotation: 0 };
+
+                        // Draw Floor
+                        drawSpriteIsoFloor(ctx, drawX, drawY, TILE_WIDTH, TILE_HEIGHT, "#2d3e26", TILE.FLOOR_GRASS, virtualRenderTile as RenderTile);
+                    }
+                    continue;
+                }
+
+                let isExplored = explored[y]?.[x];
+                let isVisible = visible[y]?.[x];
+
+                if (isHome) {
+                    isExplored = true;
+                    isVisible = true;
+                }
+
+                if (isExplored) {
+                    const tile = map[y][x];
+                    if (tile !== TILE.WALL) {
+                        // Draw Floor Sprite
+                        const theme = getThemeForFloor(level);
+                        const baseFloorColor = isVisible ? theme.floor : adjustBrightness(theme.floor, -50);
+
+                        const isoPos = toScreen(x, y);
+                        const screenX = centerX + (isoPos.x - cameraScreen.x);
+                        const screenY = centerY + (isoPos.y - cameraScreen.y);
+                        const drawX = screenX - TILE_WIDTH / 2;
+                        const drawY = screenY;
+
+                        const renderTile = renderMap?.[y]?.[x] || null;
+                        drawSpriteIsoFloor(ctx, drawX, drawY, TILE_WIDTH, TILE_HEIGHT, baseFloorColor, tile, renderTile);
+                    }
+                }
+            }
+        }
+    }
+
+    // PASS 2: WALLS & DECOR (Sorted by Y)
+    // We iterate again to draw objects that stand UP, ensuring they cover the floor behind/around them.
     for (let y = startY; y < endY; y++) {
         for (let x = startX; x < endX; x++) {
-            const isExplored = explored[y]?.[x];
-            const isVisible = visible[y]?.[x];
+            if (!map[y] || map[y][x] === undefined) continue;
+
+            let isExplored = explored[y]?.[x];
+            let isVisible = visible[y]?.[x];
+
+            if (isHome) {
+                isExplored = true;
+                isVisible = true;
+            }
 
             if (isExplored) {
                 const tile = map[y][x];
-
-                // Color calc
-                const baseWallColor = isVisible ? theme.wall : adjustBrightness(theme.wall, -50);
-                const baseFloorColor = isVisible ? theme.floor : adjustBrightness(theme.floor, -50);
+                const theme = getThemeForFloor(level);
 
                 const isoPos = toScreen(x, y);
-                // Adjust screen position to top-left of the bounding box for sprites?
-                // toScreen returns "Top-Center" of the diamond usually? 
-                // Let's check `toScreen` implementation in `isometric.ts`?
-                // Assuming toScreen returns coordinates of (x,y) in ISO space.
-                // Usually for drawing, we center around it.
-                // The procedural code used `x - nothing` so toScreen returns top-left of bounding box?
-                // procedural `drawIsoTile`: `moveTo(x, y)`. `lineTo(x+W/2, y+H/2)`.
-                // So `x,y` passed to drawIsoTile is the Top-Center or Top-Left?
-                // "moveTo(x, y); lineTo(x + TILE_WIDTH / 2..." implies `x,y` is Top-Center (if x is horizontal center?)
-                // NO. `x, y` is the START point.
-                // Diamond Top is (x + TILE_WIDTH/2, y) in standard drawing?
-                // IN `drawIsoTile`: `moveTo(x, y)` -> No, `moveTo(x + TILE_WIDTH / 2, y)`!
-                // Wait, previous code:
-                /*
-                function drawIsoTile(ctx, x, y, color) {
-                   ctx.moveTo(x, y);
-                   ctx.lineTo(x + TILE_WIDTH / 2, y + TILE_HEIGHT / 2);
-                   ...
-                }
-                */
-                // That implied (x,y) was Top-Center? OR Left-Center?
-                // Let's re-read the previous `drawIsoTile` I viewed in Step 297.
-                /*
-                function drawIsoTile(ctx, x, y, color) {
-                     ctx.moveTo(x, y);
-                     ctx.lineTo(x + TILE_WIDTH / 2, y + TILE_HEIGHT / 2);
-                     ctx.lineTo(x, y + TILE_HEIGHT);
-                     ctx.lineTo(x - TILE_WIDTH / 2, y + TILE_HEIGHT / 2);
-                */
-                // This means (x,y) IS THE TOP CORNER.
-                // And it draws right to x + W/2, down to x, left to x - W/2.
-                // So the DIAMOND is centered horizontally on X.
-                // It extends X - W/2 to X + W/2.
-                // And Y to Y + H.
-
-                // So if I draw a sprite, `x` is the center X of the tile. `y` is the top Y.
-                // Sprite drawing (drawImage) usually takes Top-Left corner.
-                // So sprite X = screenX - TILE_WIDTH / 2.
-                // Sprite Y = screenY.
-
                 const screenX = centerX + (isoPos.x - cameraScreen.x);
                 const screenY = centerY + (isoPos.y - cameraScreen.y);
+                const { isoY } = { isoY: (x + y) * TILE_HEIGHT / 2 }; // Calculate IsoY relative to map origin for sorting
 
                 if (tile === TILE.WALL) {
-                    // Draw Wall Sprite
-                    // For Sprite, we convert bounds.
-                    // drawSpriteIsoWall expects CenterX, TopY.
-                    // Wait, helper `drawSpriteIsoWall` uses `drawY = y - ...`
-                    // I will pass screenX - TILE_WIDTH/2 as LEFT coordinate to ease things?
-                    // Let's standardize: helpers take bounding box Left, Top.
-
+                    const baseWallColor = isVisible ? theme.wall : adjustBrightness(theme.wall, -50);
                     const drawX = screenX - TILE_WIDTH / 2;
-                    const drawY = screenY; // Top of the tile
+                    const drawY = screenY;
 
-                    drawSpriteIsoWall(ctx, drawX, drawY, TILE_WIDTH, TILE_HEIGHT, baseWallColor);
-
-                    // Decorations
-                    if (isVisible) {
-                        const wallSeed = (x * 11 + y * 17) % 100;
-                        if (wallSeed < (level <= 4 ? 8 : 3)) {
-                            drawEnvironmentSprite(ctx, "cobweb", screenX, screenY - TILE_HEIGHT, TILE_WIDTH);
+                    // If renderList is provided, delegate drawing to it for Z-sorting against Entities
+                    if (renderList) {
+                        renderList.push({
+                            y: y,
+                            sortY: isoY + 1.5, // Walls usually sit just "above" the floor of their tile
+                            draw: () => {
+                                drawSpriteIsoWall(ctx, drawX, drawY, TILE_WIDTH, TILE_HEIGHT, baseWallColor);
+                                if (isVisible) {
+                                    const wallSeed = (x * 11 + y * 17) % 100;
+                                    if (wallSeed < (level <= 4 ? 8 : 3)) {
+                                        drawEnvironmentSprite(ctx, "cobweb", screenX, screenY - TILE_HEIGHT, TILE_WIDTH);
+                                    }
+                                }
+                            }
+                        });
+                    } else {
+                        // Fallback: Immediate draw (if no list)
+                        drawSpriteIsoWall(ctx, drawX, drawY, TILE_WIDTH, TILE_HEIGHT, baseWallColor);
+                        if (isVisible) {
+                            const wallSeed = (x * 11 + y * 17) % 100;
+                            if (wallSeed < (level <= 4 ? 8 : 3)) {
+                                drawEnvironmentSprite(ctx, "cobweb", screenX, screenY - TILE_HEIGHT, TILE_WIDTH);
+                            }
                         }
                     }
 
                 } else {
-                    // Draw Floor Sprite
-                    const drawX = screenX - TILE_WIDTH / 2;
-                    const drawY = screenY;
-
-                    const renderTile = renderMap?.[y]?.[x] || null;
-                    drawSpriteIsoFloor(ctx, drawX, drawY, TILE_WIDTH, TILE_HEIGHT, baseFloorColor, tile, renderTile);
+                    // Props on floor (Stairs, Doors) - These are flat or anchored to floor
+                    // Usually we might want these sorted too? 
+                    // STAIRS are flat floor. DOORS are "Entities".
+                    // Map data says TILE.DOOR.
 
                     if (tile === TILE.STAIRS) {
                         drawEnvironmentSprite(ctx, 'stairs', screenX, screenY, TILE_WIDTH);
                     }
                     else if (tile === TILE.DOOR || tile === TILE.DOOR_OPEN) {
                         const type = (tile === TILE.DOOR_OPEN) ? 'door_open' : 'door_closed';
-                        drawEnvironmentSprite(ctx, type, screenX, screenY - TILE_HEIGHT * 0.5, TILE_WIDTH);
-                    }
 
-                    // Rubble removed as per user request
+                        if (renderList) {
+                            renderList.push({
+                                y: y,
+                                sortY: isoY + 1.1, // Doors slightly above floor
+                                draw: () => drawEnvironmentSprite(ctx, type, screenX, screenY - TILE_HEIGHT * 0.5, TILE_WIDTH)
+                            });
+                        } else {
+                            drawEnvironmentSprite(ctx, type, screenX, screenY - TILE_HEIGHT * 0.5, TILE_WIDTH);
+                        }
+                    }
                 }
             }
         }

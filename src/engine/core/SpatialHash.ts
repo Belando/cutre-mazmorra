@@ -1,12 +1,16 @@
-import { GameState } from "@/types";
+import { GameState, Entity, Player } from "@/types";
+import { ENTITY } from "@/data/constants";
 
-export interface SpatialEntity {
+// Entity is a union type, so we cannot extend it via interface. 
+// Using intersection on a type instead.
+export type SpatialEntity = Partial<Entity> & {
     x: number;
     y: number;
     type: string | number;
     ref?: any;
     [key: string]: any;
-}
+};
+
 
 export class SpatialHash {
     private grid: Map<string, SpatialEntity[]>;
@@ -107,12 +111,12 @@ export class SpatialHash {
                         // Let's rely on ID ranges or values known.
                         // TREE: 200, ROCK: 201, WORKBENCH: 202, GATE: 203
                         let type = '';
-                        if (id === 200) type = 'tree';
-                        else if (id === 201) type = 'rock';
-                        else if (id === 202) type = 'workbench';
-                        else if (id === 203) type = 'dungeon_gate';
-                        else if (id === 204) type = 'plant';
-                        else if (id === 299) type = 'blocker';
+                        if (id === ENTITY.TREE) type = 'tree';
+                        else if (id === ENTITY.ROCK) type = 'rock';
+                        else if (id === ENTITY.WORKBENCH) type = 'workbench';
+                        else if (id === ENTITY.DUNGEON_GATE || id === ENTITY.DUNGEON_GATE_TRIGGER) type = 'dungeon_gate'; // 203=Visual, 205=Trigger
+                        else if (id === ENTITY.PLANT) type = 'plant';
+                        else if (id === ENTITY.BLOCKER) type = 'blocker';
 
                         if (type) {
                             this.add(x, y, { x, y, type, id, ref: { x, y, id, type } });
@@ -123,7 +127,7 @@ export class SpatialHash {
         }
     }
 
-    updatePlayer(player: any): void {
+    updatePlayer(player: Player): void {
         // Optimization: The caller (useTurnSystem) knows the player. 
         // We update the REF at the CURRENT position.
         const currentList = this.get(player.x, player.y);

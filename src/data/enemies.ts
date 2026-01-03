@@ -61,24 +61,24 @@ export const ENEMY_STATS: Record<number, EnemyStats> = {
 };
 
 export const LARGE_ENEMIES: Record<number, LargeEnemyConfig> = {
-    106: { width: 2, height: 2, name: 'ancient_dragon' },
-    105: { width: 2, height: 2, name: 'demon_lord' },
-    108: { width: 2, height: 2, name: 'golem_king' },
-    9: { width: 1, height: 1, scale: 1.3, name: 'troll' },
-    12: { width: 1, height: 1, scale: 1.2, name: 'dragon' },
-    16: { width: 1, height: 1, scale: 1.2, name: 'golem' },
+    [ENTITY.BOSS_ANCIENT_DRAGON]: { width: 2, height: 2, name: 'ancient_dragon' },
+    [ENTITY.BOSS_DEMON_LORD]: { width: 2, height: 2, name: 'demon_lord' },
+    [ENTITY.BOSS_GOLEM_KING]: { width: 2, height: 2, name: 'golem_king' },
+    [ENTITY.ENEMY_TROLL]: { width: 1, height: 1, scale: 1.3, name: 'troll' },
+    [ENTITY.ENEMY_DRAGON]: { width: 1, height: 1, scale: 1.2, name: 'dragon' },
+    [ENTITY.ENEMY_GOLEM]: { width: 1, height: 1, scale: 1.2, name: 'golem' },
 };
 
 export const ENEMY_RANGED_INFO: Record<string, RangedEnemyInfo> = {
-    '3': { range: 4, name: 'Chillido', preferMelee: false },
-    '7': { range: 4, name: 'Telaraña', preferMelee: true },
-    '10': { range: 5, name: 'Rayo Espectral', preferMelee: false },
-    '11': { range: 5, name: 'Bola de Fuego', preferMelee: true },
-    '12': { range: 6, name: 'Aliento de Fuego', preferMelee: true },
-    '15': { range: 6, name: 'Rayo Oscuro', preferMelee: false },
-    '17': { range: 5, name: 'Drenar Vida', preferMelee: false },
-    '104': { range: 7, name: 'Rayo de Hielo', preferMelee: false },
-    '105': { range: 6, name: 'Infierno', preferMelee: true },
-    '106': { range: 8, name: 'Llamarada', preferMelee: true },
-    '107': { range: 5, name: 'Drenar Almas', preferMelee: false },
+    [ENTITY.ENEMY_BAT]: { range: 4, name: 'Chillido', preferMelee: false },
+    [ENTITY.ENEMY_SPIDER]: { range: 4, name: 'Telaraña', preferMelee: true },
+    [ENTITY.ENEMY_WRAITH]: { range: 5, name: 'Rayo Espectral', preferMelee: false },
+    [ENTITY.ENEMY_DEMON]: { range: 5, name: 'Bola de Fuego', preferMelee: true },
+    [ENTITY.ENEMY_DRAGON]: { range: 6, name: 'Aliento de Fuego', preferMelee: true },
+    [ENTITY.ENEMY_CULTIST]: { range: 6, name: 'Rayo Oscuro', preferMelee: false },
+    [ENTITY.ENEMY_VAMPIRE]: { range: 5, name: 'Drenar Vida', preferMelee: false },
+    [ENTITY.BOSS_LICH]: { range: 7, name: 'Rayo de Hielo', preferMelee: false },
+    [ENTITY.BOSS_DEMON_LORD]: { range: 6, name: 'Infierno', preferMelee: true },
+    [ENTITY.BOSS_ANCIENT_DRAGON]: { range: 8, name: 'Llamarada', preferMelee: true },
+    [ENTITY.BOSS_VAMPIRE_LORD]: { range: 5, name: 'Drenar Almas', preferMelee: false },
 };

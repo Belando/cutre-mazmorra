@@ -96,6 +96,8 @@ export interface Skill {
     tree: string;
     unlockLevel: number;
     maxLevel: number;
+    projectileColor?: string; // Phase 2 Audit
+    projectileStyle?: 'circle' | 'arrow' | 'bolt'; // Phase 2 Audit
     effect: (player: Entity, target: Entity | Entity[] | null, playerStats: Stats, skillLevel?: number) => SkillResult;
 }
 
@@ -276,6 +278,8 @@ export const SKILLS: Record<string, Skill> = {
         tree: 'mage',
         unlockLevel: 1,
         maxLevel: 5,
+        projectileColor: '#f97316',
+        projectileStyle: 'circle',
         effect: (player, target, playerStats, skillLevel = 1) => {
             const atk = playerStats.magicAttack || playerStats.attack || 0;
             const damage = Math.floor(atk * (1.75 + skillLevel * 0.25));
@@ -294,6 +298,8 @@ export const SKILLS: Record<string, Skill> = {
         tree: 'mage',
         unlockLevel: 3,
         maxLevel: 5,
+        projectileColor: '#06b6d4',
+        projectileStyle: 'circle',
         effect: (player, target, playerStats, skillLevel = 1) => {
             const atk = playerStats.magicAttack || playerStats.attack || 0;
             const damage = Math.floor(atk * (1.25 + skillLevel * 0.15));
@@ -448,6 +454,8 @@ export const SKILLS: Record<string, Skill> = {
         tree: 'rogue',
         unlockLevel: 3,
         maxLevel: 5,
+        projectileColor: '#cbd5e1',
+        projectileStyle: 'arrow',
         effect: (player, target, playerStats, skillLevel = 1) => {
             const damage = Math.floor((playerStats.attack || 0) * (1 + skillLevel * 0.1));
             return { damage, bleed: { damage: Math.floor(damage * 0.2), duration: 3 }, message: `¡Cuchillo! ${damage} + sangrado!` };
@@ -521,6 +529,8 @@ export const SKILLS: Record<string, Skill> = {
         tree: 'archer',
         unlockLevel: 10,
         maxLevel: 5,
+        projectileColor: '#cbd5e1',
+        projectileStyle: 'arrow',
         effect: (player, target, playerStats, skillLevel = 1) => {
             const damage = Math.floor((playerStats.attack || 0) * (1 + skillLevel * 0.15));
             return { damage, multiTarget: 3 + Math.floor(skillLevel / 2), message: `¡Disparo Múltiple! ${damage} x3!` };

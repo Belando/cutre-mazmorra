@@ -7,7 +7,8 @@ import {
   hasLineOfSight,
   getProjectilePath
 } from '@/engine/core/utils';
-import { Entity, Stats, Buff, Player, Enemy, EquipmentState } from '@/types';
+import { ENTITY } from '@/data/constants';
+import { Entity, Stats, Buff, Player, Enemy, EquipmentState, AttackResult } from '@/types';
 
 // --- COMBATE DEL JUGADOR ---
 
@@ -28,18 +29,7 @@ export function getRangedTargets(player: Player, enemies: Enemy[], map: number[]
   }).sort((a, b) => getDistance(player, a) - getDistance(player, b));
 }
 
-export interface AttackResult {
-  success?: boolean;
-  hit?: boolean;
-  damage: number;
-  isCrit?: boolean;
-  evaded?: boolean;
-  message?: string;
-  path?: any[];
-  type?: string;
-  attackType?: string;
-  color?: string;
-}
+// AttackResult imported from @/types
 
 /**
  * Executes a ranged attack against a specific target.
@@ -146,14 +136,14 @@ interface RangedEnemyInfo {
 }
 
 export const ENEMY_RANGED_TYPES: Record<string, RangedEnemyInfo> = {
-  15: { range: 5, type: 'magic', color: '#a855f7' }, // Cultista
-  10: { range: 6, type: 'magic', color: '#6366f1' }, // Espectro
-  104: { range: 7, type: 'magic', color: '#06b6d4' }, // Liche
-  7: { range: 4, type: 'poison', color: '#22c55e' }, // Araña
-  11: { range: 5, type: 'fire', color: '#ef4444' }, // Demonio
-  12: { range: 6, type: 'fire', color: '#f59e0b' }, // Dragón
-  106: { range: 8, type: 'fire', color: '#fbbf24' }, // Dragón Ancestral
-  105: { range: 6, type: 'dark', color: '#7f1d1d' }, // Señor Demonio
+  [ENTITY.ENEMY_CULTIST]: { range: 5, type: 'magic', color: '#a855f7' }, // Cultista
+  [ENTITY.ENEMY_WRAITH]: { range: 6, type: 'magic', color: '#6366f1' }, // Espectro
+  [ENTITY.BOSS_LICH]: { range: 7, type: 'magic', color: '#06b6d4' }, // Liche
+  [ENTITY.ENEMY_SPIDER]: { range: 4, type: 'poison', color: '#22c55e' }, // Araña
+  [ENTITY.ENEMY_DEMON]: { range: 5, type: 'fire', color: '#ef4444' }, // Demonio
+  [ENTITY.ENEMY_DRAGON]: { range: 6, type: 'fire', color: '#f59e0b' }, // Dragón
+  [ENTITY.BOSS_ANCIENT_DRAGON]: { range: 8, type: 'fire', color: '#fbbf24' }, // Dragón Ancestral
+  [ENTITY.BOSS_DEMON_LORD]: { range: 6, type: 'dark', color: '#7f1d1d' }, // Señor Demonio
 };
 
 export function isEnemyRanged(enemyType: string | number): boolean { return !!ENEMY_RANGED_TYPES[String(enemyType)]; }
@@ -185,7 +175,14 @@ export function calculateEnemyDamage(enemy: Enemy, playerStats: Stats, playerBuf
   const physDef = playerStats.defense || 0;
   const magicDef = playerStats.magicDefense || 0;
 
-  const isMagicEnemy = [10, 11, 12, 15, 104, 105].includes(Number(enemy.type));
+  const isMagicEnemy = ([
+    ENTITY.ENEMY_WRAITH,
+    ENTITY.ENEMY_DEMON,
+    ENTITY.ENEMY_DRAGON,
+    ENTITY.ENEMY_CULTIST,
+    ENTITY.BOSS_LICH,
+    ENTITY.BOSS_DEMON_LORD
+  ] as number[]).includes(Number(enemy.type));
   const defense = isMagicEnemy ? magicDef : physDef;
 
   const enemyAtk = enemy.stats?.attack || enemy.stats?.magicAttack || 5;
