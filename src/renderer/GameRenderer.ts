@@ -61,7 +61,7 @@ export class GameRenderer {
         if (!this.staticCanvas || !this.dynamicCanvas || !this.lightingCanvas || !state.player) return;
 
         this.frame++;
-        const { player, map, enemies, items, visible, explored, torches = [], chests = [], level = 1, npcs = [] } = state;
+        const { player, map, enemies, corpses = [], items, visible, explored, torches = [], chests = [], level = 1, npcs = [] } = state;
 
         // --- CAMERA UPDATE ---
         const target = getCameraTarget(player);
@@ -73,8 +73,17 @@ export class GameRenderer {
         const newPos = lerpCamera(this.cameraPos, target, 0.1);
         this.cameraPos.x = newPos.x;
         this.cameraPos.y = newPos.y;
-        const offsetX = this.cameraPos.x;
-        const offsetY = this.cameraPos.y;
+        // Apply Screen Shake if Manager exists
+        let offsetX = this.cameraPos.x;
+        let offsetY = this.cameraPos.y;
+
+        if (effectsManager) {
+            const manager = (effectsManager as any).current || effectsManager;
+            if (manager.screenShake > 0) {
+                offsetX += (Math.random() - 0.5) * (manager.screenShake * 0.1);
+                offsetY += (Math.random() - 0.5) * (manager.screenShake * 0.1);
+            }
+        }
 
         // --- STATIC LAYER (Map) ---
         const cameraMoved = Math.abs(offsetX - this.lastStaticRender.cameraX) > 0.005 ||
@@ -163,6 +172,9 @@ export class GameRenderer {
                             else if (entityType === ENTITY.ROCK) drawType = 'rock';
                             else if (entityType === ENTITY.PLANT) drawType = 'plant';
                             else if (entityType === ENTITY.DUNGEON_GATE) drawType = 'dungeon_gate';
+                            else if (entityType === ENTITY.CRATE) drawType = 'crate';
+                            else if (entityType === ENTITY.BARREL) drawType = 'barrel';
+                            else if (entityType === ENTITY.SPIKES) drawType = 'spikes';
                             // else if (entityType === ENTITY.WORKBENCH) drawType = 'workbench'; // Disabled to remove artifact
 
                             if (drawType) {
@@ -186,6 +198,9 @@ export class GameRenderer {
                                     // But -100 puts it BEHIND Wall (1.5).
                                     // We want: Wall < Gate < Player.
                                     zOffset = 2.0;
+                                } else if (drawType === 'spikes') {
+                                    // Spikes on floor, behind player
+                                    zOffset = 0.1;
                                 }
 
                                 renderList.push({
@@ -204,10 +219,42 @@ export class GameRenderer {
                     const { x: sx, y: sy, isoY } = getScreenPos(chest.x, chest.y);
                     if (isOnCam(sx, sy)) {
                         renderList.push({
-                            y: chest.y, sortY: isoY,
+                            y: chest.y, sortY: isoY + 0.5,
                             draw: () => drawEnvironmentSprite(ctx, 'chest', sx, sy, SIZE, chest.isOpen, chest.rarity)
                         });
                     }
+                }
+            });
+
+            // 2.5 CORPSES
+            corpses.forEach(corpse => {
+                const { x, y, type, rotation } = corpse;
+                if (!visible[y]?.[x]) return; // Only draw seen corpses
+
+                const { x: sx, y: sy, isoY } = getScreenPos(x, y);
+                if (isOnCam(sx, sy)) {
+                    renderList.push({
+                        y: y, sortY: isoY + 0.1, // Very low Z-order (just above floor)
+                        draw: () => {
+                            ctx.save();
+                            ctx.translate(sx, sy + TILE_HEIGHT / 2); // Center on tile floor
+                            // Squash Y to make it look flat on ground
+                            ctx.scale(1, 0.4);
+                            ctx.rotate((rotation * Math.PI) / 180);
+
+                            // Dark red tint / silhouette
+                            ctx.filter = 'brightness(0.5) sepia(1) hue-rotate(-50deg) saturate(3)';
+                            ctx.globalAlpha = 0.8;
+
+                            // Re-use enemy draw function but simpler?
+                            // Or just draw the sprite image if available?
+                            // drawEnemy expects upright sprite. 
+                            // Let's use drawEnemy but with the transforms above it should look like a "rug"
+                            drawEnemy(ctx, String(type), 0, 0, SIZE, 0, false, 0, { x: 0, y: 0 }, 0, undefined, false);
+
+                            ctx.restore();
+                        }
+                    });
                 }
             });
 

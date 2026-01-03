@@ -89,32 +89,40 @@ export default function SkillTree({
                 initial={{ scale: 0.9, y: 20 }}
                 animate={{ scale: 1, y: 0 }}
                 exit={{ scale: 0.9, y: 20 }}
-                className="bg-gradient-to-b from-slate-900 to-slate-950 rounded-2xl border w-full max-w-3xl max-h-[90vh] overflow-hidden"
-                style={{ borderColor: treeInfo.color + '50' }}
+                className="bg-[#0f172a] rounded-xl border-2 w-full max-w-4xl max-h-[90vh] overflow-hidden shadow-2xl relative"
+                style={{ borderColor: treeInfo.color }}
                 onClick={e => e.stopPropagation()}
             >
-                <div className="flex items-center justify-between p-4 border-b"
-                    style={{ borderColor: treeInfo.color + '30', background: `linear-gradient(135deg, ${treeInfo.color}15 0%, transparent 50%)` }}>
-                    <div className="flex items-center gap-3">
-                        <div className="flex items-center justify-center text-3xl shadow-lg w-14 h-14 rounded-xl"
-                            style={{ backgroundColor: treeInfo.color + '25', boxShadow: `0 0 20px ${treeInfo.color}30` }}>
-                            <TreeIcon className="text-white" />
+                {/* Background Decoration (Constellation/Noise) */}
+                <div className="absolute inset-0 opacity-10 bg-[url('/noise.png')] pointer-events-none"></div>
+                <div className="absolute inset-0 pointer-events-none" style={{ background: `radial-gradient(circle at top right, ${treeInfo.color}20, transparent 40%)` }}></div>
+
+                {/* HEADER */}
+                <div className="flex items-center justify-between p-6 border-b border-slate-700 bg-slate-900/90 relative z-10">
+                    <div className="flex items-center gap-4">
+                        <div className="flex items-center justify-center text-4xl shadow-[0_0_15px_rgba(0,0,0,0.5)] w-20 h-20 rounded-full border-4 bg-slate-800"
+                            style={{ borderColor: treeInfo.color }}>
+                            <TreeIcon className="text-white drop-shadow-md" style={{ color: treeInfo.color }} />
                         </div>
                         <div>
-                            <h2 className="text-xl font-bold" style={{ color: treeInfo.color }}>
+                            <h2 className="text-3xl font-black font-fantasy uppercase tracking-wider drop-shadow-sm" style={{ color: treeInfo.color }}>
                                 {evolvedClass ? (SKILL_TREES as any)[evolvedClass].name : treeInfo.name}
                             </h2>
-                            <div className="flex items-center gap-3 text-sm">
-                                <span className="text-slate-400">Nivel {playerLevel}</span>
-                                <span className="flex items-center gap-1 font-medium text-amber-400">
+                            <p className="text-sm text-slate-400 font-fantasy tracking-widest opacity-80 uppercase">Constelación de Habilidades</p>
+
+                            <div className="flex items-center gap-4 mt-2">
+                                <span className="px-3 py-1 bg-slate-950/50 rounded text-xs text-slate-400 border border-slate-700">
+                                    Nivel {playerLevel}
+                                </span>
+                                <span className="px-3 py-1 bg-amber-950/30 rounded text-xs text-amber-400 border border-amber-500/30 flex items-center gap-2 font-bold">
                                     <GiPowerLightning className="w-4 h-4" />
-                                    {skillPoints} puntos
+                                    {skillPoints} Puntos Disponibles
                                 </span>
                             </div>
                         </div>
                     </div>
-                    <Button variant="ghost" size="icon" onClick={onClose} className="text-slate-400 hover:text-white">
-                        <X className="w-5 h-5" />
+                    <Button variant="ghost" size="icon" onClick={onClose} className="text-slate-500 hover:text-white hover:bg-white/10 rounded-full w-12 h-12">
+                        <X className="w-8 h-8" />
                     </Button>
                 </div>
 
@@ -219,10 +227,10 @@ export default function SkillTree({
                                                     transition={{ delay: tierIndex * 0.1 + skillIndex * 0.05 }}
                                                     onClick={() => setSelectedSkill(selectedSkill?.id === skill.id ? null : skill)}
                                                     className={`relative p-3 rounded-xl border-2 text-left transition-all min-w-[140px] ${isLearned
-                                                            ? 'bg-emerald-900/30 border-emerald-500/60'
-                                                            : canLearn
-                                                                ? 'bg-amber-900/20 border-amber-500/50 hover:border-amber-400'
-                                                                : 'bg-slate-800/30 border-slate-700/50 opacity-50'
+                                                        ? 'bg-emerald-900/30 border-emerald-500/60'
+                                                        : canLearn
+                                                            ? 'bg-amber-900/20 border-amber-500/50 hover:border-amber-400'
+                                                            : 'bg-slate-800/30 border-slate-700/50 opacity-50'
                                                         } ${selectedSkill?.id === skill.id ? 'ring-2 ring-white/30' : ''}`}
                                                 >
                                                     <div className="flex items-start gap-2">

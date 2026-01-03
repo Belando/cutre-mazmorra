@@ -90,6 +90,13 @@ export function generateDungeon(width: number, height: number, level: number, pl
   const resourceTypes = [ENTITY.ROCK, ENTITY.PLANT]; // Maybe add mushrooms later
   placeEntities(map, entitiesGrid, rooms, resourceTypes, 10 + level * 2, [0, lastRoomIndex]);
 
+  // 9.6 Place INTERACTIVE: Crates & Barrels
+  const destructibleTypes = [ENTITY.CRATE, ENTITY.BARREL];
+  // 5 to 10 destructibles per level
+  placeEntities(map, entitiesGrid, rooms, destructibleTypes, 5 + Math.floor(Math.random() * 5), [0, lastRoomIndex]);
+  // Spikes (Traps) - placed sparingly
+  placeEntities(map, entitiesGrid, rooms, [ENTITY.SPIKES], 2 + Math.floor(Math.random() * 3), [0, lastRoomIndex]);
+
   // 10. Loot
   const generatedItems = generateLevelItems(level, rooms, map, [0]);
   const chests: Chest[] = [];

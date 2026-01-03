@@ -27,7 +27,7 @@ export interface TextEffect extends BaseEffect {
 
 export interface ParticleEffect extends BaseEffect {
     type: 'particle';
-    style: 'star' | 'circle' | 'rect';
+    style: 'star' | 'circle' | 'rect' | 'blood';
     z?: number;
     vx?: number;
     vy?: number;
@@ -134,18 +134,19 @@ export class EffectsManager {
 
     // --- PARTICULAS (Sangre/Explosión/Chispas) ---
     addBlood(x: number, y: number, color: string = '#dc2626'): void {
-        const count = 6 + Math.floor(Math.random() * 6);
+        const count = 12 + Math.floor(Math.random() * 8); // More particles (12-20)
         for (let i = 0; i < count; i++) {
             const angle = Math.random() * Math.PI * 2;
             const speed = Math.random() * 0.15;
             this.effects.push({
                 id: this.idCounter++,
                 type: 'particle',
-                style: 'rect',
+                style: 'blood', // Custom style for 2.5D rendering
                 x: x + 0.5, y: y + 0.5, z: 0.5 + Math.random() * 0.5,
                 vx: Math.cos(angle) * speed, vy: Math.sin(angle) * speed, vz: 0.1 + Math.random() * 0.2,
-                life: 180 + Math.random() * 60, maxLife: 240, color: color, size: Math.random() * 0.12 + 0.04,
-                gravity: 0.04, friction: 0.95, bounces: 2
+                life: 40 + Math.random() * 20, maxLife: 60, color: color,
+                size: Math.random() * 0.03 + 0.01, // Reduced max size
+                gravity: 0.03, friction: 0.96, bounces: 0
             });
         }
     }

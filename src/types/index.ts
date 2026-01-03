@@ -186,6 +186,11 @@ export interface Item {
     // Location (if on ground)
     x?: number;
     y?: number;
+
+    // Optional props for non-standard items
+    char?: string;
+    color?: string;
+    effect?: string;
 }
 
 export interface EquipmentState {
@@ -226,12 +231,19 @@ export interface RenderItem {
     draw: () => void;
 }
 
+export interface Corpse extends Point {
+    type: string | number;
+    rotation: number;
+    timestamp: number;
+}
+
 export interface GameState {
     player: Player | null;
     map: number[][];
     renderMap?: RenderMap; // Pre-calculated visual data
     entities: number[][]; // Grid for static entities
     enemies: Enemy[];
+    corpses: Corpse[];
     torches: Point[];
     location: 'home' | 'dungeon'; // New location state
     level: number;

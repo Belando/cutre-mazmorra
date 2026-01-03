@@ -14,6 +14,7 @@ export interface DungeonState extends DungeonResult {
     stairs: Point;
     stairsUp: Point | null;
     chests: Chest[];
+    corpses: import("@/types").Corpse[];
     location?: 'home' | 'dungeon';
 }
 
@@ -32,6 +33,7 @@ export function useDungeon(): UseDungeonResult {
         entities: [],
         enemies: [],
         items: [],
+        corpses: [],
         chests: [],
         torches: [],
         npcs: [],
@@ -139,6 +141,7 @@ export function useDungeon(): UseDungeonResult {
             // Fallbacks for missing generated props
             rooms: newDungeon.rooms || [],
             enemies: newDungeon.enemies || [],
+            corpses: [],
             stairs: newDungeon.stairs || { x: 0, y: 0 },
             stairsUp: newDungeon.stairsUp || null,
             location: isHome ? 'home' : 'dungeon'

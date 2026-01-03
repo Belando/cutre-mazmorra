@@ -42,9 +42,29 @@ export function useCombatLogic({
         const info = ENEMY_STATS[enemy.type as EnemyType];
         const newEnemies = [...dungeon.enemies];
         newEnemies.splice(enemyIdx, 1);
-        setDungeon(prev => ({ ...prev, enemies: newEnemies }));
+
+        // --- JUICE: CORPSE SPAWNING ---
+        const corpse = {
+            x: enemy.x,
+            y: enemy.y,
+            type: enemy.type,
+            rotation: Math.random() * 360,
+            timestamp: Date.now()
+        };
+
+        setDungeon(prev => ({
+            ...prev,
+            enemies: newEnemies,
+            corpses: [...(prev.corpses || []), corpse]
+        }));
         gainExp(info.exp);
         addMessage(`${info.name} derrotado! +${info.exp} XP`, 'death');
+
+        // --- JUICE: SCREEN SHAKE ON KILL ---
+        if (effectsManager.current) {
+            effectsManager.current.addShake(2); // Small shake on kill
+            effectsManager.current.addBlood(enemy.x, enemy.y); // Blood splatter
+        }
 
         // Remove from spatial hash
         if (spatialHash && spatialHash.remove) {
@@ -193,6 +213,9 @@ export function useCombatLogic({
                             const explosionColor = skillId === 'fireball' ? '#f97316' : (skillId === 'power_strike' || skillId === 'shield_bash' ? '#ffffff' : '#a855f7');
                             effectsManager.current.addExplosion(enemy.x, enemy.y, explosionColor);
 
+                            // JUICE: BLOOD ON HIT
+                            effectsManager.current.addBlood(enemy.x, enemy.y, '#dc2626');
+
                             const isCritical = dmgInfo.isCrit || false;
                             const finalColor = isCritical ? '#fef9c3' : damageColor;
                             const textToShow = isCritical ? `${dmgInfo.damage}!` : dmgInfo.damage.toString();
@@ -237,6 +260,7 @@ export function useCombatLogic({
         // Visuals
         if (effectsManager.current) {
             effectsManager.current.addExplosion(targetEnemy.x, targetEnemy.y, '#fff');
+            effectsManager.current.addBlood(targetEnemy.x, targetEnemy.y); // JUICE
             effectsManager.current.addText(targetEnemy.x, targetEnemy.y, damage.toString(), '#fff');
         }
         soundManager.play('hit');

@@ -34,6 +34,7 @@ export const ENTITY = {
     ENEMY_GOLEM: 16,
     ENEMY_VAMPIRE: 17,
     ENEMY_MIMIC: 18,
+    ENEMY_MAGE: 19, // New
     // Jefes (Bosses)
     BOSS_GOBLIN_KING: 100,
     BOSS_SKELETON_LORD: 101,
@@ -52,6 +53,9 @@ export const ENTITY = {
     DUNGEON_GATE: 203,
     PLANT: 204,
     DUNGEON_GATE_TRIGGER: 205,
+    CRATE: 206,
+    BARREL: 207,
+    SPIKES: 208,
     BLOCKER: 299,
 } as const;
 

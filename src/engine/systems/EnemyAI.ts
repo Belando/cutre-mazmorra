@@ -6,12 +6,14 @@ import { Entity, Enemy, Player, Point, ISpatialHash } from '@/types';
 
 import { AI_CONFIG, AI_BEHAVIORS } from '@/data/ai';
 
+// Extension to EnemyAction to support Healing
 export interface EnemyAction {
     action: string;
     x?: number;
     y?: number;
     range?: number;
     damage?: number;
+    targetId?: string | number; // For Support actions
 }
 
 // Asignar comportamiento según tipo de enemigo
@@ -26,9 +28,10 @@ export function getEnemyBehavior(enemyType: number | string): string {
         10: AI_BEHAVIORS.CAUTIOUS,   // Espectro
         13: AI_BEHAVIORS.PACK,       // Slime
         14: AI_BEHAVIORS.PACK,       // Lobo
-        15: AI_BEHAVIORS.CAUTIOUS,   // Cultista
+        15: AI_BEHAVIORS.SUPPORT,    // Cultista (Healer)
         17: AI_BEHAVIORS.CAUTIOUS,   // Vampiro
         18: AI_BEHAVIORS.AMBUSH,     // Mímico
+        19: AI_BEHAVIORS.CAUTIOUS,   // Mago (Ranged)
     };
 
     return behaviors[type] || AI_BEHAVIORS.AGGRESSIVE;
@@ -296,6 +299,48 @@ export function processEnemyTurn(enemy: Enemy, player: Player, enemies: Enemy[],
     let newPos: Point | null = null;
 
     switch (behavior) {
+        case AI_BEHAVIORS.SUPPORT:
+            // 1. Heal Analysis
+            const healRange = 4;
+            // @ts-ignore
+            const allies = enemies.filter(e =>
+                e !== enemy &&
+                Math.abs(e.x - enemy.x) + Math.abs(e.y - enemy.y) <= healRange &&
+                ((e.hp || 0) < (e.maxHp || 10)) // Damaged
+            );
+
+            if (allies.length > 0) {
+                // Heal the most damaged (by percentage)
+                // @ts-ignore
+                allies.sort((a, b) => ((a.hp || 0) / (a.maxHp || 1)) - ((b.hp || 0) / (b.maxHp || 1)));
+                const target = allies[0];
+
+                // 30% chance to fail/wait if just minor damage, but prioritize critical
+                // @ts-ignore
+                const isCritical = ((target.hp || 0) / (target.maxHp || 1)) < 0.4;
+                if (isCritical || Math.random() < 0.7) {
+                    return { action: 'heal', targetId: target.id };
+                }
+            }
+
+            // Fallback: Cautious behavior logic (simplified)
+            // @ts-ignore
+            if (dist <= 3) {
+                // @ts-ignore
+                newPos = moveAway(enemy, player, map, spatialHash);
+            } else if (canSee) {
+                // @ts-ignore
+                if (Math.random() < 0.3) newPos = moveAway(enemy, player, map, spatialHash);
+
+                // Ranged attack opportunity check
+                const rangedInfo = getEnemyRangedInfo(enemy.type);
+                if (rangedInfo && dist <= rangedInfo.range && hasLineOfSight(map, enemy.x, enemy.y, player.x, player.y)) {
+                    // @ts-ignore
+                    return { action: 'ranged_attack', range: rangedInfo.range };
+                }
+            }
+            break;
+
         case AI_BEHAVIORS.AGGRESSIVE:
             if (canSee || dist <= AI_CONFIG.PATHFINDING_LIMIT) {
                 newPos = moveToward(enemy, player.x, player.y, map, spatialHash);
@@ -350,6 +395,10 @@ export function processEnemyTurn(enemy: Enemy, player: Player, enemies: Enemy[],
                 if (enemy.type === ENTITY.BOSS_GOBLIN_KING || enemy.type === 'goblin_king') {
                     // Goblin King Specific Logic
                     return processGoblinKingTurn(enemy, player, enemies, map, spatialHash);
+                }
+
+                if (enemy.type === ENTITY.BOSS_LICH || enemy.type === 'lich') {
+                    return processLichTurn(enemy, player, enemies, map, spatialHash);
                 }
 
                 if (dist <= 2 && Math.random() < 0.3) {
@@ -459,6 +508,98 @@ function processGoblinKingTurn(boss: Enemy, player: Player, enemies: Enemy[], ma
             boss.lastMoveTime = now;
             return { action: 'move', x: move.x, y: move.y };
         }
+    }
+
+    return { action: 'wait' };
+}
+
+function processLichTurn(boss: Enemy, player: Player, enemies: Enemy[], map: number[][], spatialHash: ISpatialHash): EnemyAction {
+    const now = Date.now();
+    const dist = Math.abs(boss.x - player.x) + Math.abs(boss.y - player.y);
+
+    // 0. CHECK PHASE TRANSITION
+    const isEnraged = (boss.hp || 0) < (boss.maxHp || 10) * 0.5;
+    // @ts-ignore
+    if (isEnraged && !boss.hasEnraged) {
+        // @ts-ignore
+        boss.hasEnraged = true;
+        return { action: 'shout', message: '¡AHORA VERÁS!', color: '#ef4444' };
+    }
+
+    // 1. SUMMONING (Only when NOT enraged, or rarely when enraged?)
+    // King stops summoning and charges when enraged? Or summons MORE?
+    // Let's make him summon MORE but faster.
+    const SUMMON_COOLDOWN = isEnraged ? 8000 : 12000;
+    // @ts-ignore
+    if (!boss.lastSummonTime) boss.lastSummonTime = now + 5000;
+
+    // @ts-ignore
+    if (now - boss.lastSummonTime > SUMMON_COOLDOWN) {
+        let summoned = 0;
+        const totalSummons = 2;
+
+        for (let i = 0; i < totalSummons; i++) {
+            // Try random spots around boss
+            const dx = Math.floor(Math.random() * 5) - 2;
+            const dy = Math.floor(Math.random() * 5) - 2;
+            const sp = { x: boss.x + dx, y: boss.y + dy };
+
+            if (isTileFree(sp.x, sp.y, map, spatialHash)) {
+                // @ts-ignore
+                const minionType = Math.random() < 0.3 ? ENTITY.ENEMY_MAGE : ENTITY.ENEMY_SKELETON;
+                const template = ENEMY_STATS[minionType];
+                const minion: Enemy = {
+                    x: sp.x, y: sp.y,
+                    id: Date.now() + Math.random(),
+                    type: minionType,
+                    name: template.name,
+                    level: boss.level,
+                    hp: template.hp,
+                    maxHp: template.hp,
+                    mp: 0, maxMp: 0,
+                    // @ts-ignore
+                    stats: { attack: template.attack, defense: template.defense, speed: 1000 },
+                    lastActionTime: now + 1000
+                };
+                enemies.push(minion);
+                spatialHash.add(minion.x, minion.y, { ...minion, type: 'enemy' });
+                summoned++;
+            }
+        }
+
+        if (summoned > 0) {
+            // @ts-ignore
+            boss.lastSummonTime = now;
+            return { action: 'special_summon' };
+        }
+    }
+
+    // 2. RANGED ATTACK & KITING
+    // Lich tries to stay at range 4-6
+    const rangedInfo = getEnemyRangedInfo(boss.type);
+    if (rangedInfo && dist <= rangedInfo.range && hasLineOfSight(map, boss.x, boss.y, player.x, player.y)) {
+        // 70% chance to attack if in range
+        if (Math.random() < 0.7) return { action: 'ranged_attack', range: rangedInfo.range };
+    }
+
+    // 3. MOVEMENT (Kite / Keep Distance)
+    const optimalRange = 5;
+    let newPos: Point | null = null;
+
+    if (dist < optimalRange - 1) {
+        newPos = moveAway(boss, player, map, spatialHash);
+    } else if (dist > optimalRange + 1) {
+        newPos = moveToward(boss, player.x, player.y, map, spatialHash);
+    } else {
+        // Strafe
+        if (Math.random() < 0.5) newPos = getLateralMove(boss, player, map, spatialHash);
+    }
+
+    if (newPos) {
+        spatialHash.move(boss.x, boss.y, newPos.x, newPos.y, { ...boss, type: 'enemy' });
+        boss.x = newPos.x; boss.y = newPos.y;
+        boss.lastMoveTime = now;
+        return { action: 'move', x: newPos.x, y: newPos.y };
     }
 
     return { action: 'wait' };

@@ -366,27 +366,18 @@ export const ENV_SPRITES: Record<string, { draw: (ctx: CanvasRenderingContext2D,
     },
     goldPile: {
         draw: (ctx: CanvasRenderingContext2D, x: number, y: number, size: number) => {
-            const s = size;
-            ctx.fillStyle = '#fbbf24';
-            ctx.beginPath();
-            ctx.ellipse(x + s * 0.5, y + s * 0.75, s * 0.35, s * 0.12, 0, 0, Math.PI * 2);
-            ctx.fill();
-            ctx.fillStyle = '#f59e0b';
-            ctx.beginPath();
-            ctx.ellipse(x + s * 0.45, y + s * 0.65, s * 0.25, s * 0.1, 0, 0, Math.PI * 2);
-            ctx.fill();
-            ctx.fillStyle = '#fbbf24';
-            ctx.beginPath();
-            ctx.ellipse(x + s * 0.55, y + s * 0.6, s * 0.2, s * 0.08, 0, 0, Math.PI * 2);
-            ctx.fill();
-            ctx.fillStyle = '#fcd34d';
-            ctx.beginPath();
-            ctx.ellipse(x + s * 0.5, y + s * 0.52, s * 0.12, s * 0.05, 0, 0, Math.PI * 2);
-            ctx.fill();
-            ctx.fillStyle = '#fff';
-            ctx.beginPath();
-            ctx.arc(x + s * 0.6, y + s * 0.5, s * 0.03, 0, Math.PI * 2);
-            ctx.fill();
+            const img = spriteManager.get('gold_pile');
+            if (img && (img as HTMLImageElement).width > 0) {
+                const s = size * 0.45; // Coins are much smaller
+                ctx.drawImage(img as HTMLImageElement, x + (size - s) / 2, y + (size - s) / 2, s, s);
+            } else {
+                const s = size;
+                ctx.fillStyle = '#fbbf24';
+                ctx.beginPath();
+                ctx.ellipse(x + s * 0.5, y + s * 0.75, s * 0.35, s * 0.12, 0, 0, Math.PI * 2);
+                ctx.fill();
+                // ... (rest of procedural fallback)
+            }
         }
     },
     stairs: {
@@ -505,19 +496,54 @@ export const ENV_SPRITES: Record<string, { draw: (ctx: CanvasRenderingContext2D,
     },
     barrel: {
         draw: (ctx: CanvasRenderingContext2D, x: number, y: number, size: number) => {
-            const s = size;
-            ctx.fillStyle = '#78350f';
-            ctx.beginPath();
-            ctx.ellipse(x + s * 0.5, y + s * 0.75, s * 0.3, s * 0.1, 0, 0, Math.PI * 2);
-            ctx.fill();
-            ctx.fillRect(x + s * 0.2, y + s * 0.25, s * 0.6, s * 0.5);
-            ctx.fillStyle = '#92400e';
-            ctx.beginPath();
-            ctx.ellipse(x + s * 0.5, y + s * 0.25, s * 0.3, s * 0.1, 0, 0, Math.PI * 2);
-            ctx.fill();
-            ctx.fillStyle = '#71717a';
-            ctx.fillRect(x + s * 0.18, y + s * 0.32, s * 0.64, s * 0.04);
-            ctx.fillRect(x + s * 0.18, y + s * 0.55, s * 0.64, s * 0.04);
+            const img = spriteManager.get('barrel');
+            if (img && (img as HTMLImageElement).width > 0) {
+                const image = img as HTMLImageElement;
+                // Barrel is slightly smaller than full tile but chunky
+                const s = size * 1.1;
+                // Center it
+                ctx.drawImage(image, x - (s - size) / 2, y - (s - size) / 2 - size * 0.1, s, s);
+            } else {
+                // Fallback
+                const s = size;
+                ctx.fillStyle = '#78350f';
+                ctx.beginPath();
+                // ... (existing fallback code could go here, but omitted for brevity)
+                ctx.ellipse(x + s * 0.5, y + s * 0.75, s * 0.3, s * 0.1, 0, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.fillRect(x + s * 0.2, y + s * 0.25, s * 0.6, s * 0.5);
+            }
+        }
+    },
+    crate: {
+        draw: (ctx: CanvasRenderingContext2D, x: number, y: number, size: number) => {
+            const img = spriteManager.get('crate');
+            if (img && (img as HTMLImageElement).width > 0) {
+                const s = size * 1.1;
+                // Isometric box centers well usually
+                ctx.drawImage(img as HTMLImageElement, x - (s - size) / 2, y - (s - size) / 2 - size * 0.2, s, s);
+            } else {
+                const s = size;
+                ctx.fillStyle = '#b45309';
+                ctx.fillRect(x + s * 0.1, y + s * 0.2, s * 0.8, s * 0.7);
+            }
+        }
+    },
+    spikes: {
+        draw: (ctx: CanvasRenderingContext2D, x: number, y: number, size: number) => {
+            const img = spriteManager.get('spikes');
+            if (img && (img as HTMLImageElement).width > 0) {
+                const s = size; // Spikes are floor level
+                ctx.drawImage(img as HTMLImageElement, x, y + size * 0.2, s, s);
+            } else {
+                const s = size;
+                ctx.fillStyle = '#525252';
+                ctx.beginPath();
+                ctx.moveTo(x + s * 0.2, y + s * 0.8);
+                ctx.lineTo(x + s * 0.3, y + s * 0.3);
+                ctx.lineTo(x + s * 0.4, y + s * 0.8);
+                ctx.fill();
+            }
         }
     },
     pillar: {

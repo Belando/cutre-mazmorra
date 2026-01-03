@@ -35,6 +35,8 @@ export function getEnemiesForLevel(level: number): number[] {
     for (const [entityId, stats] of Object.entries(ENEMY_STATS)) {
         const s = stats as EnemyStats;
         if (!s.isBoss && s.minLevel <= level) {
+            // Optional: Cap low level enemies so they stop spawning at high levels
+            if (level > s.minLevel + 4 && Math.random() < 0.8) continue; // 80% chance to skip weak mobs
             available.push(parseInt(entityId));
         }
     }

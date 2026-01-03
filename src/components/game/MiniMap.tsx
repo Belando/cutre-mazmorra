@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { TILE } from '@/data/constants';
 import {
     GiTreasureMap,
@@ -35,63 +35,108 @@ export default function MiniMap({ gameState, floorHistory = [], expanded, onExpa
         const ctx = canvas.getContext('2d');
         if (!ctx) return;
 
-        const { map, player, explored, stairs, stairsUp } = gameState;
-        if (!map || !map.length || !map[0]) return;
+        const { map, player, explored, stairs, stairsUp, npcs } = gameState;
+        if (!map || !map.length || !map[0] || !player) return;
 
-        const scale = 3;
+        // RADAR CONFIG
+        const scale = 10; // Zoom level (increased slightly)
+        const radarSize = 160; // Canvas size (increased)
+        const radius = 9; // Tiles radius to draw
 
-        canvas.width = map[0].length * scale;
-        canvas.height = map.length * scale;
+        canvas.width = radarSize;
+        canvas.height = radarSize;
 
-        ctx.fillStyle = '#0a0a0f';
-        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        // Clear and Background
+        ctx.fillStyle = '#050510';
+        ctx.fillRect(0, 0, radarSize, radarSize);
 
-        for (let y = 0; y < map.length; y++) {
-            for (let x = 0; x < map[0].length; x++) {
+        // Save context for transform
+        ctx.save();
+
+        // Center the view on the canvas
+        ctx.translate(radarSize / 2, radarSize / 2);
+
+        // Offset by player position (inverted) to correct world space
+        ctx.translate(-player.x * scale - scale / 2, -player.y * scale - scale / 2);
+
+        // Draw Map Tiles in Range
+        const startX = Math.max(0, player.x - radius - 2);
+        const endX = Math.min(map[0].length, player.x + radius + 2);
+        const startY = Math.max(0, player.y - radius - 2);
+        const endY = Math.min(map.length, player.y + radius + 2);
+
+        for (let y = startY; y < endY; y++) {
+            for (let x = startX; x < endX; x++) {
                 if (explored[y]?.[x]) {
                     const tile = map[y][x];
 
                     if (tile === TILE.WALL) {
-                        ctx.fillStyle = '#1a1a2e';
+                        ctx.fillStyle = '#2a2a4e';
                     } else if (tile === TILE.DOOR) {
                         ctx.fillStyle = '#d97706';
                     } else if (tile === TILE.DOOR_OPEN) {
                         ctx.fillStyle = '#4b5563';
                     } else {
-                        ctx.fillStyle = '#2a2a4e';
+                        ctx.fillStyle = '#1a1a2e'; // Floor
                     }
-
                     ctx.fillRect(x * scale, y * scale, scale, scale);
+                } else {
+                    // Unexplored but in range (optional: fog?)
                 }
             }
         }
 
-        if (stairs && explored[stairs.y]?.[stairs.x]) {
-            ctx.fillStyle = '#ef4444';
-            ctx.fillRect(stairs.x * scale, stairs.y * scale, scale, scale);
-        }
+        // Helper to draw marker
+        const drawMarker = (x: number, y: number, color: string, size: number = scale) => {
+            if (explored[y]?.[x]) {
+                ctx.fillStyle = color;
+                // Draw circle marker
+                ctx.beginPath();
+                ctx.arc(x * scale + scale / 2, y * scale + scale / 2, size / 2, 0, Math.PI * 2);
+                ctx.fill();
+            }
+        };
 
-        if (stairsUp && explored[stairsUp.y]?.[stairsUp.x]) {
-            ctx.fillStyle = '#22c55e';
-            ctx.fillRect(stairsUp.x * scale, stairsUp.y * scale, scale, scale);
-        }
+        // Draw Stairs
+        if (stairs) drawMarker(stairs.x, stairs.y, '#ef4444', scale * 1.2); // Down (Red)
+        if (stairsUp) drawMarker(stairsUp.x, stairsUp.y, '#22c55e', scale * 1.2); // Up (Green)
 
-        if (gameState.npcs) {
-            gameState.npcs.forEach(npc => {
+        // Draw Chests (if available in gameState, assuming implied via map or separate list)
+        // Checks removed due to lint error (TILE.CHEST undefined). 
+        // Ideally should iterate over gameState.items or similar if chests are items.
+
+        // Draw NPCs
+        if (npcs) {
+            npcs.forEach(npc => {
+                // Only if explored? Or maybe radar detects movement? 
+                // Usually only if explored or visible. Let's stick to explored logic for now.
                 if (explored[npc.y]?.[npc.x]) {
-                    ctx.fillStyle = '#fbbf24';
-                    ctx.fillRect(npc.x * scale, npc.y * scale, scale, scale);
+                    const isHostile = npc.type !== 'merchant' && npc.type !== 'quest_giver';
+                    drawMarker(npc.x, npc.y, isHostile ? '#dc2626' : '#fbbf24', scale);
                 }
             });
         }
 
-        if (player) {
-            ctx.fillStyle = '#3b82f6';
-            ctx.fillRect(player.x * scale - 1, player.y * scale - 1, scale + 2, scale + 2);
-        }
+        // Restore context
+        ctx.restore();
 
-    }, [gameState]);
+        // Draw Player (Center)
+        // Since we translated everything relative to player, player is at (0,0) of the translated space
+        // which corresponds to center of canvas.
+        // Let's draw it explicitly in screen space to be sure it's on top.
+        ctx.fillStyle = '#3b82f6';
+        ctx.shadowColor = '#3b82f6';
+        ctx.shadowBlur = 10;
+        ctx.beginPath();
+        ctx.arc(radarSize / 2, radarSize / 2, 4, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.shadowBlur = 0;
 
+        // Player directional arrow (optional, if we had direction)
+
+    }, [gameState]); // Removed other dependencies for cleaner re-render logic
+
+    // Keep expanded logic below...
     useEffect(() => {
         if (!expanded || !expandedCanvasRef.current) return;
 
@@ -155,17 +200,25 @@ export default function MiniMap({ gameState, floorHistory = [], expanded, onExpa
     return (
         <>
             <div
-                className="p-2 transition-colors border cursor-pointer bg-slate-900/80 backdrop-blur-sm rounded-xl border-slate-700/50 hover:border-slate-600/50"
+                className="relative cursor-pointer transition-transform hover:scale-105 active:scale-95 group"
                 onClick={() => { onExpandChange(true); setViewingFloor(null); }}
             >
-                <div className="flex items-center justify-between mb-1">
-                    <div className="flex items-center gap-1">
-                        <GiTreasureMap className="w-4 h-4 text-amber-500" />
-                        <span className="text-[10px] text-slate-400 font-bold">Piso {currentFloor}</span>
-                    </div>
-                    <span className="text-[8px] text-slate-600">Click: Mapa</span>
+                {/* COMPASS FRAME */}
+                <div className="w-40 h-40 rounded-full border-4 border-[#2a2a3e] bg-[#0a0a0f] shadow-[0_0_25px_rgba(0,0,0,0.8)] overflow-hidden relative">
+                    <canvas ref={canvasRef} className="w-full h-full opacity-90" style={{ imageRendering: 'pixelated' }} />
+
+                    {/* Compass Overlay/Gloss */}
+                    <div className="absolute inset-0 rounded-full border border-white/10 shadow-[inset_0_0_30px_rgba(0,0,0,0.9)] pointer-events-none"></div>
+                    <div className="absolute top-0 left-1/2 -translate-x-1/2 w-0.5 h-2 bg-amber-500/50 z-10"></div>
                 </div>
-                <canvas ref={canvasRef} className="w-full border rounded border-slate-700/50 bg-black" style={{ imageRendering: 'pixelated' }} />
+
+                {/* Floor Indicator Badge */}
+                <div className="absolute -bottom-2 left-1/2 -translate-x-1/2 bg-[#1a1a2e] border border-[#3a3a5e] px-2 py-0.5 rounded-full shadow-lg z-20">
+                    <div className="flex items-center gap-1">
+                        <GiTreasureMap className="w-3 h-3 text-amber-500" />
+                        <span className="text-[10px] font-bold text-slate-300 font-mono">Piso {currentFloor}</span>
+                    </div>
+                </div>
             </div>
 
             <AnimatePresence>

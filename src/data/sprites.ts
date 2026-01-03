@@ -42,13 +42,14 @@ export function getSpriteForEnemy(type: number | string): SpriteComponent | null
         case ENTITY.ENEMY_DRAGON: texture = 'rat'; break; // Placeholder
         case ENTITY.ENEMY_SLIME: texture = 'slime_sheet'; break;
         case ENTITY.ENEMY_WOLF: texture = 'wolf'; break;
-        case ENTITY.ENEMY_CULTIST: texture = 'skeleton'; break; // Placeholder
+        case ENTITY.ENEMY_CULTIST: texture = 'cultist'; break;
         case ENTITY.ENEMY_GOLEM: texture = 'goblin'; break; // Placeholder
         case ENTITY.BOSS_GOBLIN_KING: texture = 'goblin_king'; break;
         case ENTITY.BOSS_SKELETON_LORD: texture = 'skeleton'; break;
+        case ENTITY.BOSS_LICH: texture = 'lich'; break;
         case ENTITY.BOSS_ORC_WARLORD: texture = 'goblin'; break;
-        case ENTITY.BOSS_DEMON_LORD: texture = 'goblin'; break;
-        case ENTITY.BOSS_ANCIENT_DRAGON: texture = 'rat'; break;
+        case ENTITY.BOSS_DEMON_LORD: texture = 'demon'; break; // Fallback to demon? Or Placeholder
+        case ENTITY.BOSS_ANCIENT_DRAGON: texture = 'dragon'; break;
 
         default: return null;
     }
@@ -83,6 +84,25 @@ export function getSpriteForEnemy(type: number | string): SpriteComponent | null
             currentFrameIndex: 0,
             frameTimer: 0,
             frameDuration: 120
+        };
+    }
+
+    // Single Isometric Sprites (Generated)
+    if (['lich', 'cultist', 'skeleton_mage'].includes(texture)) {
+        return {
+            texture: texture,
+            frameSize: { x: 128, y: 128 },
+            cols: 1,
+            anims: {
+                walk_down: [0], walk_left: [0], walk_right: [0], walk_up: [0],
+                attack_down: [0], attack_left: [0], attack_right: [0], attack_up: [0],
+                idle_down: [0]
+            },
+            flipLeft: false, // Isometric often strictly one way, but we can flip if needed. Usually generated assets are facing one way.
+            currentAnim: 'idle_down',
+            currentFrameIndex: 0,
+            frameTimer: 0,
+            frameDuration: 1000
         };
     }
 

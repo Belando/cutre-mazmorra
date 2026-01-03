@@ -45,6 +45,7 @@ export const ENEMY_STATS: Record<number, EnemyStats> = {
     [ENTITY.ENEMY_WRAITH]: { name: 'Espectro', hp: 35, attack: 11, defense: 3, exp: 25, symbol: 'W', color: '#6366f1', minLevel: 5, renderKey: 'wraith' },
     [ENTITY.ENEMY_VAMPIRE]: { name: 'Vampiro', hp: 45, attack: 12, defense: 4, exp: 32, symbol: 'V', color: '#7f1d1d', minLevel: 5, renderKey: 'vampire' },
     [ENTITY.ENEMY_MIMIC]: { name: 'Mimico', hp: 38, attack: 14, defense: 5, exp: 35, symbol: 'M', color: '#92400e', minLevel: 5, renderKey: 'mimic' },
+    [ENTITY.ENEMY_MAGE]: { name: 'Mago Esqueleto', hp: 25, attack: 10, defense: 1, exp: 20, symbol: 'L', color: '#6366f1', minLevel: 6, renderKey: 'skeleton_mage' },
     [ENTITY.ENEMY_DEMON]: { name: 'Demonio', hp: 55, attack: 13, defense: 6, exp: 35, symbol: 'D', color: '#ef4444', minLevel: 6, renderKey: 'demon' },
     [ENTITY.ENEMY_DRAGON]: { name: 'Dragón Joven', hp: 70, attack: 15, defense: 8, exp: 50, symbol: 'd', color: '#f59e0b', minLevel: 7, renderKey: 'dragon' },
 
@@ -76,6 +77,7 @@ export const ENEMY_RANGED_INFO: Record<string, RangedEnemyInfo> = {
     [ENTITY.ENEMY_DEMON]: { range: 5, name: 'Bola de Fuego', preferMelee: true },
     [ENTITY.ENEMY_DRAGON]: { range: 6, name: 'Aliento de Fuego', preferMelee: true },
     [ENTITY.ENEMY_CULTIST]: { range: 6, name: 'Rayo Oscuro', preferMelee: false },
+    [ENTITY.ENEMY_MAGE]: { range: 6, name: 'Bola de Fuego', preferMelee: false },
     [ENTITY.ENEMY_VAMPIRE]: { range: 5, name: 'Drenar Vida', preferMelee: false },
     [ENTITY.BOSS_LICH]: { range: 7, name: 'Rayo de Hielo', preferMelee: false },
     [ENTITY.BOSS_DEMON_LORD]: { range: 6, name: 'Infierno', preferMelee: true },

@@ -110,6 +110,50 @@ export function useRealTimeSystem() {
                     addMessage(`${enemyName} te golpea: -${combatResult.damage} HP`, 'enemy_damage');
                     soundManager.play('enemy_hit');
                     if (showFloatingText) showFloatingText(player.x, player.y, `${combatResult.damage}`, '#dc2626', false, true);
+
+                    // APPLY STATUS EFFECTS
+                    const eKey = ENEMY_STATS[enemy.type as EnemyType]?.renderKey;
+
+                    // Spider: Slow
+                    if (eKey === 'spider' && Math.random() < 0.3) {
+                        // @ts-ignore
+                        setPlayer(prev => prev ? ({ ...prev, slowed: 3 }) : null);
+                        addMessage("¡La araña te ha ralentizado!", 'warning');
+                        if (showFloatingText) showFloatingText(player.x, player.y, "SLOW", '#a855f7');
+                    }
+
+                    // Mage/Demon/Dragon: Burn (Poison logic)
+                    if ((eKey === 'skeleton_mage' || eKey === 'demon' || eKey === 'dragon') && Math.random() < 0.4) {
+                        // @ts-ignore
+                        setPlayer(prev => prev ? ({ ...prev, poisoned: 4, poisonDamage: 2 }) : null); // 2 dmg per sec for 4 sec
+                        addMessage("¡Estás ardiendo!", 'warning');
+                        if (showFloatingText) showFloatingText(player.x, player.y, "BURN", '#f97316');
+                    }
+
+                    // Cultist: Mark/Curse (Reduce MP or just visual for now)
+                    if (eKey === 'cultist' && Math.random() < 0.3) {
+                        addMessage("¡Sientes una maldición!", 'warning');
+                        // Just drain MP immediately
+                        // @ts-ignore
+                        setPlayer(prev => prev ? ({ ...prev, mp: Math.max(0, (prev.mp || 0) - 2) }) : null);
+                    }
+                }
+            } else if (action.action === 'heal' && action.targetId) {
+                const target = newEnemies.find(e => e.id === action.targetId);
+                if (target) {
+                    enemy.lastActionTime = now; // Add cooldown
+
+                    const healAmount = 15;
+                    // @ts-ignore
+                    target.hp = Math.min((target.hp || 0) + healAmount, target.maxHp || 10);
+                    // @ts-ignore
+                    addMessage(`${ENEMY_STATS[enemy.type]?.name || 'Enemigo'} cura a ${ENEMY_STATS[target.type]?.name}!`, 'warning');
+                    if (showFloatingText) {
+                        showFloatingText(enemy.x, enemy.y, "HEAL!", '#22c55e');
+                        showFloatingText(target.x, target.y, `+${healAmount}`, '#22c55e', true);
+                        // @ts-ignore
+                        if (dungeon.effectsManager) dungeon.effectsManager.addSparkles(target.x, target.y, '#22c55e');
+                    }
                 }
             }
         });

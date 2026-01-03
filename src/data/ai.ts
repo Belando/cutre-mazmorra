@@ -12,6 +12,7 @@ export const AI_BEHAVIORS = {
     PACK: 'pack',
     AMBUSH: 'ambush',
     BOSS: 'boss',
+    SUPPORT: 'support',
 } as const;
 
 export type AIBehavior = typeof AI_BEHAVIORS[keyof typeof AI_BEHAVIORS];

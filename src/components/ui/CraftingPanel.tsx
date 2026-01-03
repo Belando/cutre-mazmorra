@@ -81,20 +81,27 @@ export default function CraftingPanel({
                 className="w-full max-w-lg overflow-hidden border shadow-2xl bg-slate-900 rounded-2xl border-slate-700"
                 onClick={e => e.stopPropagation()}
             >
-                <div className="relative p-6 pb-2 text-center border-b border-slate-800 bg-gradient-to-b from-slate-800/50 to-slate-900">
-                    <div className="absolute top-4 right-4">
-                        <Button variant="ghost" size="icon" onClick={onClose} className="text-slate-500 hover:text-white hover:bg-slate-800">
-                            <X className="w-5 h-5" />
+                <div className="relative p-6 pb-4 text-center border-b border-orange-900/50 bg-[#1a0f0f] overflow-hidden">
+                    {/* Fire Effect */}
+                    <div className="absolute inset-0 opacity-20 bg-[url('/noise.png')]"></div>
+                    <div className="absolute bottom-0 left-0 right-0 h-24 bg-gradient-to-t from-orange-600/20 to-transparent pointer-events-none"></div>
+
+                    <div className="absolute top-4 right-4 z-10">
+                        <Button variant="ghost" size="icon" onClick={onClose} className="text-orange-200/50 hover:text-white hover:bg-orange-900/30">
+                            <X className="w-6 h-6" />
                         </Button>
                     </div>
 
-                    <div className="flex flex-col items-center justify-center">
-                        <div className="flex items-center justify-center w-16 h-16 mb-3 text-4xl border-2 rounded-full shadow-lg bg-slate-950"
+                    <div className="flex flex-col items-center justify-center relative z-10">
+                        <div className="flex items-center justify-center w-20 h-20 mb-3 text-5xl border-4 rounded-xl shadow-[0_0_20px_rgba(249,115,22,0.4)] bg-slate-900 transform rotate-3"
                             style={{ borderColor: npc?.color || '#f97316', color: npc?.color || '#f97316' }}>
-                            {npc ? npc.symbol : <Hammer />}
+                            {npc ? npc.symbol : <Hammer className="animate-pulse" />}
                         </div>
-                        <h2 className="text-xl font-bold text-white">{npc ? npc.name : "Forja"}</h2>
-                        <p className="text-xs font-medium tracking-wider uppercase text-slate-500">
+                        <h2 className="text-3xl font-black text-transparent bg-clip-text bg-gradient-to-b from-orange-200 to-orange-600 font-fantasy uppercase drop-shadow-sm">
+                            {npc ? npc.name : "LA FORJA"}
+                        </h2>
+                        <div className="h-0.5 w-16 bg-orange-800/50 my-2"></div>
+                        <p className="text-xs font-bold tracking-[0.3em] uppercase text-orange-400/80">
                             {npc ? 'Herrero Maestro' : 'Estación de Crafteo'}
                         </p>
                     </div>
@@ -290,8 +297,8 @@ function ActionButton({ icon: Icon, label, isActive, onClick, color }: ActionBut
         <button
             onClick={onClick}
             className={`flex-1 flex flex-col items-center justify-center py-2 px-1 rounded-lg transition-all ${isActive
-                    ? 'bg-slate-800 border border-slate-600 shadow-inner'
-                    : 'bg-transparent hover:bg-slate-800/50 border border-transparent'
+                ? 'bg-slate-800 border border-slate-600 shadow-inner'
+                : 'bg-transparent hover:bg-slate-800/50 border border-transparent'
                 }`}
         >
             <Icon className={`w-5 h-5 mb-1 ${isActive ? color : 'text-slate-500'}`} />

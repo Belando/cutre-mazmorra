@@ -126,13 +126,23 @@ export function usePlayer(): UsePlayerResult {
     const regenerate = useCallback(() => {
         setPlayer(prev => {
             if (!prev) return null;
-            const mp = Math.min((prev.mp || 0) + 1, prev.maxMp || 30);
+            let { mp, maxMp, hp, slowed, poisoned, poisonDamage } = prev;
+            mp = Math.min((mp || 0) + 1, maxMp || 30);
+
+            // Handle Status Effects
+            if ((slowed || 0) > 0) slowed = (slowed || 0) - 1;
+
+            if ((poisoned || 0) > 0) {
+                poisoned = (poisoned || 0) - 1;
+                hp = (hp || 0) - (poisonDamage || 1);
+            }
+
             let skills = prev.skills ? { ...prev.skills } : undefined;
             if (skills) {
                 skills.cooldowns = updateCooldowns(skills.cooldowns);
                 skills.buffs = updateBuffs(skills.buffs);
             }
-            return { ...prev, mp, skills } as Player; // Cast because skills might be undefined but Entity says optional, Player says strict? I defined Player with strict skills.
+            return { ...prev, mp, hp, skills, slowed, poisoned } as Player;
         });
     }, []);
 

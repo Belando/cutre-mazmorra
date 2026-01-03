@@ -1,5 +1,5 @@
 import { useRef } from 'react';
-import { TILE } from '@/data/constants';
+import { TILE, ENTITY } from '@/data/constants';
 import { SKILLS } from '@/data/skills';
 import { canUseSkill } from '@/engine/systems/SkillSystem';
 import { soundManager } from "@/engine/systems/SoundSystem";
@@ -41,6 +41,12 @@ export function useMovementActions(
     const openingDoors = useRef(new Set<string>());
 
     const move = (dx: number, dy: number) => {
+        // MOVEMENT COOLDOWN / SLOW LOGIC
+        const now = Date.now();
+        const baseSpeed = 100; // ms
+        const moveDelay = (player.slowed || 0) > 0 ? 300 : baseSpeed;
+
+        if (player.lastMoveTime && now - player.lastMoveTime < moveDelay) return;
         const nx = player.x + dx;
         const ny = player.y + dy;
 
@@ -88,6 +94,68 @@ export function useMovementActions(
             return;
         }
 
+        // --- INTERACTIVITY CHECK (Crates/Barrels) ---
+        // Check map entities grid (assuming useDungeon keeps track of static entities there?)
+        // Or check `dungeon.entities` which is number[][]
+        // NOTE: spatialHash stores dynamic entities. Static ones are usually in dungeon.entities?
+        // Let's check dungeon.entities grid first for destructibles.
+        const staticEntity = dungeon.entities[ny]?.[nx];
+        if (staticEntity === ENTITY.CRATE || staticEntity === ENTITY.BARREL) {
+            // Attack the object!
+            soundManager.play('hit');
+            if (effectsManager.current) {
+                effectsManager.current.addText(nx, ny, "Hit", "#e2e8f0");
+                effectsManager.current.addExplosion(nx, ny, "#78350f"); // Wood color
+            }
+
+            // "Destroy" logic - remove from grid and potentially spawn item
+            setDungeon(prev => {
+                const newEntities = prev.entities.map(row => [...row]);
+                newEntities[ny][nx] = ENTITY.NONE;
+
+                // Spawn Wood Chip Particles (visual only via effectsManager above)
+
+                // Chance for loot
+                const dropChance = Math.random();
+                let newItems = [...prev.items];
+                let msg = "";
+
+                if (dropChance < 0.3) {
+                    // Drop Gold
+                    const goldAmount = Math.floor(Math.random() * 5) + 1;
+                    newItems.push({
+                        id: `gold-crate-${nx}-${ny}`,
+                        x: nx, y: ny,
+                        name: 'Oro',
+                        category: 'currency',
+                        rarity: 'common',
+                        value: goldAmount,
+                        char: '$', color: '#ffD700'
+                    });
+                    msg = "¡Encontraste oro!";
+                } else if (dropChance < 0.4) {
+                    // Drop Potion
+                    newItems.push({
+                        id: `potion-crate-${nx}-${ny}`,
+                        x: nx, y: ny,
+                        name: 'Poción Menor',
+                        category: 'potion',
+                        rarity: 'common',
+                        effect: 'heal',
+                        value: 20,
+                        char: '!', color: '#ef4444'
+                    });
+                    msg = "¡Una poción!";
+                }
+
+                if (msg) addMessage(msg, 'pickup');
+
+                return { ...prev, entities: newEntities, items: newItems };
+            });
+
+            return; // Stop movement, we attacked
+        }
+
         // Blocking Obstacles (Trees, Rocks, Gate, Invisible Blockers)
         const obstacle = entitiesAtTarget.find(e => ['tree', 'rock', 'dungeon_gate', 'blocker'].includes(String(e.type)));
         if (obstacle) {
@@ -125,7 +193,31 @@ export function useMovementActions(
 
         // --- MOVIMIENTO VÁLIDO ---
         spatialHash.move(player.x, player.y, nx, ny, { ...player, type: 'player' });
-        updatePlayer({ x: nx, y: ny, lastMoveTime: Date.now() });
+
+        // Check for Traps (Spikes)
+        // Spikes don't block, but hurt
+        const tileEntity = dungeon.entities[ny]?.[nx];
+        if (tileEntity === ENTITY.SPIKES) {
+            soundManager.play('hit');
+            // Damage player
+            const damage = 5;
+            updatePlayer({
+                x: nx, y: ny,
+                lastMoveTime: Date.now(),
+                hp: Math.max(0, (player.hp || 100) - damage)
+            });
+
+            if (effectsManager.current) {
+                effectsManager.current.addBlood(nx, ny);
+                effectsManager.current.addText(nx, ny, `-${damage}`, "#dc2626", true);
+                effectsManager.current.addShake(2);
+            }
+            addMessage("¡Pinchos! Te has herido.", 'damage');
+        } else {
+            // Normal Move
+            updatePlayer({ x: nx, y: ny, lastMoveTime: Date.now() });
+        }
+
         updateMapFOV(nx, ny); // Update FOV immediately on move
 
         soundManager.play('step');

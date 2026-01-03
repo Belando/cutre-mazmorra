@@ -72,16 +72,17 @@ const ItemSlot = ({ item, onClick, isSelected, isEmpty, index, onDragStart, onDr
             onDragStart={(e) => onDragStart?.(e, index)}
             onDrop={(e) => onDrop?.(e, index)}
             onDragOver={onDragOver}
-            className={`relative w-10 h-10 rounded border-2 flex items-center justify-center transition-all group ${rarityStyles} ${isSelected ? 'ring-2 ring-white scale-110 z-10' : 'hover:scale-105 hover:brightness-110'}`}
+            className={`relative w-10 h-10 rounded border-2 flex items-center justify-center transition-all group overflow-hidden ${rarityStyles} ${isSelected ? 'ring-2 ring-white scale-110 z-10' : 'hover:scale-110 hover:brightness-125 hover:z-10'}`}
         >
-            <Icon className="w-6 h-6 drop-shadow-md pointer-events-none" />
+            <div className="absolute inset-0 bg-gradient-to-tr from-white/0 to-white/20 opacity-0 group-hover:opacity-100 transition-opacity"></div>
+            <Icon className="w-6 h-6 drop-shadow-md pointer-events-none relative z-10" />
             {(item.quantity || 1) > 1 && (
-                <span className="absolute bottom-0 right-0 text-[9px] bg-black/90 px-1 rounded-tl text-white font-bold border-t border-l border-slate-700 leading-none">
+                <span className="absolute bottom-0 right-0 text-[9px] bg-black/90 px-1 rounded-tl text-white font-bold border-t border-l border-slate-700 leading-none z-20">
                     {item.quantity}
                 </span>
             )}
             {(item.upgradeLevel || 0) > 0 && (
-                <span className="absolute top-0 left-0 text-[8px] text-yellow-300 font-bold drop-shadow-md leading-none bg-black/50 px-0.5 rounded">
+                <span className="absolute top-0 left-0 text-[8px] text-yellow-300 font-bold drop-shadow-md leading-none bg-black/50 px-0.5 rounded z-20">
                     +{item.upgradeLevel}
                 </span>
             )}
@@ -252,7 +253,7 @@ export default function InventoryPanel({
 
                 <div className="flex flex-col border-r w-72 bg-slate-900/80 border-slate-700">
                     <div className="p-4 border-b border-slate-700 bg-slate-950/50">
-                        <h2 className="flex items-center gap-2 text-lg font-bold text-slate-200">
+                        <h2 className="flex items-center gap-2 text-lg font-bold text-slate-200 font-fantasy">
                             <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
                             {player.name || "Héroe"}
                         </h2>
@@ -318,7 +319,7 @@ export default function InventoryPanel({
 
                 <div className="flex flex-col flex-1 bg-slate-900/30">
                     <div className="flex items-center justify-between p-4 border-b border-slate-700 bg-slate-900/80">
-                        <h2 className="flex items-center gap-2 text-lg font-bold text-amber-100">
+                        <h2 className="flex items-center gap-2 text-lg font-bold text-amber-100 font-fantasy tracking-wider">
                             <GiBackpack className="w-6 h-6 text-amber-500" /> Mochila
                         </h2>
                         <div className="flex items-center gap-3">
@@ -399,7 +400,7 @@ export default function InventoryPanel({
                                     </div>
                                 </div>
                                 <div className="text-center">
-                                    <h3 className={`text-xl font-bold leading-tight ${{
+                                    <h3 className={`text-xl font-bold leading-tight font-fantasy tracking-wide ${{
                                         common: 'text-slate-200',
                                         uncommon: 'text-emerald-400',
                                         rare: 'text-blue-400',

@@ -4,6 +4,12 @@
 @tailwind components;
 @tailwind utilities;
 
+@import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@400;700;900&display=swap');
+
+.font-fantasy {
+  font-family: 'Cinzel', serif;
+}
+
 /* Contenedor principal del Canvas */
 .game-viewport {
   position: relative;

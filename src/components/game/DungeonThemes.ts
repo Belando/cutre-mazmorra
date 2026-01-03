@@ -20,43 +20,32 @@ export const DUNGEON_THEMES: Record<string, DungeonTheme> = {
         ambient: 'rgba(100, 120, 180, 0.1)',
         fogColor: 'rgba(20, 30, 60, 0.3)',
     },
+    cave: {
+        name: 'Cavernas Oscuras',
+        wall: '#3b2f2f', // Brownish
+        wallDetail: '#4e3e3e',
+        floor: '#2e2626',
+        floorDetail: '#3d3232',
+        ambient: 'rgba(20, 15, 10, 0.4)', // Dark/Dim
+        fogColor: 'rgba(25, 20, 15, 0.6)',
+        lavaGlow: false,
+    },
     crypt: {
-        name: 'Cripta Antigua',
-        wall: '#1f1f1f',
-        wallDetail: '#2a2a2a',
-        floor: '#171717',
-        floorDetail: '#1c1c1c',
-        ambient: 'rgba(80, 80, 100, 0.15)',
-        fogColor: 'rgba(40, 40, 50, 0.4)',
-    },
-    volcanic: {
-        name: 'Cavernas Volcánicas',
-        wall: '#2d1810',
-        wallDetail: '#3d2015',
-        floor: '#1a0f0a',
-        floorDetail: '#251510',
-        ambient: 'rgba(255, 80, 20, 0.15)',
-        fogColor: 'rgba(60, 20, 10, 0.3)',
-        lavaGlow: true,
-    },
-    inferno: {
-        name: 'Infierno',
-        wall: '#1a0505',
-        wallDetail: '#2d0a0a',
-        floor: '#0d0202',
-        floorDetail: '#150505',
-        ambient: 'rgba(255, 50, 0, 0.2)',
-        fogColor: 'rgba(80, 10, 0, 0.4)',
-        lavaGlow: true,
-        embers: true,
+        name: 'Cripta Maldita',
+        wall: '#1f2923', // Dark Greenish Grey
+        wallDetail: '#2a3830',
+        floor: '#17201a',
+        floorDetail: '#1c2620',
+        ambient: 'rgba(10, 40, 20, 0.3)', // Greenish
+        fogColor: 'rgba(5, 30, 10, 0.5)',
+        embers: true, // Green spirits?
     },
 };
 
 export function getThemeForFloor(floor: number): DungeonTheme {
-    if (floor <= 2) return DUNGEON_THEMES.stone;
-    if (floor <= 4) return DUNGEON_THEMES.crypt;
-    if (floor <= 6) return DUNGEON_THEMES.volcanic;
-    return DUNGEON_THEMES.inferno;
+    if (floor <= 3) return DUNGEON_THEMES.stone;
+    if (floor <= 6) return DUNGEON_THEMES.cave;
+    return DUNGEON_THEMES.crypt;
 }
 
 export function getThemeTileColors(floor: number) {
@@ -131,7 +120,8 @@ export function drawAmbientOverlay(ctx: CanvasRenderingContext2D, canvasWidth: n
         ctx.fillRect(0, 0, canvasWidth, canvasHeight);
     }
 
-    if (floor <= 2) {
+    if (floor <= 3) {
+        // Dungeon Dust
         ctx.fillStyle = 'rgba(200, 200, 200, 0.15)';
         for (let i = 0; i < 20; i++) {
             const x = (i * 83 + frame * 0.2 + Math.sin(frame * 0.01 + i) * 20) % canvasWidth;
@@ -139,27 +129,31 @@ export function drawAmbientOverlay(ctx: CanvasRenderingContext2D, canvasWidth: n
             const size = (i % 3) + 1;
             ctx.fillRect(x, y, size, size);
         }
-    } else if (floor <= 4) {
-        ctx.fillStyle = 'rgba(100, 255, 150, 0.1)';
+    } else if (floor <= 6) {
+        // Cave Dripping/Bats? Just heavy shadow particles
+        ctx.fillStyle = 'rgba(10, 10, 10, 0.3)';
+        ctx.fill(); // Wait, logic below expects particles
         for (let i = 0; i < 15; i++) {
-            const x = (i * 123 + Math.sin(frame * 0.02 + i) * 50) % canvasWidth;
-            const y = (canvasHeight - (frame * 0.5 + i * 30) % canvasHeight);
-            ctx.beginPath();
-            ctx.arc(x, y, 2 + (i % 2), 0, Math.PI * 2);
-            ctx.fill();
+            // Falling debris
+            const x = (i * 97 + Math.sin(frame * 0.01 + i) * 10) % canvasWidth;
+            const y = (frame * (1 + (i % 2)) + i * 50) % canvasHeight;
+            ctx.fillRect(x, y, 2, 2);
         }
-    } else if (theme.embers) {
-        ctx.fillStyle = '#f59e0b';
-        for (let i = 0; i < 12; i++) {
-            const x = (frame * (i * 0.2 + 0.5) + i * 100) % canvasWidth;
-            const y = canvasHeight - ((frame * (i * 0.3 + 0.5) + i * 50) % canvasHeight);
-            const size = 1 + (i % 2);
-            ctx.globalAlpha = 0.6 + (Math.sin(frame * 0.1 + i) * 0.4);
-            ctx.beginPath();
-            ctx.arc(x, y, size, 0, Math.PI * 2);
-            ctx.fill();
+    } else {
+        // Crypt Spirits (Green)
+        if (theme.embers) {
+            ctx.fillStyle = '#4ade80'; // Green
+            for (let i = 0; i < 15; i++) {
+                const x = (frame * (i * 0.2 + 0.5) + i * 100) % canvasWidth;
+                const y = canvasHeight - ((frame * (i * 0.3 + 0.5) + i * 50) % canvasHeight);
+                const size = 1 + (i % 2);
+                ctx.globalAlpha = 0.3 + (Math.sin(frame * 0.05 + i) * 0.2);
+                ctx.beginPath();
+                ctx.arc(x, y, size * 1.5, 0, Math.PI * 2);
+                ctx.fill();
+            }
+            ctx.globalAlpha = 1;
         }
-        ctx.globalAlpha = 1;
     }
 }
 

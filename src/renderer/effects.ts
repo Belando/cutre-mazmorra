@@ -93,6 +93,12 @@ export function drawEffects(
             ctx.fillRect(screenX - size / 2, screenY - size / 2, size, size);
         } else if (effect.style === 'circle') {
             ctx.beginPath(); ctx.arc(screenX, screenY, size, 0, Math.PI * 2); ctx.fill();
+        } else if (effect.style === 'blood') {
+            // 2.5D Isometric Drop (Flattened Circle)
+            ctx.beginPath();
+            // Ellipse: x, y, radiusX, radiusY, rotation, startAngle, endAngle
+            ctx.ellipse(screenX, screenY, size, size * 0.6, 0, 0, Math.PI * 2);
+            ctx.fill();
         } else if (effect.style === 'star') {
             ctx.save();
             ctx.translate(screenX, screenY);
@@ -123,9 +129,28 @@ export function drawEffects(
         ctx.textAlign = 'center';
 
         ctx.lineWidth = effect.isCritical || effect.isSkillHit ? 4 : 2;
+        // Scale Animation (Pop up and shrink)
+        const progress = 1 - (effect.life / effect.maxLife!); // 0 to 1
+        let scale = 1;
+
+        if (progress < 0.2) {
+            // Pop in
+            scale = 0.5 + (progress / 0.2) * 0.7; // 0.5 -> 1.2
+        } else if (progress < 0.4) {
+            // Settle
+            scale = 1.2 - ((progress - 0.2) / 0.2) * 0.2; // 1.2 -> 1.0
+        }
+
         ctx.strokeStyle = 'black';
-        ctx.strokeText(effect.text, screenX, screenY);
-        ctx.fillText(effect.text, screenX, screenY);
+        ctx.lineWidth = effect.isCritical ? 4 : 2;
+
+        ctx.save();
+        ctx.translate(screenX, screenY);
+        ctx.scale(scale, scale);
+
+        ctx.strokeText(effect.text, 0, 0);
+        ctx.fillText(effect.text, 0, 0);
+        ctx.restore();
     });
 
     ctx.restore();

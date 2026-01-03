@@ -5,10 +5,10 @@ export const ASSET_MANIFEST = [
     // { key: 'orc', src: '/sprites/goblin.png' }, // REMOVED (Legacy Fallback)
     { key: 'goblin', src: '/sprites/goblin.png' },
     { key: 'bat', src: '/sprites/bat.png' },
-    { key: 'rat', src: '/sprites/rat_v4.png' },
-    { key: 'spider', src: '/sprites/spider.png' },
-    { key: 'slime', src: '/sprites/slime_sheet.png' },
-    // { key: 'ghost', src: '/sprites/skeleton_sheet.svg' }, // REMOVED (Legacy Fallback)
+    { key: 'rat', src: '/sprites/rat.png' }, // Note: we have rat_v4 too, defaulting to simple key for now if used
+    { key: 'spider', src: '/sprites/spider.png' }, // UPDATED from generated
+    { key: 'skeleton_mage', src: '/sprites/skeleton_mage.png' },
+    { key: 'cultist', src: '/sprites/cultist.png' },
     { key: 'chest_closed', src: '/sprites/chest_closed.png' },
     { key: 'chest_open', src: '/sprites/chest_open.png' },
     { key: 'door_closed', src: '/sprites/door_gray_closed.png' },
@@ -19,6 +19,7 @@ export const ASSET_MANIFEST = [
     { key: 'potion', src: '/sprites/item_potion.png' },
     { key: 'shield', src: '/sprites/item_shield.png' },
     { key: 'gold', src: '/sprites/item_gold.png' },
+    { key: 'gold_pile', src: '/sprites/item_gold_isometric.png' },
     { key: 'wolf', src: '/sprites/wolf.png' },
     { key: 'goblin_king', src: '/sprites/goblin_king.png' },
     { key: 'merchant', src: '/sprites/merchant_sheet.png' },
@@ -37,7 +38,17 @@ export const ASSET_MANIFEST = [
     { key: 'floor_dirt', src: '/sprites/floor_dirt_v3.png' },
     { key: 'workbench', src: '/sprites/workbench.png' },
     { key: 'plant', src: '/sprites/plant.png' },
+    { key: 'plant', src: '/sprites/plant.png' },
     { key: 'torch_animated', src: '/sprites/torch_sheet_isolated.png' },
+    { key: 'crate', src: '/sprites/crate_isometric_1767463114357.png' },
+    { key: 'barrel', src: '/sprites/barrel_isometric_1767463129274.png' },
+    { key: 'spikes', src: '/sprites/spikes_trap_isometric_1767463143873.png' },
+    { key: 'wall_cave', src: '/sprites/wall_cave.png' },
+    { key: 'floor_cave', src: '/sprites/floor_cave.png' },
+    { key: 'wall_crypt', src: '/sprites/wall_crypt.png' },
+    { key: 'wall_crypt', src: '/sprites/wall_crypt.png' },
+    { key: 'floor_crypt', src: '/sprites/floor_crypt.png' },
+    { key: 'lich', src: '/sprites/lich.png' },
 
     // WARRIOR SPRITES (Restored)
     { key: 'warrior_idle_1', src: '/sprites/warrior/idle1.png' },

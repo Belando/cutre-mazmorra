@@ -35,11 +35,11 @@ export default function QuickSlots({
                         key={key}
                         onClick={() => !isEmpty && !disabled && onUseSlot(index)}
                         className={cn(
-                            "relative w-12 h-12 rounded-lg border-2 flex items-center justify-center transition-all",
+                            "relative w-12 h-12 rounded-lg border-2 flex items-center justify-center transition-all shadow-lg group",
                             isEmpty
-                                ? "border-slate-800 bg-slate-900/50 cursor-default"
-                                : "border-emerald-600 bg-emerald-900/40 hover:bg-emerald-800/60 hover:scale-105",
-                            disabled && "opacity-50 cursor-not-allowed"
+                                ? "border-slate-800 bg-slate-950/50 cursor-default"
+                                : "border-amber-600/50 bg-slate-900 hover:border-amber-500 hover:bg-slate-800 hover:scale-105 hover:shadow-amber-900/20",
+                            disabled && "opacity-50 cursor-not-allowed grayscale"
                         )}
                         title={item ? `${item.name} (${key})` : `Slot vacío (${key})`}
                     >
@@ -52,7 +52,7 @@ export default function QuickSlots({
                             </>
                         ) : null}
 
-                        <span className="absolute -top-2 -left-2 w-5 h-5 bg-slate-700/90 rounded-full text-[10px] text-white flex items-center justify-center font-bold border border-slate-600 shadow-sm">
+                        <span className="absolute -top-2 -left-2 w-5 h-5 bg-slate-900 rounded-md text-[10px] text-amber-500 flex items-center justify-center font-bold border border-slate-700 shadow-sm font-mono group-hover:border-amber-500/50 transition-colors">
                             {key}
                         </span>
                     </button>

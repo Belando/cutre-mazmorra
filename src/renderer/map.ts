@@ -15,7 +15,14 @@ import { spriteManager } from "@/engine/core/SpriteManager";
 
 import { RenderTile, RenderItem } from "@/types";
 
-function drawSpriteIsoFloor(ctx: CanvasRenderingContext2D, x: number, y: number, w: number, h: number, color: string, tileType: number, renderTile: RenderTile | null) {
+// Helper to get biome sprite key
+function getBiomeSprite(base: string, level: number): string {
+    if (level >= 7) return `${base}_crypt`;
+    if (level >= 4) return `${base}_cave`;
+    return base; // Default (stone)
+}
+
+function drawSpriteIsoFloor(ctx: CanvasRenderingContext2D, x: number, y: number, w: number, h: number, color: string, tileType: number, renderTile: RenderTile | null, level: number = 1) {
     let spriteKey = 'floor';
     const isVariant = renderTile?.variant !== 0;
 
@@ -23,6 +30,10 @@ function drawSpriteIsoFloor(ctx: CanvasRenderingContext2D, x: number, y: number,
         spriteKey = 'floor_grass';
     }
     else if (tileType === TILE.FLOOR_DIRT) spriteKey = 'floor_dirt';
+    else {
+        // Standard floor - check biome
+        spriteKey = getBiomeSprite('floor', level);
+    }
 
     const img = spriteManager.get(spriteKey);
     if (img) {
@@ -81,8 +92,9 @@ function drawSpriteIsoFloor(ctx: CanvasRenderingContext2D, x: number, y: number,
     }
 }
 
-function drawSpriteIsoWall(ctx: CanvasRenderingContext2D, x: number, y: number, w: number, h: number, color: string) {
-    const img = spriteManager.get('wall');
+function drawSpriteIsoWall(ctx: CanvasRenderingContext2D, x: number, y: number, w: number, h: number, color: string, level: number = 1) {
+    const spriteKey = getBiomeSprite('wall', level);
+    const img = spriteManager.get(spriteKey) || spriteManager.get('wall'); // Fallback to 'wall' if biome specific missing
     if (img) {
         // Wall sprites usually need to be anchored at the bottom.
         // Our sprite is 96x144 (approx). 
@@ -297,7 +309,7 @@ export function drawMap(
                         const drawY = screenY;
 
                         const renderTile = renderMap?.[y]?.[x] || null;
-                        drawSpriteIsoFloor(ctx, drawX, drawY, TILE_WIDTH, TILE_HEIGHT, baseFloorColor, tile, renderTile);
+                        drawSpriteIsoFloor(ctx, drawX, drawY, TILE_WIDTH, TILE_HEIGHT, baseFloorColor, tile, renderTile, level);
                     }
                 }
             }
@@ -338,7 +350,7 @@ export function drawMap(
                             y: y,
                             sortY: isoY + 1.5, // Walls usually sit just "above" the floor of their tile
                             draw: () => {
-                                drawSpriteIsoWall(ctx, drawX, drawY, TILE_WIDTH, TILE_HEIGHT, baseWallColor);
+                                drawSpriteIsoWall(ctx, drawX, drawY, TILE_WIDTH, TILE_HEIGHT, baseWallColor, level);
                                 if (isVisible) {
                                     const wallSeed = (x * 11 + y * 17) % 100;
                                     if (wallSeed < (level <= 4 ? 8 : 3)) {
@@ -349,7 +361,7 @@ export function drawMap(
                         });
                     } else {
                         // Fallback: Immediate draw (if no list)
-                        drawSpriteIsoWall(ctx, drawX, drawY, TILE_WIDTH, TILE_HEIGHT, baseWallColor);
+                        drawSpriteIsoWall(ctx, drawX, drawY, TILE_WIDTH, TILE_HEIGHT, baseWallColor, level);
                         if (isVisible) {
                             const wallSeed = (x * 11 + y * 17) % 100;
                             if (wallSeed < (level <= 4 ? 8 : 3)) {
