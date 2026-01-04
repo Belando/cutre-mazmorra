@@ -1,5 +1,5 @@
 import { GameState, RenderItem } from "@/types";
-import { drawMap, getCameraTarget, lerpCamera, drawSpriteIsoWall } from "./map";
+import { drawMap, lerpCamera, drawSpriteIsoWall } from "./map";
 import { getThemeForFloor, drawAmbientOverlay } from "@/components/game/DungeonThemes";
 import { renderLighting } from "./lighting";
 import { drawEnvironmentSprite } from "./environment";
@@ -34,6 +34,10 @@ export class GameRenderer {
         level: -1
     };
 
+    // Visual Smoothing State
+    private playerVisual = { x: 0, y: 0, initialized: false };
+    private enemyVisuals = new Map<string | number, { x: number, y: number }>();
+
     constructor() { }
 
     public setCanvases(
@@ -63,8 +67,22 @@ export class GameRenderer {
         this.frame++;
         const { player, map, enemies, corpses = [], items, visible, explored, torches = [], chests = [], level = 1, npcs = [] } = state;
 
+        // --- VISUAL INTERPOLATION (Smoothing) ---
+        const LERP_SPEED = 0.2; // 20% per frame = fast but smooth
+
+        // 1. Player Smoothing
+        if (!this.playerVisual.initialized) {
+            this.playerVisual.x = player.x;
+            this.playerVisual.y = player.y;
+            this.playerVisual.initialized = true;
+        } else {
+            this.playerVisual.x += (player.x - this.playerVisual.x) * LERP_SPEED;
+            this.playerVisual.y += (player.y - this.playerVisual.y) * LERP_SPEED;
+        }
+
         // --- CAMERA UPDATE ---
-        const target = getCameraTarget(player);
+        // Use visual position for camera target to follow smoothly
+        const target = { x: this.playerVisual.x, y: this.playerVisual.y }; // Was getCameraTarget(player)
         if (!this.cameraPos.initialized) {
             this.cameraPos.x = target.x;
             this.cameraPos.y = target.y;
@@ -259,9 +277,35 @@ export class GameRenderer {
             });
 
             // 4. Enemies
+            // Update Enemy Visuals
+            const activeEnemyIds = new Set<string | number>();
+            enemies.forEach(enemy => {
+                const id = enemy.id;
+                activeEnemyIds.add(id);
+                let visual = this.enemyVisuals.get(id);
+                if (!visual) {
+                    visual = { x: enemy.x, y: enemy.y };
+                    this.enemyVisuals.set(id, visual);
+                } else {
+                    const ENEMY_LERP = 0.1; // Slower than player (0.2) to emphasize movement
+                    visual.x += (enemy.x - visual.x) * ENEMY_LERP;
+                    visual.y += (enemy.y - visual.y) * ENEMY_LERP;
+                }
+            });
+            // Cleanup dead enemies
+            for (const id of this.enemyVisuals.keys()) {
+                if (!activeEnemyIds.has(id)) {
+                    this.enemyVisuals.delete(id);
+                }
+            }
+
             enemies.forEach(enemy => {
                 if (visible[enemy.y]?.[enemy.x]) {
-                    const { x: sx, y: sy, isoY } = getScreenPos(enemy.x, enemy.y);
+                    const visualPos = this.enemyVisuals.get(enemy.id);
+                    const { x: sx, y: sy, isoY } = getScreenPos(
+                        visualPos ? visualPos.x : enemy.x,
+                        visualPos ? visualPos.y : enemy.y
+                    );
                     if (isOnCam(sx, sy)) {
                         const isLarge = isLargeEnemy(String(enemy.type));
                         renderList.push({
@@ -283,7 +327,8 @@ export class GameRenderer {
 
             // 5. Player
             const isInvisible = player.skills.buffs.some(b => b.invisible) || false;
-            const { x: psx, y: psy, isoY: pIsoY } = getScreenPos(player.x, player.y);
+            // Use visual position for rendering
+            const { x: psx, y: psy, isoY: pIsoY } = getScreenPos(this.playerVisual.x, this.playerVisual.y);
             renderList.push({
                 sortY: pIsoY + 3,
                 type: 'player',

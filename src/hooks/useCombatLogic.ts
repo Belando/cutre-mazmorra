@@ -35,6 +35,47 @@ export function useCombatLogic({
     spatialHash
 }: CombatLogicContext) {
 
+    const getMessage = (code: string, params: Record<string, any> = {}): string => {
+        const MESSAGES: Record<string, string> = {
+            'OUT_OF_RANGE': '¡Fuera de alcance!',
+            'NO_LOS': '¡Sin línea de visión!',
+            'NO_MANA': '¡Falta Maná! (Req: {cost})',
+            'COOLDOWN': '¡{skill} no está lista!',
+            'PICKUP': 'Botín: {qty}x {item}',
+            'INVENTORY_FULL': 'Inventario lleno, no pudiste recoger {item}',
+            'DEATH': '{name} derrotado! +{exp} XP',
+            'BOSS_DEATH': '¡Jefe de piso eliminado!',
+            'GAME_WON': '¡HAS DERROTADO AL DRAGÓN ANCESTRAL!',
+            'ACTION_COMPLETED': 'Acción completada',
+            'FAILURE': 'Fallo',
+            'NO_TARGET': '¡Sin objetivo!',
+            'NO_ENEMIES_NEAR': '¡Sin enemigos cerca!',
+            'TOO_FAR': '¡Muy lejos!',
+            'NO_VISIBLE_ENEMIES': '¡Sin enemigos visibles!',
+            'CRITICAL_HIT': '¡CRÍTICO!',
+            'HIT': '¡Golpe!',
+            // Skill System codes
+            'SKILL_NOT_FOUND': 'Habilidad no encontrada',
+            'ALREADY_LEARNED': 'Ya aprendida',
+            // Fallbacks for dynamic messages from SkillSystem if unmapped
+        };
+
+        let msg = MESSAGES[code] || code;
+        Object.entries(params).forEach(([key, val]) => {
+            msg = msg.replace(`{${key}}`, String(val));
+        });
+
+        // Handle complex dynamic codes from system (e.g. LEARNED:Fireball)
+        if (code.startsWith('LEARNED:')) return `¡Aprendiste ${code.split(':')[1]}!`;
+        if (code.startsWith('SKILL_IMPROVED:')) {
+            const parts = code.split(':');
+            return `${parts[1]} subió a nivel ${parts[2]}!`;
+        }
+        if (code.startsWith('EVOLVED:')) return `¡Evolucionaste a ${code.split(':')[1]}!`;
+
+        return msg;
+    };
+
     // --- MANEJO DE MUERTE DE ENEMIGOS ---
     const handleEnemyDeath = (enemyIdx: number): Entity[] => {
         const enemy = dungeon.enemies[enemyIdx];
@@ -59,7 +100,7 @@ export function useCombatLogic({
             corpses: [...(prev.corpses || []), corpse]
         }));
         gainExp(info.exp);
-        addMessage(`${info.name} derrotado! +${info.exp} XP`, 'death');
+        addMessage(getMessage('DEATH', { name: info.name, exp: info.exp }), 'death');
         events.emit(GAME_EVENTS.ENEMY_DIED, { enemy });
 
         if (effectsManager.current) {
@@ -84,21 +125,21 @@ export function useCombatLogic({
         drops.forEach(item => {
             const success = addItem(item);
             if (success) {
-                addMessage(`Botín: ${(item as any).quantity || 1}x ${item.name}`, 'pickup');
+                addMessage(getMessage('PICKUP', { qty: (item as any).quantity || 1, item: item.name }), 'pickup');
                 // events.emit(GAME_EVENTS.ITEM_PICKUP); // Explicit event vs Sound
             } else {
-                addMessage(`Inventario lleno, no pudiste recoger ${item.name}`, 'info');
+                addMessage(getMessage('INVENTORY_FULL', { item: item.name }), 'info');
             }
         });
 
         if (isBoss) {
             setDungeon(prev => ({ ...prev, bossDefeated: true }));
-            addMessage("¡Jefe de piso eliminado!", 'levelup');
+            addMessage(getMessage('BOSS_DEATH'), 'levelup');
             events.emit(GAME_EVENTS.LEVEL_UP); // Sound effect
 
             if (Number(enemy.type) === ENTITY.BOSS_ANCIENT_DRAGON) {
                 setGameWon(true);
-                addMessage("¡HAS DERROTADO AL DRAGÓN ANCESTRAL!", 'levelup');
+                addMessage(getMessage('GAME_WON'), 'levelup');
             }
         }
         setStats((prev: any) => ({ ...prev, kills: prev.kills + 1 }));
@@ -111,8 +152,8 @@ export function useCombatLogic({
         if (!skill) return false;
 
         if (!canUseSkill(skillId, player.skills?.cooldowns || {})) {
-            addMessage(`¡${skill.name} no está lista!`, 'info');
-            events.emit('SOUND_PLAY', 'error'); // Using direct sound event as fallback
+            addMessage(getMessage('COOLDOWN', { skill: skill.name }), 'info');
+            events.emit('SOUND_PLAY', 'error');
             if (effectsManager.current) {
                 effectsManager.current.addText(player.x, player.y, "CD", '#94a3b8', false, true);
             }
@@ -123,7 +164,7 @@ export function useCombatLogic({
         const { manaCost } = getSkillEffectiveStats(skill, level);
 
         if (manaCost > 0 && player.mp < manaCost) {
-            addMessage(`¡Falta Maná! (Req: ${manaCost})`, 'info');
+            addMessage(getMessage('NO_MANA', { cost: manaCost }), 'info');
             events.emit('SOUND_PLAY', 'error');
             if (effectsManager.current) {
                 effectsManager.current.addText(player.x, player.y, "No MP", '#60a5fa', false, true);
@@ -209,7 +250,7 @@ export function useCombatLogic({
                             effectsManager.current.addExplosion(enemy.x, enemy.y, explosionColor);
                             effectsManager.current.addBlood(enemy.x, enemy.y, '#dc2626');
 
-                            const isCritical = dmgInfo.isCrit || false;
+                            const isCritical = dmgInfo.isCritical || false;
                             const finalColor = isCritical ? '#fef9c3' : damageColor;
                             const textToShow = isCritical ? `${dmgInfo.damage}!` : dmgInfo.damage.toString();
 
@@ -232,12 +273,12 @@ export function useCombatLogic({
                 });
             }
 
-            addMessage(res.message || "Accion completada", 'player_damage');
+            addMessage(getMessage(res.message || 'ACTION_COMPLETED'), 'player_damage');
             setSelectedSkill(null);
             setDungeon(prev => ({ ...prev, enemies: currentEnemiesList }));
             return true;
         } else {
-            addMessage(res.message || "Fallo", 'info');
+            addMessage(getMessage(res.message || 'FAILURE'), 'info');
             return false;
         }
     };

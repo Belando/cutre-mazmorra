@@ -77,7 +77,7 @@ export interface SkillResult {
     buff?: Buff;
     hitAll?: boolean;
     hitAllVisible?: boolean;
-    isCrit?: boolean;
+    isCritical?: boolean;
     mark?: { multiplier: number; duration: number };
     teleportBehind?: boolean;
     multiTarget?: number;
@@ -415,7 +415,7 @@ export const SKILLS: Record<string, Skill> = {
             const damage = Math.floor((playerStats.attack || 0) * multiplier);
             return {
                 damage,
-                isCrit: true,
+                isCritical: true,
                 message: `¡Puñalada Crítica! ${damage}!`
             };
         }

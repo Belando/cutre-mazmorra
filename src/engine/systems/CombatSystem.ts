@@ -60,17 +60,17 @@ export function executeRangedAttack(player: Player, target: Enemy, equipment: Eq
   const damage = Math.max(1, Math.floor(baseDamage * (1 - rangePenalty) - defense));
 
   const critChance = (playerStats.critChance || 5) / 100;
-  const isCrit = Math.random() < critChance;
-  const finalDamage = isCrit ? Math.floor(damage * 1.5) : damage;
+  const isCritical = Math.random() < critChance;
+  const finalDamage = isCritical ? Math.floor(damage * 1.5) : damage;
 
   return {
     success: true,
     hit: true,
     damage: finalDamage,
-    isCritical: isCrit,
+    isCritical: isCritical,
     isKill: false,
     evaded: false,
-    message: isCrit ? 'CRITICAL_HIT' : 'HIT',
+    message: isCritical ? 'CRITICAL_HIT' : 'HIT',
     path: getProjectilePath(player.x, player.y, target.x, target.y, map)
   };
 }
@@ -82,7 +82,7 @@ export function executeRangedAttack(player: Player, target: Enemy, equipment: Eq
  * @param defender The entity defending
  * @param attackerStats Attacker's stats
  */
-export function calculateMeleeDamage(attacker: Entity, defender: Entity, attackerStats: Stats): { damage: number, isCrit: boolean } {
+export function calculateMeleeDamage(attacker: Entity, defender: Entity, attackerStats: Stats): { damage: number, isCritical: boolean } {
   const baseDamage = attackerStats.attack || attacker.stats?.attack || 5;
   const defense = defender.stats?.defense || 0;
 
@@ -90,11 +90,11 @@ export function calculateMeleeDamage(attacker: Entity, defender: Entity, attacke
   const damage = Math.max(1, baseDamage - defense + variance);
 
   const critChance = (attackerStats.critChance || 5) / 100;
-  const isCrit = Math.random() < critChance;
+  const isCritical = Math.random() < critChance;
 
   return {
-    damage: isCrit ? Math.floor(damage * 1.5) : damage,
-    isCrit,
+    damage: isCritical ? Math.floor(damage * 1.5) : damage,
+    isCritical,
   };
 }
 
@@ -103,7 +103,7 @@ export function calculateMeleeDamage(attacker: Entity, defender: Entity, attacke
  * @param player The attacking player
  * @param targetEnemy The target enemy
  */
-export function calculatePlayerHit(player: Player, targetEnemy: Enemy): { damage: number, isCrit: boolean, type: string } {
+export function calculatePlayerHit(player: Player, targetEnemy: Enemy): { damage: number, isCritical: boolean, type: string } {
   const stats = calculatePlayerStats(player);
   const buffs = calculateBuffBonuses(player.skills?.buffs || [], stats);
 
@@ -121,12 +121,12 @@ export function calculatePlayerHit(player: Player, targetEnemy: Enemy): { damage
   const variance = Math.floor(Math.random() * 3);
   let damage = Math.max(1, attackPower - enemyDef + variance);
 
-  const isCrit = Math.random() < critChance;
-  if (isCrit) {
+  const isCritical = Math.random() < critChance;
+  if (isCritical) {
     damage = Math.floor(damage * 1.5);
   }
 
-  return { damage, isCrit, type: damageType };
+  return { damage, isCritical, type: damageType };
 }
 
 // --- COMBATE ENEMIGO ---

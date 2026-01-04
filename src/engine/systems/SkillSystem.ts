@@ -51,7 +51,7 @@ export interface LearnSkillResult {
 export function evolveClass(skills: SkillState, newClass: string): LearnSkillResult {
     const baseClass = skills.class || 'warrior';
     if (!CLASS_EVOLUTIONS[baseClass]?.includes(newClass)) {
-        return { success: false, message: 'Evolución no válida' };
+        return { success: false, message: 'EVOLUTION_INVALID' };
     }
 
     skills.evolvedClass = newClass;
@@ -64,7 +64,7 @@ export function evolveClass(skills: SkillState, newClass: string): LearnSkillRes
         }
     });
 
-    return { success: true, message: `¡Evolucionaste a ${SKILL_TREES[newClass].name}!` };
+    return { success: true, message: `EVOLVED:${SKILL_TREES[newClass].name}` };
 }
 
 // Get all skills for a class (including base class if evolved)
@@ -82,15 +82,15 @@ export function getSkillLevel(skills: SkillState, skillId: string): number {
 // Upgrade skill with skill points
 export function upgradeSkill(skills: SkillState, skillId: string): LearnSkillResult {
     const skill = SKILLS[skillId];
-    if (!skill) return { success: false, message: 'Habilidad no encontrada' };
-    if (!skills.learned.includes(skillId)) return { success: false, message: 'Habilidad no aprendida' };
-    if (skills.skillPoints <= 0) return { success: false, message: 'Sin puntos de habilidad' };
+    if (!skill) return { success: false, message: 'SKILL_NOT_FOUND' };
+    if (!skills.learned.includes(skillId)) return { success: false, message: 'SKILL_NOT_LEARNED' };
+    if (skills.skillPoints <= 0) return { success: false, message: 'NO_SKILL_POINTS' };
     const currentLevel = skills.skillLevels?.[skillId] || 1;
-    if (currentLevel >= (skill.maxLevel || 5)) return { success: false, message: 'Nivel máximo alcanzado' };
+    if (currentLevel >= (skill.maxLevel || 5)) return { success: false, message: 'MAX_LEVEL_REACHED' };
     skills.skillPoints--;
     skills.skillLevels = skills.skillLevels || {};
     skills.skillLevels[skillId] = currentLevel + 1;
-    return { success: true, message: `${skill.name} subió a nivel ${currentLevel + 1}!` };
+    return { success: true, message: `SKILL_IMPROVED:${skill.name}:${currentLevel + 1}` };
 }
 
 // Get unlocked skills
@@ -123,9 +123,9 @@ export function learnSkill(skills: SkillState, skillId: string): LearnSkillResul
         skills.learned.push(skillId);
         skills.skillLevels = skills.skillLevels || {};
         skills.skillLevels[skillId] = 1;
-        return { success: true, message: `¡Aprendiste ${SKILLS[skillId].name}!` };
+        return { success: true, message: `LEARNED:${SKILLS[skillId].name}` };
     }
-    return { success: false, message: 'Habilidad ya aprendida o inválida' };
+    return { success: false, message: 'ALREADY_LEARNED' };
 }
 
 // Calculate effective stats (cooldown reduction based on level)
@@ -165,14 +165,14 @@ export function useSkill(skillId: string, player: Entity, playerStats: Stats, ta
         if (effect.heal && player.hp !== undefined && player.maxHp !== undefined) result.heal = Math.min(effect.heal, player.maxHp - player.hp);
         if (effect.buff) result.buff = effect.buff;
     } else if (skill.type === 'melee') {
-        if (!target) return { success: false, message: '¡Sin objetivo!' };
+        if (!target) return { success: false, message: 'NO_TARGET' };
         const effect = skill.effect(player, target, playerStats, skillLevel);
         result.message = effect.message;
-        result.damages?.push({ target, damage: effect.damage, stun: effect.stun, slow: effect.slow, poison: (effect as any).poison, mark: effect.mark, isCrit: effect.isCrit });
+        result.damages?.push({ target, damage: effect.damage, stun: effect.stun, slow: effect.slow, poison: (effect as any).poison, mark: effect.mark, isCritical: effect.isCritical });
         if (effect.heal) result.heal = effect.heal;
     } else if (skill.type === 'aoe') {
         const adjacent = enemies.filter(e => Math.abs(e.x - player.x) <= 1 && Math.abs(e.y - player.y) <= 1);
-        if (adjacent.length === 0) return { success: false, message: '¡Sin enemigos cerca!' };
+        if (adjacent.length === 0) return { success: false, message: 'NO_ENEMIES_NEAR' };
         const effect = skill.effect(player, adjacent, playerStats, skillLevel);
         result.message = effect.message;
         adjacent.forEach(enemy => result.damages?.push({ target: enemy, damage: effect.damage, stun: effect.stun }));
@@ -181,15 +181,15 @@ export function useSkill(skillId: string, player: Entity, playerStats: Stats, ta
         const dist = Math.abs(target.x - player.x) + Math.abs(target.y - player.y);
         // --- NUEVO: VALIDACIÓN DE LÍNEA DE VISIÓN ---
         if (map && !hasLineOfSight(map, player.x, player.y, target.x, target.y)) {
-            return { success: false, message: '¡Sin línea de visión!' };
+            return { success: false, message: 'NO_LOS' };
         }
-        if (skill.range && dist > skill.range) return { success: false, message: '¡Muy lejos!' };
+        if (skill.range && dist > skill.range) return { success: false, message: 'TOO_FAR' };
         const effect = skill.effect(player, target, playerStats, skillLevel);
         result.message = effect.message;
         result.damages?.push({ target, damage: effect.damage, slow: effect.slow, bleed: effect.bleed });
     } else if (skill.type === 'ultimate') {
         const visibleEnemies = enemies.filter(e => visible[e.y]?.[e.x]);
-        if (visibleEnemies.length === 0) return { success: false, message: '¡Sin enemigos visibles!' };
+        if (visibleEnemies.length === 0) return { success: false, message: 'NO_VISIBLE_ENEMIES' };
         const effect = skill.effect(player, visibleEnemies, playerStats, skillLevel);
         result.message = effect.message;
         visibleEnemies.forEach(enemy => result.damages?.push({ target: enemy, damage: effect.damage }));
