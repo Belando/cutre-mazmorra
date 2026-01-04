@@ -160,7 +160,8 @@ export function useGameEngine() {
     const { handleEnemyDeath, executeSkillAction, performAttack } = useCombatLogic({
         dungeon, setDungeon, player: player!, updatePlayer, gainExp, setStats,
         addMessage, addItem, effectsManager, setSelectedSkill, setGameWon,
-        spatialHash: spatialHash.current
+        spatialHash: spatialHash.current,
+        activeQuests, setQuestProgress // Pass Quest Props
     });
 
     // Modified initGame to support Home Base and Object Argument

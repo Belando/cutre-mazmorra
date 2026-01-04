@@ -1,4 +1,4 @@
-import { SIZE, TILE_HEIGHT, TILE_WIDTH } from "@/data/constants";
+import { SIZE, TILE_HEIGHT } from "@/data/constants";
 import { GameState } from "@/types";
 import { toScreen } from '@/utils/isometric';
 
@@ -75,11 +75,19 @@ export const renderLighting = (ctx: CanvasRenderingContext2D, width: number, hei
     const rows = state.map.length;
     const cols = state.map[0].length;
 
-    // Viewport bounds in grid roughly
-    // optimization: calculate visible range based on cameraGridX/Y
+    // Viewport bounds calculation for culling
+    // Add margin to prevent pop-in
+    const MARGIN = 4;
+    const viewCols = Math.ceil(width / SIZE) + MARGIN;
+    const viewRows = Math.ceil(height / (SIZE / 2)) + MARGIN; // Iso tiles are shorter vertically
 
-    for (let y = 0; y < rows; y++) {
-        for (let x = 0; x < cols; x++) {
+    const startX = Math.max(0, Math.floor(cameraGridX - viewCols / 2));
+    const endX = Math.min(cols, Math.ceil(cameraGridX + viewCols / 2));
+    const startY = Math.max(0, Math.floor(cameraGridY - viewRows / 2));
+    const endY = Math.min(rows, Math.ceil(cameraGridY + viewRows / 2));
+
+    for (let y = startY; y < endY; y++) {
+        for (let x = startX; x < endX; x++) {
             if (state.visible[y]?.[x]) {
                 const { x: sx, y: sy } = toScreen(x, y);
                 // Center of tile
@@ -96,7 +104,7 @@ export const renderLighting = (ctx: CanvasRenderingContext2D, width: number, hei
     }
 
     // Draw player hole (always visible around player)
-    {
+    if (state.player) {
         const { x: px, y: py } = toScreen(state.player.x, state.player.y);
         const cx = px;
         const cy = py + TILE_HEIGHT / 2;

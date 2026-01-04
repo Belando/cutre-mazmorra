@@ -1,4 +1,3 @@
-// Enhanced Skill System with Class Evolution
 import { CLASS_EVOLUTIONS, SKILL_TREES, SKILLS, Skill } from '@/data/skills';
 import { hasLineOfSight } from '@/engine/core/utils';
 import { Entity, Stats, SkillState, Buff, Player } from '@/types';
@@ -94,7 +93,7 @@ export function upgradeSkill(skills: SkillState, skillId: string): LearnSkillRes
 }
 
 // Get unlocked skills
-export function getUnlockedSkills(playerLevel: number, learnedSkills: string[], playerClass: string | null = null): Skill[] {
+export function getUnlockedSkills(playerLevel: number, learnedSkills: string[]): Skill[] {
     return learnedSkills
         .filter(skillId => SKILLS[skillId] && SKILLS[skillId].unlockLevel <= playerLevel)
         .map(skillId => SKILLS[skillId]);
@@ -145,6 +144,87 @@ export function getSkillEffectiveStats(skill: Skill, level: number): { cooldown:
 }
 
 // --- ACTUALIZADO: useSkill usa stats calculados ---
+// --- REFACTORED SKILL EXECUTION HELPER FUNCTIONS ---
+
+function executeSelfSkill(skill: Skill, player: Entity, playerStats: Stats, level: number): SkillActionResult {
+    const result: SkillActionResult = { success: true, message: '', damages: [], effects: [] };
+    const effect = skill.effect(player, null, playerStats, level);
+    result.message = effect.message;
+    if (effect.heal && player.hp !== undefined && player.maxHp !== undefined) {
+        result.heal = Math.min(effect.heal, player.maxHp - player.hp);
+    }
+    if (effect.buff) result.buff = effect.buff;
+    return result;
+}
+
+function executeMeleeSkill(skill: Skill, player: Entity, target: Entity | null, playerStats: Stats, level: number): SkillActionResult {
+    if (!target) return { success: false, message: 'NO_TARGET' };
+
+    // Validate range for melee (typically 1 or weapon range, but simple check here)
+    const dist = Math.abs(target.x - player.x) + Math.abs(target.y - player.y);
+    if (dist > (skill.range || 1)) return { success: false, message: 'TOO_FAR' };
+
+    const result: SkillActionResult = { success: true, message: '', damages: [], effects: [] };
+    const effect = skill.effect(player, target, playerStats, level);
+    result.message = effect.message;
+    result.damages?.push({
+        target,
+        damage: effect.damage,
+        stun: effect.stun,
+        slow: effect.slow,
+        poison: (effect as any).poison,
+        mark: effect.mark,
+        isCritical: effect.isCritical
+    });
+    if (effect.heal) result.heal = effect.heal;
+    return result;
+}
+
+function executeAoeSkill(skill: Skill, player: Entity, enemies: Entity[], playerStats: Stats, level: number): SkillActionResult {
+    // Simple adjacent AoE
+    const adjacent = enemies.filter(e => Math.abs(e.x - player.x) <= 1 && Math.abs(e.y - player.y) <= 1);
+    if (adjacent.length === 0) return { success: false, message: 'NO_ENEMIES_NEAR' };
+
+    const result: SkillActionResult = { success: true, message: '', damages: [], effects: [] };
+    const effect = skill.effect(player, adjacent, playerStats, level);
+    result.message = effect.message;
+    adjacent.forEach(enemy => {
+        result.damages?.push({ target: enemy, damage: effect.damage, stun: effect.stun });
+    });
+    return result;
+}
+
+function executeRangedSkill(skill: Skill, player: Entity, target: Entity | null, playerStats: Stats, level: number, map: number[][]): SkillActionResult {
+    if (!target) return { success: false, message: '¡Sin objetivo!' };
+
+    const dist = Math.abs(target.x - player.x) + Math.abs(target.y - player.y);
+
+    if (map && !hasLineOfSight(map, player.x, player.y, target.x, target.y)) {
+        return { success: false, message: 'NO_LOS' };
+    }
+    if (skill.range && dist > skill.range) return { success: false, message: 'TOO_FAR' };
+
+    const result: SkillActionResult = { success: true, message: '', damages: [], effects: [] };
+    const effect = skill.effect(player, target, playerStats, level);
+    result.message = effect.message;
+    result.damages?.push({ target, damage: effect.damage, slow: effect.slow, bleed: effect.bleed });
+    return result;
+}
+
+function executeUltimateSkill(skill: Skill, player: Entity, enemies: Entity[], visible: boolean[][], playerStats: Stats, level: number): SkillActionResult {
+    const visibleEnemies = enemies.filter(e => visible[e.y]?.[e.x]);
+    if (visibleEnemies.length === 0) return { success: false, message: 'NO_VISIBLE_ENEMIES' };
+
+    const result: SkillActionResult = { success: true, message: '', damages: [], effects: [] };
+    const effect = skill.effect(player, visibleEnemies, playerStats, level);
+    result.message = effect.message;
+    visibleEnemies.forEach(enemy => {
+        result.damages?.push({ target: enemy, damage: effect.damage });
+    });
+    return result;
+}
+
+// --- ACTUALIZADO: useSkill usa stats calculados ---
 export function useSkill(skillId: string, player: Entity, playerStats: Stats, target: Entity | null, enemies: Entity[], visible: boolean[][], map: number[][]): SkillActionResult {
     const skill = SKILLS[skillId];
     if (!skill) return { success: false, message: 'Habilidad desconocida' };
@@ -152,51 +232,32 @@ export function useSkill(skillId: string, player: Entity, playerStats: Stats, ta
     const skillLevel = (player as Player).skills?.skillLevels?.[skillId] || 1;
     const { cooldown } = getSkillEffectiveStats(skill, skillLevel);
 
-    const result: SkillActionResult = {
-        success: true,
-        damages: [],
-        effects: [],
-        message: '',
-    };
+    let result: SkillActionResult = { success: false, message: 'FAILURE' };
 
-    if (skill.type === 'self') {
-        const effect = skill.effect(player, null, playerStats, skillLevel);
-        result.message = effect.message;
-        if (effect.heal && player.hp !== undefined && player.maxHp !== undefined) result.heal = Math.min(effect.heal, player.maxHp - player.hp);
-        if (effect.buff) result.buff = effect.buff;
-    } else if (skill.type === 'melee') {
-        if (!target) return { success: false, message: 'NO_TARGET' };
-        const effect = skill.effect(player, target, playerStats, skillLevel);
-        result.message = effect.message;
-        result.damages?.push({ target, damage: effect.damage, stun: effect.stun, slow: effect.slow, poison: (effect as any).poison, mark: effect.mark, isCritical: effect.isCritical });
-        if (effect.heal) result.heal = effect.heal;
-    } else if (skill.type === 'aoe') {
-        const adjacent = enemies.filter(e => Math.abs(e.x - player.x) <= 1 && Math.abs(e.y - player.y) <= 1);
-        if (adjacent.length === 0) return { success: false, message: 'NO_ENEMIES_NEAR' };
-        const effect = skill.effect(player, adjacent, playerStats, skillLevel);
-        result.message = effect.message;
-        adjacent.forEach(enemy => result.damages?.push({ target: enemy, damage: effect.damage, stun: effect.stun }));
-    } else if (skill.type === 'ranged') {
-        if (!target) return { success: false, message: '¡Sin objetivo!' };
-        const dist = Math.abs(target.x - player.x) + Math.abs(target.y - player.y);
-        // --- NUEVO: VALIDACIÓN DE LÍNEA DE VISIÓN ---
-        if (map && !hasLineOfSight(map, player.x, player.y, target.x, target.y)) {
-            return { success: false, message: 'NO_LOS' };
-        }
-        if (skill.range && dist > skill.range) return { success: false, message: 'TOO_FAR' };
-        const effect = skill.effect(player, target, playerStats, skillLevel);
-        result.message = effect.message;
-        result.damages?.push({ target, damage: effect.damage, slow: effect.slow, bleed: effect.bleed });
-    } else if (skill.type === 'ultimate') {
-        const visibleEnemies = enemies.filter(e => visible[e.y]?.[e.x]);
-        if (visibleEnemies.length === 0) return { success: false, message: 'NO_VISIBLE_ENEMIES' };
-        const effect = skill.effect(player, visibleEnemies, playerStats, skillLevel);
-        result.message = effect.message;
-        visibleEnemies.forEach(enemy => result.damages?.push({ target: enemy, damage: effect.damage }));
+    switch (skill.type) {
+        case 'self':
+            result = executeSelfSkill(skill, player, playerStats, skillLevel);
+            break;
+        case 'melee':
+            result = executeMeleeSkill(skill, player, target, playerStats, skillLevel);
+            break;
+        case 'aoe':
+            result = executeAoeSkill(skill, player, enemies, playerStats, skillLevel);
+            break;
+        case 'ranged':
+            result = executeRangedSkill(skill, player, target, playerStats, skillLevel, map);
+            break;
+        case 'ultimate':
+            result = executeUltimateSkill(skill, player, enemies, visible, playerStats, skillLevel);
+            break;
+        default:
+            result = { success: false, message: 'Tipo de habilidad no soportado' };
     }
 
-    // APLICAMOS EL COOLDOWN CALCULADO
-    result.cooldown = cooldown;
+    // APLICAMOS EL COOLDOWN CALCULADO SI HUBO ÉXITO
+    if (result.success) {
+        result.cooldown = cooldown;
+    }
     return result;
 }
 

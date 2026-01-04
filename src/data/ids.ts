@@ -1,0 +1,27 @@
+export const ENEMY_IDS = {
+    // Basic
+    RAT: 'ENEMY_RAT',
+    SPIDER: 'ENEMY_SPIDER',
+    WOLF: 'ENEMY_WOLF',
+    SKELETON: 'ENEMY_SKELETON',
+    ZOMBIE: 'ENEMY_ZOMBIE',
+
+    // Mid
+    ORC: 'ENEMY_ORC',
+    TROLL: 'ENEMY_TROLL',
+    GHOST: 'ENEMY_GHOST',
+    SLIME: 'ENEMY_SLIME',
+
+    // Advanced
+    DEMON: 'ENEMY_DEMON',
+    VAMPIRE: 'ENEMY_VAMPIRE',
+    GOLEM: 'ENEMY_GOLEM',
+
+    // Bosses
+    BOSS_GOBLIN_KING: 'BOSS_GOBLIN_KING',
+    BOSS_ORC_WARLORD: 'BOSS_ORC_WARLORD',
+    BOSS_LICH: 'BOSS_LICH',
+    BOSS_ANCIENT_DRAGON: 'BOSS_ANCIENT_DRAGON'
+} as const;
+
+export type EnemyId = typeof ENEMY_IDS[keyof typeof ENEMY_IDS];

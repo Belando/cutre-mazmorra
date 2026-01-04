@@ -1,6 +1,7 @@
 import { ENEMY_STATS, EnemyType } from '@/data/enemies';
 import { ENTITY } from '@/data/constants';
 import { SKILLS, SKILL_COLORS } from '@/data/skills';
+import { QUESTS } from '@/data/quests'; // Import QUESTS
 import { generateMaterialDrop, generateBossDrop } from "@/engine/systems/CraftingSystem";
 import { calculatePlayerStats, generateItem } from '@/engine/systems/ItemSystem';
 import { calculateBuffBonuses, getSkillEffectiveStats, useSkill, canUseSkill } from "@/engine/systems/SkillSystem";
@@ -23,6 +24,9 @@ export interface CombatLogicContext {
     setSelectedSkill: React.Dispatch<React.SetStateAction<string | null>>;
     setGameWon: React.Dispatch<React.SetStateAction<boolean>>;
     spatialHash: any;
+    // Quest Props
+    activeQuests: string[];
+    setQuestProgress: React.Dispatch<React.SetStateAction<Record<string, any>>>;
 }
 
 export function useCombatLogic({
@@ -33,7 +37,8 @@ export function useCombatLogic({
     effectsManager,
     setSelectedSkill,
     setGameWon,
-    spatialHash
+    spatialHash,
+    activeQuests, setQuestProgress
 }: CombatLogicContext) {
 
     const getMessage = (code: string, params: Record<string, any> = {}): string => {
@@ -103,6 +108,44 @@ export function useCombatLogic({
         gainExp(info.exp);
         addMessage(getMessage('DEATH', { name: info.name, exp: info.exp }), 'death');
         events.emit(GAME_EVENTS.ENEMY_DIED, { enemy });
+
+        // --- QUEST PROGRESS UPDATE ---
+        if (activeQuests && activeQuests.length > 0 && setQuestProgress) {
+            setQuestProgress(prev => {
+                const next = { ...prev };
+                const enemyId = info.id; // Map ENEMY_TYPE -> String ID
+
+                activeQuests.forEach(questId => {
+                    const quest = QUESTS[questId];
+                    if (!quest) return;
+
+                    if (quest.targetType === 'kill' && quest.target === enemyId) {
+                        const current = next[questId] || 0;
+                        next[questId] = current + 1;
+                        if (next[questId] >= (quest.targetCount || 1) && current < (quest.targetCount || 1)) {
+                            // Quest Completed notice handled by NPC or UI, but we track progress here
+                            addMessage(`¡Progreso de misión: ${next[questId]}/${quest.targetCount}!`, 'info');
+                        }
+                    } else if (quest.targetType === 'boss' && quest.target === enemyId) {
+                        next[questId] = 1;
+                        addMessage(`¡Jefe derrotado! Misión ${quest.name} lista.`, 'info');
+                    } else if (quest.targetType === 'multi_kill') {
+                        // For multi-kill, we store an object: { [targetId]: count }
+                        // But prev[questId] might be undefined or {}.
+                        const currentMulti = next[questId] || {};
+                        // Check if this enemy is one of the targets
+                        const targetConfig = quest.targets?.find(t => t.target === enemyId);
+                        if (targetConfig) {
+                            const currentCount = currentMulti[enemyId] || 0;
+                            const newMulti = { ...currentMulti, [enemyId]: currentCount + 1 };
+                            next[questId] = newMulti;
+                            addMessage(`¡Progreso: ${info.name} (${newMulti[enemyId]}/${targetConfig.count})!`, 'info');
+                        }
+                    }
+                });
+                return next;
+            });
+        }
 
         if (effectsManager.current) {
             effectsManager.current.addShake(2);
