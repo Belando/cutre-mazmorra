@@ -3,6 +3,7 @@ import { SIZE } from '@/data/constants';
 import { animationSystem } from '@/engine/systems/AnimationSystem';
 import { GameState } from '@/types';
 import { GameRenderer } from '@/renderer/GameRenderer';
+import { soundManager } from '@/engine/systems/SoundSystem';
 
 interface GameBoardProps {
     gameState: GameState;
@@ -52,6 +53,9 @@ export default function GameBoard({ gameState, viewportWidth = 21, viewportHeigh
         // Delegate to Renderer
         const currentState = gameStateRef.current;
         if (currentState.player) {
+            // Update 3D Audio Listener
+            soundManager.updateListenerPosition(currentState.player.x, currentState.player.y);
+
             rendererRef.current.render(
                 currentState,
                 viewportWidth,

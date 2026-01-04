@@ -3,16 +3,55 @@ import { GameState, Stats, QuickSlotData } from '@/types';
 
 const SAVE_KEY = 'dungeon_crawler_save';
 
+const CURRENT_VERSION = 2;
+
 export interface SaveData {
     version: number;
     timestamp: number;
-    gameState: Partial<GameState>; // Store core props
+    gameState: Partial<GameState>;
     stats: Stats;
     activeQuests: string[];
     completedQuests: string[];
     questProgress: Record<string, any>;
     materials: Record<string, number>;
     quickSlots: (QuickSlotData | null)[];
+}
+
+const MIGRATIONS: Record<number, (data: any) => any> = {
+    // Migration from v1 to v2
+    1: (data: any) => {
+        console.log("Migrating save v1 -> v2: Ensuring quickSlots and materials exist");
+        if (!data.quickSlots) data.quickSlots = new Array(4).fill(null);
+        if (!data.materials) data.materials = {};
+        // Add other defaults here
+        return data;
+    },
+    // Future migrations:
+    // 2: (data) => { ... }
+};
+
+function migrateSave(data: any): SaveData {
+    let currentVer = data.version || 0; // 0 if missing
+
+    while (currentVer < CURRENT_VERSION) {
+        if (MIGRATIONS[currentVer]) {
+            try {
+                data = MIGRATIONS[currentVer](data);
+                currentVer++;
+                data.version = currentVer; // Update version after success
+            } catch (e) {
+                console.error(`Migration failed at version ${currentVer}`, e);
+                break; // Stop to prevent further corruption
+            }
+        } else {
+            // No migration defined? Just bump it or assume it's fine?
+            // Safer to bump and hope, or break. 
+            // We'll bump to avoid infinite loop.
+            currentVer++;
+            data.version = currentVer;
+        }
+    }
+    return data as SaveData;
 }
 
 export function saveGame(
@@ -24,10 +63,8 @@ export function saveGame(
     materials: Record<string, number>,
     quickSlots: (QuickSlotData | null)[]
 ): { success: boolean; message: string } {
-
-    // Construimos el objeto completo para que al cargar el mundo sea idéntico
     const saveData: SaveData = {
-        version: 1,
+        version: CURRENT_VERSION, // Use constant
         timestamp: Date.now(),
         gameState: {
             player: gameState.player,
@@ -37,13 +74,10 @@ export function saveGame(
             bossDefeated: gameState.bossDefeated,
             stairs: gameState.stairs,
             stairsUp: gameState.stairsUp,
-
-            // --- CRÍTICO: Persistencia del entorno ---
-            // Sin esto, al cargar apareces en el vacío o en un mapa nuevo
             map: gameState.map,
-            explored: gameState.explored, // Para recordar qué has visto
-            enemies: gameState.enemies,   // Para que los enemigos muertos sigan muertos
-            items: gameState.items,       // Para que los items recogidos no reaparezcan
+            explored: gameState.explored,
+            enemies: gameState.enemies,
+            items: gameState.items,
             chests: gameState.chests,
             npcs: gameState.npcs,
             torches: gameState.torches,
@@ -58,11 +92,9 @@ export function saveGame(
 
     try {
         const stringData = JSON.stringify(saveData);
-        // Compresión: Reduce el tamaño del string en un ~80-90%
         const compressed = LZString.compressToUTF16(stringData);
-
         localStorage.setItem(SAVE_KEY, compressed);
-        console.log(`Partida guardada. Tamaño comprimido: ${(compressed.length / 1024).toFixed(2)} KB`);
+        console.log(`Partida guardada (v${CURRENT_VERSION}). Tamaño: ${(compressed.length / 1024).toFixed(2)} KB`);
         return { success: true, message: '¡Partida guardada!' };
     } catch (e) {
         console.error('Error saving game:', e);
@@ -75,19 +107,17 @@ export function loadGame(): SaveData | null {
         const compressed = localStorage.getItem(SAVE_KEY);
         if (!compressed) return null;
 
-        // 1. Intentar descomprimir
         let stringData = LZString.decompressFromUTF16(compressed);
+        if (!stringData) stringData = compressed;
 
-        // 2. Fallback: Si devuelve null, quizás es un save antiguo sin comprimir
-        if (!stringData) {
-            stringData = compressed;
-        }
-
-        // Validación básica para evitar crashes si el save está corrupto
         if (!stringData || !stringData.startsWith('{')) return null;
 
-        const saveData = JSON.parse(stringData) as SaveData;
-        return saveData;
+        let saveData = JSON.parse(stringData);
+
+        // MIGRATE
+        saveData = migrateSave(saveData);
+
+        return saveData as SaveData;
     } catch (e) {
         console.error('Error loading game:', e);
         return null;
@@ -96,7 +126,8 @@ export function loadGame(): SaveData | null {
 
 export function hasSaveGame(): boolean {
     try {
-        return !!localStorage.getItem(SAVE_KEY);
+        const item = localStorage.getItem(SAVE_KEY);
+        return !!item;
     } catch (e) {
         return false;
     }

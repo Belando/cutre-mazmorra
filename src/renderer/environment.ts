@@ -409,9 +409,19 @@ export const ENV_SPRITES: Record<string, { draw: (ctx: CanvasRenderingContext2D,
         }
     },
     wallTorch: {
-        draw: (ctx: CanvasRenderingContext2D, x: number, y: number, size: number, frame: number = 0) => {
+        draw: (ctx: CanvasRenderingContext2D, x: number, y: number, size: number, frame: number = 0, flipX: boolean = false) => {
             const img = spriteManager.get('torch_animated');
             const s = size;
+
+            // Apply Flip if needed
+            if (flipX) {
+                ctx.save();
+                // Flip around the center of the tile
+                const centerX = x + s * 0.5;
+                ctx.translate(centerX, y);
+                ctx.scale(-1, 1);
+                ctx.translate(-centerX, -y);
+            }
 
             if (img && (img as HTMLImageElement).width > 0) { // Ensure loaded
                 const image = img as HTMLImageElement;
@@ -467,6 +477,10 @@ export const ENV_SPRITES: Record<string, { draw: (ctx: CanvasRenderingContext2D,
                 ctx.beginPath();
                 ctx.arc(x + s * 0.5 + flicker, drawY + s * 0.35, s * 0.06, 0, Math.PI * 2);
                 ctx.fill();
+            }
+
+            if (flipX) {
+                ctx.restore();
             }
         }
     },

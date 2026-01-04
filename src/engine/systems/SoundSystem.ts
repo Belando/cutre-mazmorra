@@ -1,5 +1,6 @@
 // src/engine/systems/SoundSystem.ts
 import { SoundEffectName, SOUND_ASSETS, SOUND_SETTINGS } from '@/data/sounds';
+import { events, GAME_EVENTS } from '@/engine/core/EventManager';
 
 interface FireAmbience {
     node: AudioBufferSourceNode | null;
@@ -24,6 +25,8 @@ export class SoundSystem {
     private ambienceSource: AudioBufferSourceNode | null = null;
     currentAmbiencePath: string | null = null;
 
+    private listenerPos: { x: number, y: number } = { x: 0, y: 0 };
+
     constructor() {
         this.ctx = null;
         this.enabled = true;
@@ -33,6 +36,28 @@ export class SoundSystem {
             fire: { node: null, gain: null },
             timer: null
         };
+
+        this.setupEventListeners();
+    }
+
+    private setupEventListeners() {
+        events.on(GAME_EVENTS.PLAYER_ATTACK, () => this.play('attack'));
+        events.on(GAME_EVENTS.PLAYER_HIT, () => this.play('hit'));
+        events.on(GAME_EVENTS.ENEMY_DIED, (data: any) => {
+            const pos = data?.enemy ? { x: data.enemy.x, y: data.enemy.y } : undefined;
+            this.play('kill', pos);
+        });
+        events.on(GAME_EVENTS.ITEM_PICKUP, () => this.play('pickup'));
+        events.on(GAME_EVENTS.LEVEL_UP, () => this.play('levelUp'));
+        events.on(GAME_EVENTS.SOUND_PLAY, (data: any) => {
+            // data can be string name OR object { name, x, y }
+            if (typeof data === 'string') this.play(data as SoundEffectName);
+            else if (data && data.name) this.play(data.name, data);
+        });
+    }
+
+    public updateListenerPosition(x: number, y: number) {
+        this.listenerPos = { x, y };
     }
 
     init(): void {
@@ -132,11 +157,11 @@ export class SoundSystem {
         }
     }
 
-    playSample(name: SoundEffectName, vol: number = 1.0, pitch: number = 1.0): boolean {
+    playSample(name: SoundEffectName, vol: number = 1.0, pitch: number = 1.0, pan: number = 0): boolean {
         // Intenta cargar si no está, pero no bloquea (fire & forget para la próxima)
         if (!this.buffers.has(name)) {
             this.loadAsset(name).then(buffer => {
-                if (buffer) this.playSample(name, vol, pitch);
+                if (buffer) this.playSample(name, vol, pitch, pan);
             });
             return false;
         }
@@ -148,11 +173,24 @@ export class SoundSystem {
         source.buffer = buffer;
         source.playbackRate.value = pitch;
 
+        // Chain: Source -> Panner -> Gain -> Master
+        let lastNode: AudioNode = source;
+
+        // Stereo Panner (Web Audio API)
+        // Check support (safeguard)
+        if (this.ctx.createStereoPanner) {
+            const panner = this.ctx.createStereoPanner();
+            panner.pan.value = Math.max(-1, Math.min(1, pan)); // Clamp
+            lastNode.connect(panner);
+            lastNode = panner;
+        }
+
         const gain = this.ctx.createGain();
-        // Ajuste de volumen para samples (suelen sonar fuerte)
         gain.gain.value = vol * this.masterVolume * 0.8;
 
-        source.connect(gain).connect(this.ctx.destination);
+        lastNode.connect(gain);
+        gain.connect(this.ctx.destination);
+
         source.start();
         return true;
     }
@@ -237,7 +275,7 @@ export class SoundSystem {
     // ==========================================
     // 5. CATÁLOGO DE EFECTOS
     // ==========================================
-    play(effectName: SoundEffectName): void {
+    play(effectName: SoundEffectName, sourcePos?: { x: number, y: number }): void {
         try {
             this.init();
 
@@ -246,8 +284,26 @@ export class SoundSystem {
             const vol = settings.volume;
             const pitch = settings.pitch;
 
-            // 2. REPRODUCIR SAMPLE
-            const played = this.playSample(effectName, vol, pitch);
+            // 2. CALCULAR PANNING & DISTANCE ATTENUATION
+            let pan = 0;
+            // let distVol = 1.0; 
+
+            if (sourcePos) {
+                const dx = sourcePos.x - this.listenerPos.x;
+                // const dy = sourcePos.y - this.listenerPos.y;
+                const MAX_PAN_DIST = 10; // Tiles logic
+
+                // Pan based on X axis ONLY (Stereo)
+                pan = dx / MAX_PAN_DIST;
+
+                // Distance attenuation (Optional, keeps it simple for now)
+                // const dist = Math.sqrt(dx*dx + dy*dy);
+                // distVol = Math.max(0, 1 - dist / 15);
+                // We apply pan. Volume attenuation might be too much if we want "clear" feedback.
+            }
+
+            // 3. REPRODUCIR SAMPLE
+            const played = this.playSample(effectName, vol, pitch, pan);
             if (!played) {
                 // Silently failed or loading
             }

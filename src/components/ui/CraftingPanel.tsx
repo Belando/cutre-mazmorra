@@ -4,7 +4,7 @@ import { X, Hammer, ArrowUp, Package, Coins } from 'lucide-react';
 import { Button } from './button';
 import { RECIPES, MATERIAL_TYPES, UPGRADE_COSTS, canCraft } from '@/engine/systems/CraftingSystem';
 import { getItemIcon } from '@/data/icons';
-import { Item } from '@/types';
+import { Item, EquipmentState } from '@/types';
 
 const rarityColors: Record<string, string> = {
     common: 'text-slate-400',
@@ -24,7 +24,7 @@ interface CraftingPanelProps {
     onClose: () => void;
     materials?: any; // Materials might be handled via inventory
     inventory: Item[];
-    equipment: Record<string, Item | null>;
+    equipment: EquipmentState;
     gold: number;
     onCraft: (key: string) => void;
     onUpgrade: (slot: string) => void;

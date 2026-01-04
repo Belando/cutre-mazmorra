@@ -1,4 +1,3 @@
-import React from 'react';
 import { AnimatePresence } from 'framer-motion';
 import InventoryPanel from '@/components/ui/InventoryPanel';
 import NPCDialog from './NPCDialog';
@@ -6,7 +5,7 @@ import CraftingPanel from '@/components/ui/CraftingPanel';
 import SkillTree from '@/components/ui/SkillTree';
 import GameOver from './GameOver';
 import VictoryScreen from './VictoryScreen';
-import { GameState, Item } from '@/types';
+import { GameState } from '@/types';
 
 interface GameOverlaysProps {
     gameState: GameState;
@@ -59,7 +58,7 @@ export default function GameOverlays({
                         isOpen={inventoryOpen}
                         onClose={() => setInventoryOpen(false)}
                         inventory={gameState.inventory}
-                        equipment={gameState.equipment as unknown as Record<string, Item | null>}
+                        equipment={gameState.equipment}
                         player={gameState.player!}
                         onUseItem={actions.useItem}
                         onEquipItem={actions.equipItem}
@@ -92,7 +91,7 @@ export default function GameOverlays({
                         isOpen={showCrafting}
                         onClose={closeCrafting}
                         inventory={gameState.inventory}
-                        equipment={gameState.equipment as unknown as Record<string, Item | null>}
+                        equipment={gameState.equipment}
                         gold={gameState.player?.gold || 0}
                         onCraft={actions.craftItem}
                         onUpgrade={actions.upgradeItem}
