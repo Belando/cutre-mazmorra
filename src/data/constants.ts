@@ -59,6 +59,14 @@ export const ENTITY = {
     BLOCKER: 299,
 } as const;
 
+// Etiquetas del Entorno (Interacciones Elementales)
+export const TILE_TAGS: Record<number, string[]> = {
+    [TILE.FLOOR_GRASS]: ['FLAMMABLE', 'ORGANIC'], // Grass burns
+    [TILE.FLOOR_DIRT]: ['EARTH'], // Dirt stops fire? Or neutral.
+    // Future: [TILE.WATER]: ['WET', 'CONDUCTIVE']
+    // Future: [TILE.OILS]: ['FLAMMABLE', 'SLIPPERY']
+};
+
 // Tipos de NPC (traído de NPCSystem.jsx)
 export const NPC_TYPES = {
     MERCHANT: "merchant",

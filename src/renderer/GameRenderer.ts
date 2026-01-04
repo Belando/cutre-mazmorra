@@ -360,6 +360,44 @@ export class GameRenderer {
                 }
             });
 
+            // --- OCCLUSION CHECK (Phase 4) ---
+            // Walls "in front" of the player need to be transparent.
+            // In isometric projection (diamond), items with higher Y (grid) block lower Y.
+            // If player is at (px, py), walls at (px, py+1), (px+1, py), (px+1, py+1) are immediate blockers.
+            // Let's broaden slightly: Wall.isoY > Player.isoY but screen position overlaps?
+            // Simpler: Grid based check.
+            // Potential blocking offsets relative to player
+            // [0,1], [1,0], [1,1] are strictly "South/East" (Front)
+            // Also need to handle walls slightly further if they are tall (1.5x height).
+
+            // We can search the renderList or just add logic to the loop. 
+            // Searching renderList is safer as it handles all walls added.
+            // But iteration is cleaner if we just mutate.
+            renderList.forEach(item => {
+                if (item.type === 'wall' && item.color) { // Ensure it's a wall
+                    // Reverse engineer grid pos? Or assume if sortY > playerSortY it's in front.
+                    // The wall item in renderList has screen x/y but not grid pos explicitly unless we passed it.
+                    // Wait, we didn't pass grid x/y to RenderItem for walls in drawMap!
+                    // We need to calculate it or heuristic based on screen pos.
+
+                    // Heuristic: If item.sortY > pIsoY (Player IsoY) AND distance < threshold
+                    // Player sortY is roughly (px+py)*SIZE/2 + 3 (z height).
+                    // Wall sortY is (wx+wy)*SIZE/2 + 1.5.
+
+                    const pIsoY = (this.playerVisual.x + this.playerVisual.y) * TILE_HEIGHT / 2;
+
+                    if (item.sortY > pIsoY + 0.1) { // It is visually in front
+                        const dx = Math.abs(item.x! - psx); // Screen X distance
+                        const dy = Math.abs(item.y! - psy); // Screen Y distance
+
+                        // If clear overlap
+                        if (dx < SIZE * 0.8 && dy < SIZE * 1.5) {
+                            item.opacity = 0.4; // Make transparent
+                        }
+                    }
+                }
+            });
+
             // Sort & Execute using Static/Switch
             renderList.sort((a, b) => a.sortY - b.sortY);
 
@@ -399,6 +437,11 @@ export class GameRenderer {
     }
 
     private executeCommand(ctx: CanvasRenderingContext2D, cmd: RenderItem) {
+        const prevAlpha = ctx.globalAlpha;
+        if (cmd.opacity !== undefined) {
+            ctx.globalAlpha = cmd.opacity;
+        }
+
         if (cmd.type === 'sprite') {
             if (cmd.texture && cmd.x !== undefined && cmd.y !== undefined && cmd.w !== undefined) {
                 // handle special variants for Environment
@@ -472,6 +515,11 @@ export class GameRenderer {
             if (cmd.npc && cmd.x !== undefined && cmd.y !== undefined && cmd.w !== undefined) {
                 drawNPC(ctx, cmd.npc, cmd.x, cmd.y, cmd.w, this.frame);
             }
+        }
+
+        // Restore Alpha
+        if (cmd.opacity !== undefined) {
+            ctx.globalAlpha = prevAlpha;
         }
     }
 

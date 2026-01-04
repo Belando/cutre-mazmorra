@@ -1,6 +1,6 @@
 import { AIBehavior, AIContext, EnemyAction } from '../types';
 import { moveToward, moveAway, getLateralMove, moveRandomly } from '../AIUtils';
-import { ENEMY_RANGED_INFO } from '@/data/enemies'; // Better source
+import { ENEMY_STATS } from '@/data/enemies'; // Better source
 import { hasLineOfSight } from '@/engine/core/utils';
 
 export class CautiousBehavior implements AIBehavior {
@@ -9,9 +9,11 @@ export class CautiousBehavior implements AIBehavior {
         const dist = Math.abs(enemy.x - player.x) + Math.abs(enemy.y - player.y);
         const canSee = visible[enemy.y]?.[enemy.x];
 
-        // Get ranged info directly from data to avoid circular dep with EnemyAI system
-        const rangedInfo = ENEMY_RANGED_INFO[String(enemy.type)];
-        const optimalRange = rangedInfo ? Math.floor(rangedInfo.range * 0.7) : 4;
+        // Get ranged info directly from data
+        const stats = ENEMY_STATS[Number(enemy.type)];
+        const attack = stats?.attacks?.find(a => a.type === 'ranged' || a.type === 'magic');
+        const maxRange = attack ? attack.range : 4;
+        const optimalRange = Math.floor(maxRange * 0.7);
 
         if (dist <= 2) {
             const away = moveAway(enemy, player, map, spatialHash);
@@ -33,8 +35,8 @@ export class CautiousBehavior implements AIBehavior {
         }
 
         // Ranged Attack Opportunity
-        if (canSee && rangedInfo && dist <= rangedInfo.range && hasLineOfSight(map, enemy.x, enemy.y, player.x, player.y)) {
-            return { action: 'ranged_attack', range: rangedInfo.range };
+        if (canSee && attack && dist <= maxRange && hasLineOfSight(map, enemy.x, enemy.y, player.x, player.y)) {
+            return { action: 'ranged_attack', range: maxRange };
         }
 
         return { action: 'wait' };

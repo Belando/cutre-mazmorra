@@ -1,7 +1,7 @@
 import { AIBehavior, AIContext, EnemyAction } from '../types';
 import { moveToward, moveAway, getLateralMove, isTileFree } from '../AIUtils';
 import { ENTITY } from '@/data/constants';
-import { ENEMY_STATS, ENEMY_RANGED_INFO } from '@/data/enemies';
+import { ENEMY_STATS } from '@/data/enemies';
 import { Enemy } from '@/types';
 import { hasLineOfSight } from '@/engine/core/utils';
 
@@ -59,9 +59,13 @@ export class LichAI implements AIBehavior {
         }
 
         // 2. RANGED COMBAT
-        const rangedInfo = ENEMY_RANGED_INFO[String(enemy.type)];
-        if (rangedInfo && dist <= rangedInfo.range && hasLineOfSight(map, enemy.x, enemy.y, player.x, player.y)) {
-            if (Math.random() < 0.7) return { action: 'ranged_attack', range: rangedInfo.range };
+        // Use data-driven attacks from ENEMY_STATS
+        const stats = ENEMY_STATS[Number(enemy.type)];
+        const rangedAttack = stats?.attacks?.find(a => a.type === 'magic' || a.type === 'ranged'); // Lich/Boss magic preference
+
+        if (rangedAttack && dist <= rangedAttack.range && hasLineOfSight(map, enemy.x, enemy.y, player.x, player.y)) {
+            // High chance to attack if in range
+            if (Math.random() < 0.7) return { action: 'ranged_attack', range: rangedAttack.range };
         }
 
         // 3. KITING MOVEMENT

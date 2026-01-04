@@ -7,7 +7,8 @@ import {
   hasLineOfSight,
   getProjectilePath
 } from '@/engine/core/utils';
-import { ENTITY } from '@/data/constants';
+import { ENTITY, TILE_TAGS } from '@/data/constants';
+import { ENEMY_STATS } from '@/data/enemies';
 import { Entity, Stats, Buff, Player, Enemy, EquipmentState, AttackResult } from '@/types';
 
 // --- COMBATE DEL JUGADOR ---
@@ -75,6 +76,69 @@ export function executeRangedAttack(player: Player, target: Enemy, equipment: Eq
   };
 }
 
+// Helper to get tags from an entity
+export function getEntityTags(entity: Entity): string[] {
+  if (entity.type === 'player') return ['PLAYER', 'HUMANOID']; // Default player tags
+  if (entity.tags) return entity.tags;
+
+  // Fallback if tags not on instance, check stats (should shouldn't happen if initialized correctly)
+  const stats = ENEMY_STATS[Number(entity.type)];
+  return stats?.tags || [];
+}
+
+// Helper for damage calculation
+export function calculateModifiers(damage: number, attackerTags: string[], defenderTags: string[], attackElement?: string): { damage: number, isCritical: boolean, message?: string } {
+  let finalDamage = damage;
+  let message = '';
+
+  // Example: HOLY weapon vs UNDEAD (Hardcoded logic for now, should be data-driven later via Item Tags)
+  // For now, let's assume Player has a 'HOLY' tag if they have a specific item? 
+  // Or simpler: specific elements vs tags.
+
+  // Element interactions
+  if (attackElement === 'fire' && defenderTags.includes('PLANT')) {
+    finalDamage *= 1.5;
+    message = '¡Efectivo!';
+  }
+  if (attackElement === 'ice' && defenderTags.includes('FIRE')) {
+    finalDamage *= 1.5;
+    message = '¡Vaporizado!';
+  }
+  if (attackElement === 'holy' && defenderTags.includes('UNDEAD')) {
+    finalDamage *= 2.0;
+    message = '¡Purificado!';
+  }
+
+  return { damage: Math.floor(finalDamage), isCritical: false, message };
+}
+
+/**
+ * Checks for elemental interactions with the environment.
+ * @param x Map X
+ * @param y Map Y
+ * @param element Attack element (e.g. 'fire', 'ice')
+ * @param map Terrain map
+ * @returns Effect result message or null
+ */
+export function processTileInteraction(x: number, y: number, element: string, map: number[][]): string | null {
+  const tile = map[y]?.[x];
+  if (tile === undefined) return null;
+
+  // Import TILE_TAGS dynamically or passed as arg? 
+  // We can't import inside function easily if not already imported.
+  // Assuming TILE_TAGS is imported from constants.
+
+  const tags = (TILE_TAGS as any)[tile] || []; // Cast any to avoid strict typing issues with import locally if needed
+
+  if (element === 'fire' && tags.includes('FLAMMABLE')) {
+    // In a full ECS, we would spawn a "FireHazard" entity here.
+    // For now, we return a message that the System or Renderer can use to show a particle/log.
+    return 'BURNING_GROUND';
+  }
+
+  return null;
+}
+
 // Calcular daño cuerpo a cuerpo (Genérico)
 /**
  * Calculates damage for a generic melee hit (either Player -> Enemy or Enemy -> Player).
@@ -87,10 +151,16 @@ export function calculateMeleeDamage(attacker: Entity, defender: Entity, attacke
   const defense = defender.stats?.defense || 0;
 
   const variance = Math.floor(Math.random() * 3) - 1;
-  const damage = Math.max(1, baseDamage - defense + variance);
+  let damage = Math.max(1, baseDamage - defense + variance);
 
   const critChance = (attackerStats.critChance || 5) / 100;
   const isCritical = Math.random() < critChance;
+
+  // Integrate Tags (Even though this signature misses element for now, use Physical)
+  const atTags = getEntityTags(attacker);
+  const dfTags = getEntityTags(defender);
+  const mod = calculateModifiers(damage, atTags, dfTags, 'physical');
+  damage = mod.damage;
 
   return {
     damage: isCritical ? Math.floor(damage * 1.5) : damage,
@@ -137,40 +207,60 @@ interface RangedEnemyInfo {
   color: string;
 }
 
-export const ENEMY_RANGED_TYPES: Record<string, RangedEnemyInfo> = {
-  [ENTITY.ENEMY_CULTIST]: { range: 5, type: 'magic', color: '#a855f7' }, // Cultista
-  [ENTITY.ENEMY_WRAITH]: { range: 6, type: 'magic', color: '#6366f1' }, // Espectro
-  [ENTITY.BOSS_LICH]: { range: 7, type: 'magic', color: '#06b6d4' }, // Liche
-  [ENTITY.ENEMY_SPIDER]: { range: 4, type: 'poison', color: '#22c55e' }, // Araña
-  [ENTITY.ENEMY_DEMON]: { range: 5, type: 'fire', color: '#ef4444' }, // Demonio
-  [ENTITY.ENEMY_DRAGON]: { range: 6, type: 'fire', color: '#f59e0b' }, // Dragón
-  [ENTITY.BOSS_ANCIENT_DRAGON]: { range: 8, type: 'fire', color: '#fbbf24' }, // Dragón Ancestral
-  [ENTITY.BOSS_DEMON_LORD]: { range: 6, type: 'dark', color: '#7f1d1d' }, // Señor Demonio
-};
+export const ENEMY_RANGED_TYPES: Record<string, RangedEnemyInfo> = {}; // Deprecated shim if needed, or just remove
 
-export function isEnemyRanged(enemyType: string | number): boolean { return !!ENEMY_RANGED_TYPES[String(enemyType)]; }
-export function getEnemyAttackRange(enemyType: string | number): number { return ENEMY_RANGED_TYPES[String(enemyType)]?.range || 1; }
+export function isEnemyRanged(enemyType: string | number): boolean {
+  const stats = ENEMY_STATS[Number(enemyType)];
+  return !!stats?.attacks?.some(a => a.type === 'ranged' || a.type === 'magic');
+}
+
+export function getEnemyAttackRange(enemyType: string | number): number {
+  const stats = ENEMY_STATS[Number(enemyType)];
+  if (!stats?.attacks) return 1;
+  const ranges = stats.attacks.map(a => a.range);
+  return Math.max(1, ...ranges);
+}
 
 export function processEnemyRangedAttack(enemy: Entity, player: Entity, map: number[][]): AttackResult | null {
-  const info = ENEMY_RANGED_TYPES[String(enemy.type)];
-  if (!info) return null;
+  const stats = ENEMY_STATS[Number(enemy.type)];
+  if (!stats?.attacks) return null;
 
+  // Find a valid attack for the current distance
   const dist = getDistance(enemy, player);
-  if (dist > info.range || dist < 2) return null;
+
+  // Filter for ranged/magic attacks that are within range
+  // And also check min range (usually 2 for ranged)
+  // We pick the best attack (highest damage or priority?)
+  // For now: First valid ranged attack
+  const attackDef = stats.attacks.find(a =>
+    (a.type === 'ranged' || a.type === 'magic') &&
+    dist <= a.range &&
+    dist >= 2 // Minimum range for ranged attacks
+  );
+
+  if (!attackDef) return null;
+
+  // Chance check
+  if (attackDef.chance && Math.random() > attackDef.chance) return null;
+
   if (!hasLineOfSight(map, enemy.x, enemy.y, player.x, player.y)) return null;
 
-  const enemyAtk = enemy.stats?.attack || 0;
-  const damage = Math.floor(enemyAtk * 0.8);
+  const enemyAtk = enemy.stats?.attack || stats.attack || 0;
+  // Apply damage multiplier from attack definition
+  const damageMult = attackDef.damageMult || 1.0;
+  const damage = Math.floor(enemyAtk * damageMult);
+
   return {
-    type: 'ranged',
-    attackType: info.type,
+    type: attackDef.type,
+    attackType: attackDef.element || 'physical',
     damage,
-    color: info.color,
+    color: attackDef.color || '#ffffff',
     success: true,
     hit: true,
     isCritical: false,
     isKill: false,
-    evaded: false
+    evaded: false,
+    message: attackDef.name
   };
 }
 

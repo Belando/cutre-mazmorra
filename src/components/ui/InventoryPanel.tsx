@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { motion } from 'framer-motion';
 import { Item, Player, EquipmentState } from '@/types';
 import { useMenuNavigation } from '@/hooks/useMenuNavigation'; // Keep using this hook for gamepad
+import { useInventoryLogic } from '@/hooks/useInventoryLogic';
 import { EquipmentPaperDoll } from './inventory/EquipmentPaperDoll';
 import { InventoryGrid } from './inventory/InventoryGrid';
 import { ItemDetailsPanel } from './inventory/ItemDetailsPanel';
@@ -34,7 +35,12 @@ export default function InventoryPanel({
     onUseItem, onEquipItem, onUnequipItem, onDropItem, onAssignQuickSlot, onReorder, materials
 }: InventoryPanelProps) {
 
-    // State
+    // Logic Hook
+    const { formattedGold, materialCounts, processedInventory } = useInventoryLogic({
+        inventory, equipment, player, materials
+    });
+
+    // Local Selection State (View State)
     const [selectedItemState, setSelectedItemState] = useState<UIItem | null>(null);
     const [selectedSlot, setSelectedSlot] = useState<string | undefined>(undefined);
 
@@ -45,7 +51,7 @@ export default function InventoryPanel({
         isActive: isOpen,
         onBack: onClose,
         onSelect: (index) => {
-            const item = inventory[index];
+            const item = processedInventory[index];
             if (item) {
                 // Focus Item
                 setSelectedItemState({ ...item, index, isEquipped: false });
@@ -105,19 +111,19 @@ export default function InventoryPanel({
                             <div className="flex items-center gap-4 px-4 py-1.5 border rounded-full bg-black/60 border-slate-700 shadow-inner">
                                 <div className="flex items-center gap-2" title="Madera">
                                     <GiWoodPile className="w-5 h-5 text-amber-700" />
-                                    <span className="text-sm font-bold text-slate-300 font-mono">{materials?.wood || 0}</span>
+                                    <span className="text-sm font-bold text-slate-300 font-mono">{materialCounts.wood}</span>
                                 </div>
                                 <div className="w-px h-4 bg-slate-700/50"></div>
                                 <div className="flex items-center gap-2" title="Piedra">
                                     <GiStoneBlock className="w-4 h-4 text-slate-500" />
-                                    <span className="text-sm font-bold text-slate-300 font-mono">{materials?.stone || 0}</span>
+                                    <span className="text-sm font-bold text-slate-300 font-mono">{materialCounts.stone}</span>
                                 </div>
                             </div>
 
                             {/* Gold */}
                             <div className="flex items-center gap-2 px-4 py-1.5 border rounded-full bg-gradient-to-r from-amber-950/40 to-black/40 border-amber-500/30">
                                 <GiCoins className="w-5 h-5 text-yellow-500 drop-shadow-sm" />
-                                <span className="font-mono text-lg font-bold text-yellow-100">{player.gold}</span>
+                                <span className="font-mono text-lg font-bold text-yellow-100">{formattedGold}</span>
                             </div>
                         </div>
                     </div>
@@ -125,7 +131,7 @@ export default function InventoryPanel({
                     {/* Grid Container */}
                     <div className="p-6 overflow-y-auto custom-scrollbar flex-1">
                         <InventoryGrid
-                            inventory={inventory}
+                            inventory={processedInventory}
                             selectedIndex={selectedIndex}
                             selectedItem={selectedItemState}
                             onSelect={handleSelectGridItem}

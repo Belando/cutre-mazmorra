@@ -24,20 +24,14 @@ const bossBehaviors: Record<string, AIBehavior> = {
     [ENTITY.BOSS_LICH]: new LichAI(),
 };
 
+import { ENEMY_STATS } from '@/data/enemies';
+
 export function getEnemyBehavior(enemyType: number | string): string {
-    // Keep this mapping or move to data
     const type = typeof enemyType === 'string' ? parseInt(enemyType) : enemyType;
     if (type >= 100) return AI_BEHAVIORS.BOSS;
 
-    const mapping: Record<number, string> = {
-        2: AI_BEHAVIORS.PACK,
-        3: AI_BEHAVIORS.CAUTIOUS,
-        7: AI_BEHAVIORS.AMBUSH,
-        10: AI_BEHAVIORS.CAUTIOUS,
-        15: AI_BEHAVIORS.SUPPORT,
-        19: AI_BEHAVIORS.CAUTIOUS,
-    };
-    return mapping[type] || AI_BEHAVIORS.AGGRESSIVE;
+    const stats = ENEMY_STATS[type];
+    return stats?.aiBehavior || AI_BEHAVIORS.AGGRESSIVE;
 }
 
 export function processEnemyTurn(

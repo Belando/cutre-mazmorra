@@ -4,6 +4,7 @@ import { SKILLS, SKILL_COLORS } from '@/data/skills';
 import { generateMaterialDrop, generateBossDrop } from "@/engine/systems/CraftingSystem";
 import { calculatePlayerStats, generateItem } from '@/engine/systems/ItemSystem';
 import { calculateBuffBonuses, getSkillEffectiveStats, useSkill, canUseSkill } from "@/engine/systems/SkillSystem";
+import { calculateMeleeDamage } from "@/engine/systems/CombatSystem";
 // import { soundManager } from '@/engine/systems/SoundSystem'; // DECOUPLED
 import { events, GAME_EVENTS } from '@/engine/core/EventManager';
 import { Item, Entity, Player, Enemy, Stats, SkillState } from '@/types';
@@ -284,25 +285,45 @@ export function useCombatLogic({
     };
 
     const performAttack = (targetEnemy: Entity, enemyIdx: number) => {
-        // Basic Attack Logic
+        // 1. Calculate Damage using CombatSystem (Tags, Defense, Crits)
         const pStats = calculatePlayerStats(player);
-        const damage = Math.max(1, Math.floor(pStats.attack || 1));
+        const { damage, isCritical } = calculateMeleeDamage(player, targetEnemy, pStats);
 
-        targetEnemy.hp = (targetEnemy.hp || 0) - damage;
+        // 2. Clone Enemies to update state immutably
+        const newEnemies = [...dungeon.enemies];
+        const updatedEnemy = { ...newEnemies[enemyIdx] };
+        updatedEnemy.hp = Math.max(0, (updatedEnemy.hp || 0) - damage);
+        updatedEnemy.lastAttackTime = Date.now(); // Feedback visual
 
+        newEnemies[enemyIdx] = updatedEnemy;
+
+        // 3. Visual Effects
         if (effectsManager.current) {
-            effectsManager.current.addExplosion(targetEnemy.x, targetEnemy.y, '#fff');
-            effectsManager.current.addBlood(targetEnemy.x, targetEnemy.y);
-            effectsManager.current.addText(targetEnemy.x, targetEnemy.y, damage.toString(), '#fff');
+            const color = isCritical ? '#fef9c3' : '#fff'; // Yellow for crit
+            effectsManager.current.addExplosion(updatedEnemy.x, updatedEnemy.y, color);
+            effectsManager.current.addBlood(updatedEnemy.x, updatedEnemy.y);
+
+            const text = isCritical ? `${damage}!` : damage.toString();
+            effectsManager.current.addText(updatedEnemy.x, updatedEnemy.y, text, color, isCritical);
+
+            if (isCritical) effectsManager.current.addShake(3);
         }
 
-        // soundManager.play('hit');
-        events.emit(GAME_EVENTS.PLAYER_ATTACK); // Makes sound play 'hit' or 'swing'
-
+        // 4. Sound
+        events.emit(GAME_EVENTS.PLAYER_ATTACK);
         updatePlayer({ lastAttackTime: Date.now() });
 
-        if ((targetEnemy.hp || 0) <= 0) {
+        // 5. Update State or Handle Death
+        if (updatedEnemy.hp <= 0) {
+            // handleEnemyDeath expects index from current dungeon state, which aligns with our clone
+            // But handleEnemyDeath clones internally too. 
+            // It's safer to just call handleEnemyDeath if dead, OR setDungeon if alive.
+            // Note: handleEnemyDeath uses 'dungeon.enemies' from closure. 
+            // If we assume handleEnemyDeath handles the state update, we just call it.
             handleEnemyDeath(enemyIdx);
+        } else {
+            // Alive: Update Dungeon State
+            setDungeon(prev => ({ ...prev, enemies: newEnemies }));
         }
     };
 

@@ -124,6 +124,7 @@ export interface BaseEntity extends Point {
     poisonDamage?: number;
     marked?: boolean;
     lastAction?: string;
+    tags?: string[]; // Systemic tags (e.g. 'UNDEAD', 'FIRE', 'FLYING')
 }
 
 export interface Player extends BaseEntity {
@@ -287,6 +288,7 @@ export interface RenderItem {
     lastSkillTime?: number;
     lastSkillId?: string | null;
     isInvisible?: boolean;
+    opacity?: number;
 
     // Custom Callback (Legacy fallback, try to avoid)
     draw?: () => void;
