@@ -1,9 +1,9 @@
-// Generador procedimental de mazmorras para roguelike
 import { generateLevelItems } from './ItemSystem';
 import { TILE, ENTITY } from '@/data/constants';
 import { Entity, Point, Item, Chest, RenderMap, RenderTile } from '@/types';
 import { GAME_CONFIG } from '@/data/config';
 import { ENEMY_STATS } from '@/data/enemies';
+import { SeededRandom } from '@/utils/random';
 
 // Modules
 import { Room, getBossForLevel, getEnemiesForLevel, smoothMap, findNearestFloor } from './dungeon/DungeonUtils';
@@ -23,25 +23,30 @@ export interface DungeonResult {
   items: Item[];
   chests: Chest[];
   torches: Point[];
+  seed: number;
 }
 
-export function generateDungeon(width: number, height: number, level: number, playerLevel = 1): DungeonResult {
+export function generateDungeon(width: number, height: number, level: number, playerLevel = 1, seed?: number): DungeonResult {
+
+  // Use provided seed or generate random one
+  const currentSeed = seed !== undefined ? seed : Math.floor(Math.random() * 2147483647);
+  const rng = new SeededRandom(currentSeed);
 
   // 1. Generate Rooms & Initial Map
-  const { rooms, map } = generateRooms(width, height, level);
+  const { rooms, map } = generateRooms(width, height, level, rng);
   const entitiesGrid: number[][] = Array(height).fill(null).map(() => Array(width).fill(ENTITY.NONE));
 
   // 2. Connect Rooms
-  connectRooms(map, rooms);
+  connectRooms(map, rooms, rng);
 
   // 3. Smooth Map
-  smoothMap(map, 2);
+  smoothMap(map, 2); // Smoothing might be deterministic already? Usually cellular automata is if rules are static.
 
   // 4. Place Doors
-  placeDoors(map, rooms);
+  placeDoors(map, rooms, rng);
 
   // 5. Ensure Connectivity
-  ensureConnectivity(map, rooms);
+  ensureConnectivity(map, rooms, rng);
 
   // 6. Player Start (First room center)
   const firstRoom = rooms[0];
@@ -76,9 +81,9 @@ export function generateDungeon(width: number, height: number, level: number, pl
 
   // 9. Generate Enemies and Boss
   const enemyTypes = getEnemiesForLevel(level);
-  const enemyCount = 8 + level * 2 + Math.floor(Math.random() * 5);
+  const enemyCount = 8 + level * 2 + rng.int(0, 4);
   const lastRoomIndex = rooms.length - 1;
-  const entityCount = placeEntities(map, entitiesGrid, rooms, enemyTypes, enemyCount, [0, lastRoomIndex]);
+  const entityCount = placeEntities(map, entitiesGrid, rooms, enemyTypes, enemyCount, [0, lastRoomIndex], rng);
   // Use entityCount or void it
   void entityCount;
 
@@ -88,17 +93,17 @@ export function generateDungeon(width: number, height: number, level: number, pl
   // 9.5 Place Resources (Rocks, Plants)
   // More rocks in deeper levels? Plants in early levels?
   const resourceTypes = [ENTITY.ROCK, ENTITY.PLANT]; // Maybe add mushrooms later
-  placeEntities(map, entitiesGrid, rooms, resourceTypes, 10 + level * 2, [0, lastRoomIndex]);
+  placeEntities(map, entitiesGrid, rooms, resourceTypes, 10 + level * 2, [0, lastRoomIndex], rng);
 
   // 9.6 Place INTERACTIVE: Crates & Barrels
   const destructibleTypes = [ENTITY.CRATE, ENTITY.BARREL];
   // 5 to 10 destructibles per level
-  placeEntities(map, entitiesGrid, rooms, destructibleTypes, 5 + Math.floor(Math.random() * 5), [0, lastRoomIndex]);
+  placeEntities(map, entitiesGrid, rooms, destructibleTypes, 5 + rng.int(0, 4), [0, lastRoomIndex], rng);
   // Spikes (Traps) - placed sparingly
-  placeEntities(map, entitiesGrid, rooms, [ENTITY.SPIKES], 2 + Math.floor(Math.random() * 3), [0, lastRoomIndex]);
+  placeEntities(map, entitiesGrid, rooms, [ENTITY.SPIKES], 2 + rng.int(0, 2), [0, lastRoomIndex], rng);
 
   // 10. Loot
-  const generatedItems = generateLevelItems(level, rooms, map, [0]);
+  const generatedItems = generateLevelItems(level, rooms, map, [0], rng);
   const chests: Chest[] = [];
   const items: Item[] = [];
 
@@ -120,7 +125,7 @@ export function generateDungeon(width: number, height: number, level: number, pl
   for (let y = 1; y < height - 1; y++) {
     for (let x = 1; x < width - 1; x++) {
       if (map[y][x] === TILE.WALL) {
-        if (map[y + 1][x] === TILE.FLOOR && Math.random() < 0.05) {
+        if (map[y + 1][x] === TILE.FLOOR && rng.next() < 0.05) {
           torches.push({ x, y: y });
         }
       }
@@ -146,7 +151,7 @@ export function generateDungeon(width: number, height: number, level: number, pl
       return {
         variant,
         noise,
-        rotation: Math.floor(Math.random() * 4) * 90
+        rotation: rng.int(0, 3) * 90 // Seeded rotation
       } as RenderTile;
     })
   );
@@ -162,7 +167,8 @@ export function generateDungeon(width: number, height: number, level: number, pl
     stairsUp,
     items,
     chests,
-    torches
+    torches,
+    seed: currentSeed
   };
 }
 

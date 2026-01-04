@@ -3,21 +3,26 @@ import { ENEMY_STATS } from '@/data/enemies';
 import { SpriteComponent, Stats, Enemy } from '@/types';
 import { Room, scaleEnemyStats } from './DungeonUtils';
 import { getSpriteForEnemy } from '@/data/sprites';
+import { SeededRandom } from '@/utils/random';
 
-export function placeEntities(map: number[][], entities: number[][], rooms: Room[], types: number[], count: number, excludeRoomIndices: number[]) {
+export function placeEntities(map: number[][], entities: number[][], rooms: Room[], types: number[], count: number, excludeRoomIndices: number[], rng?: SeededRandom) {
     let placed = 0;
     let attempts = 0;
+    const randomVal = (maxExclusive: number) => rng ? rng.int(0, maxExclusive - 1) : Math.floor(Math.random() * maxExclusive);
+
     while (placed < count && attempts < 100) {
         attempts++;
-        const roomIndex = Math.floor(Math.random() * rooms.length);
+        const roomIndex = randomVal(rooms.length);
         if (excludeRoomIndices.includes(roomIndex)) continue;
 
         const room = rooms[roomIndex];
-        const x = room.x + 1 + Math.floor(Math.random() * (room.width - 2));
-        const y = room.y + 1 + Math.floor(Math.random() * (room.height - 2));
+        const x = room.x + 1 + randomVal(room.width - 2);
+        const y = room.y + 1 + randomVal(room.height - 2);
 
         if (map[y][x] === TILE.FLOOR && entities[y][x] === ENTITY.NONE) {
-            entities[y][x] = types[Math.floor(Math.random() * types.length)];
+            // Types needs random pick
+            const typeIndex = randomVal(types.length);
+            entities[y][x] = types[typeIndex];
             placed++;
         }
     }

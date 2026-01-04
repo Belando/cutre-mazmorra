@@ -125,6 +125,23 @@ export interface BaseEntity extends Point {
     marked?: boolean;
     lastAction?: string;
     tags?: string[]; // Systemic tags (e.g. 'UNDEAD', 'FIRE', 'FLYING')
+
+    // Optional stats for all entities (enemies, NPCs might use them)
+    baseAttack?: number;
+    baseDefense?: number;
+    baseMagicAttack?: number;
+    baseMagicDefense?: number;
+    baseCrit?: number;
+    baseEvasion?: number;
+
+    equipAttack?: number;
+    equipDefense?: number;
+    equipMagicAttack?: number;
+    equipMagicDefense?: number;
+    equipCrit?: number;
+    equipEvasion?: number;
+    equipMaxHp?: number;
+    equipMaxMp?: number;
 }
 
 export interface Player extends BaseEntity {
@@ -199,6 +216,7 @@ export interface Item {
     color?: string;
     effect?: string;
     templateKey?: string;
+    prefix?: string;
 }
 
 export interface EquipmentState {
@@ -325,4 +343,5 @@ export interface GameState {
     materials: Record<string, number>;
     effectsManager?: IEffectsManager;
     spatialHash?: ISpatialHash;
+    seed?: number;
 }

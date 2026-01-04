@@ -16,6 +16,7 @@ export interface DungeonState extends DungeonResult {
     chests: Chest[];
     corpses: import("@/types").Corpse[];
     location?: 'home' | 'dungeon';
+    seed: number;
 }
 
 export interface UseDungeonResult {
@@ -43,7 +44,8 @@ export function useDungeon(): UseDungeonResult {
         visible: [],
         explored: [],
         level: 1,
-        bossDefeated: false
+        bossDefeated: false,
+        seed: 0
     });
 
     const calculateFOV = useCallback((playerX: number, playerY: number, currentMap: DungeonState) => {
@@ -96,7 +98,8 @@ export function useDungeon(): UseDungeonResult {
                 items: [],
                 entities: home.entities,
                 stairs: { x: home.stairs.x, y: home.stairs.y }, // Ensure property exists
-                stairsUp: null
+                stairsUp: null,
+                seed: 0
             };
             npcs = home.npcs;
         } else {

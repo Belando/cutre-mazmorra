@@ -2,6 +2,7 @@ import React from 'react';
 import { Item, Player } from '@/types';
 import { Button } from '@/components/ui/button';
 import { getItemIcon, EQUIPMENT_SLOTS } from '@/data/icons';
+import { getIconComponent } from '@/components/ui/IconMap';
 import { canClassEquip, canAssignToQuickSlot } from '@/engine/systems/ItemSystem';
 import { WEAPON_TYPES } from '@/data/items';
 import { X, Trash2, Users } from 'lucide-react';
@@ -53,13 +54,10 @@ const CLASS_NAMES: Record<string, string> = {
 };
 
 const getClassRestrictionText = (item: Item) => {
-    // This logic relies on importing lookups or passing them.
-    // For simplicity, I'll copy the minimal logic or assume 'item' has needed info, but 'WEAPON_TYPES' is imported.
     let classes: string[] = [];
     if (item.weaponType && WEAPON_TYPES[item.weaponType]) {
         classes = WEAPON_TYPES[item.weaponType].classes;
     }
-    // Optimization: Armor logic omitted for brevity, add if needed or rely on item metadata
 
     if (!classes || classes.length === 0) return null;
     return classes.map(c => CLASS_NAMES[c] || c).join(', ');
@@ -91,7 +89,9 @@ export function ItemDetailsPanel({
         );
     }
 
-    const Icon = getItemIcon(item);
+    const iconId = getItemIcon(item);
+    const Icon = getIconComponent(iconId);
+
     const rarityColor = {
         common: 'text-slate-200 border-slate-600 shadow-none',
         uncommon: 'text-emerald-400 border-emerald-500 shadow-emerald-500/20',
@@ -161,7 +161,11 @@ export function ItemDetailsPanel({
                     <div className="flex items-center gap-3 p-3 mb-4 border rounded-lg bg-slate-900/60 border-slate-700/50">
                         <div className="flex items-center justify-center w-8 h-8 rounded bg-slate-800 border-slate-700 text-slate-500">
                             {/* Icon fallback */}
-                            {(EQUIPMENT_SLOTS as any)[item.slot]?.icon && React.createElement((EQUIPMENT_SLOTS as any)[item.slot].icon, { className: "w-5 h-5" })}
+                            {(() => {
+                                const slotIconId = (EQUIPMENT_SLOTS as any)[item.slot]?.icon;
+                                const SlotIconComp = getIconComponent(slotIconId);
+                                return <SlotIconComp className="w-5 h-5" />;
+                            })()}
                         </div>
                         <div>
                             <p className="text-[9px] text-slate-500 uppercase font-bold tracking-wider">
@@ -230,7 +234,7 @@ export function ItemDetailsPanel({
 
                 {canAssignToQuickSlot(item) && !item.isEquipped && (
                     <div className="grid grid-cols-3 gap-1 pt-1">
-                        {['1', '2', '3'].map((k, i) => ( // Changed from Q/E/R to 1/2/3 or keep user preference? Let's use numeric for now or maintain QER
+                        {['1', '2', '3'].map((k, i) => (
                             <Button key={k} variant="outline" size="sm" className="text-[10px] h-7 border-slate-700 hover:bg-slate-800 text-slate-400"
                                 onClick={() => onAssignQuickSlot(i, item.id)}>
                                 {['Q', 'E', 'R'][i]}

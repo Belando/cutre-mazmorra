@@ -1,6 +1,7 @@
 import React from 'react';
 import { Item } from '@/types';
 import { getItemIcon } from '@/data/icons';
+import { getIconComponent } from '@/components/ui/IconMap';
 
 interface InventoryItemSlotProps {
     item?: Item;
@@ -37,7 +38,8 @@ export function InventoryItemSlot({
         );
     }
 
-    const Icon = getItemIcon(item);
+    const iconId = getItemIcon(item);
+    const Icon = getIconComponent(iconId);
 
     // Rarity styles tailored for Dark Fantasy (Glows & Borders)
     const rarityStyles = {

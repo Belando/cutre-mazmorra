@@ -1,6 +1,7 @@
 import React from 'react';
 import { Item, EquipmentState, Player } from '@/types';
 import { EQUIPMENT_SLOTS, getItemIcon } from '@/data/icons';
+import { getIconComponent } from '@/components/ui/IconMap';
 import { Shield, Sword, Heart, Zap } from 'lucide-react';
 import { GiMagicTrident, GiMagicShield } from 'react-icons/gi';
 
@@ -14,7 +15,10 @@ interface EquipSlotProps {
 function EquipSlot({ slotKey, equipment, onSelect, isSelected }: EquipSlotProps) {
     const item = (equipment as any)[slotKey];
     const slotInfo = (EQUIPMENT_SLOTS as any)[slotKey];
-    const SlotIcon = slotInfo.icon;
+
+    // Resolve Slot Icon
+    const slotIconId = slotInfo.icon;
+    const SlotIcon = getIconComponent(slotIconId);
 
     const styles = item ? ({
         common: 'border-slate-500 bg-slate-800',
@@ -24,7 +28,9 @@ function EquipSlot({ slotKey, equipment, onSelect, isSelected }: EquipSlotProps)
         legendary: 'border-amber-600 bg-amber-900/40 text-amber-400 shadow-[0_0_15px_rgba(245,158,11,0.3)]',
     }[item.rarity as string]) : 'border-dashed border-slate-700 bg-slate-950/30 text-slate-700';
 
-    const Icon = item ? getItemIcon(item) : null;
+    // Resolve Item Icon
+    const itemIconId = item ? getItemIcon(item) : null;
+    const Icon = itemIconId ? getIconComponent(itemIconId) : null;
 
     return (
         <div

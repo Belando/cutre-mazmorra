@@ -1,6 +1,8 @@
 import { ITEM_TEMPLATES, WEAPON_TYPES, ARMOR_TYPES, RARITY_CONFIG, RarityInfo } from '@/data/items';
 import { Item, Entity, Stats, EquipmentState } from '@/types';
+import { SeededRandom } from '@/utils/random';
 
+// ... (PREFIXES interface and const unchanged) ...
 // --- NUEVO: SISTEMA DE PREFIJOS (AFIJOS) ---
 
 interface Prefix {
@@ -39,9 +41,10 @@ function getItemLevelTier(dungeonLevel: number): number {
   return Math.max(1, Math.floor(dungeonLevel / 5) * 5);
 }
 
-function generateRarity(): 'common' | 'rare' | 'epic' | 'legendary' {
+function generateRarity(rng?: SeededRandom): 'common' | 'rare' | 'epic' | 'legendary' {
   const totalWeight = Object.values(RARITY_CONFIG).reduce((sum: number, r: RarityInfo) => sum + r.weight, 0);
-  let random = Math.random() * totalWeight;
+  const randVal = rng ? rng.next() : Math.random();
+  let random = randVal * totalWeight;
 
   for (const [key, config] of Object.entries(RARITY_CONFIG)) {
     random -= (config as RarityInfo).weight;
@@ -51,13 +54,15 @@ function generateRarity(): 'common' | 'rare' | 'epic' | 'legendary' {
 }
 
 // Función auxiliar para aplicar un prefijo
-function applyPrefix(itemData: Item, rarity: string): Item {
+function applyPrefix(itemData: Item, rarity: string, rng?: SeededRandom): Item {
   // Solo items Raros o superiores tienen prefijos
   if (!['rare', 'epic', 'legendary'].includes(rarity)) return itemData;
 
   // 40% de probabilidad en Raro, 70% en Épico, 100% en Legendario
   const chance = rarity === 'legendary' ? 1.0 : (rarity === 'epic' ? 0.7 : 0.4);
-  if (Math.random() > chance) return itemData;
+  const randVal = rng ? rng.next() : Math.random();
+
+  if (randVal > chance) return itemData;
 
   // Filtrar prefijos válidos para esta categoría/slot
   const validPrefixes = Object.entries(PREFIXES).filter(([_, p]) => {
@@ -76,7 +81,8 @@ function applyPrefix(itemData: Item, rarity: string): Item {
   if (validPrefixes.length === 0) return itemData;
 
   // Seleccionar uno aleatorio
-  const [key, prefix] = validPrefixes[Math.floor(Math.random() * validPrefixes.length)];
+  const randIndex = rng ? rng.int(0, validPrefixes.length - 1) : Math.floor(Math.random() * validPrefixes.length);
+  const [key, prefix] = validPrefixes[randIndex];
 
   // Aplicar cambios
   // 1. Nombre: "Espada Afilada" (Ajuste de género básico o neutro)
@@ -104,8 +110,8 @@ function applyPrefix(itemData: Item, rarity: string): Item {
   return itemData;
 }
 
-export function generateItem(dungeonLevel: number, forceType: string | null = null): Item | null {
-  const rarityKey = generateRarity();
+export function generateItem(dungeonLevel: number, forceType: string | null = null, rng?: SeededRandom): Item | null {
+  const rarityKey = generateRarity(rng);
   const rarityInfo = RARITY_CONFIG[rarityKey];
   const itemLevel = getItemLevelTier(dungeonLevel);
 
@@ -113,7 +119,8 @@ export function generateItem(dungeonLevel: number, forceType: string | null = nu
   let templateKey = forceType;
   if (!templateKey) {
     const keys = Object.keys(ITEM_TEMPLATES);
-    templateKey = keys[Math.floor(Math.random() * keys.length)];
+    const randIndex = rng ? rng.int(0, keys.length - 1) : Math.floor(Math.random() * keys.length);
+    templateKey = keys[randIndex];
   }
   const template = ITEM_TEMPLATES[templateKey!];
   if (!template) return null;
@@ -131,8 +138,9 @@ export function generateItem(dungeonLevel: number, forceType: string | null = nu
   }
 
   // Construcción inicial del objeto
+  const randId = rng ? rng.next().toString(36).substr(2, 5) : Math.random().toString(36).substr(2, 5);
   let item: Item = {
-    id: `${templateKey}_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`,
+    id: `${templateKey}_${Date.now()}_${randId}`,
     templateKey: templateKey!,
     name: `${template.name}`, // Nombre base, la rareza se indicará por color
     levelRequirement: itemLevel,
@@ -150,7 +158,7 @@ export function generateItem(dungeonLevel: number, forceType: string | null = nu
   };
 
   // --- APLICAR PREFIJOS ---
-  item = applyPrefix(item, rarityKey);
+  item = applyPrefix(item, rarityKey, rng);
 
   return item;
 }
@@ -356,18 +364,25 @@ export function canAssignToQuickSlot(item: Item): boolean {
   return !!item && ['potion', 'food'].includes(item.category);
 }
 
-export function generateLevelItems(dungeonLevel: number, rooms: any[], map: number[][], excludeRoomIndices: number[] = []): Item[] {
+export function generateLevelItems(dungeonLevel: number, rooms: any[], map: number[][], excludeRoomIndices: number[] = [], rng?: SeededRandom): Item[] {
   const items: Item[] = [];
-  const itemCount = 2 + Math.floor(Math.random() * 3);
+  const itemCount = 2 + (rng ? rng.int(0, 2) : Math.floor(Math.random() * 3));
   let placed = 0;
   let attempts = 0;
   while (placed < itemCount && attempts < 50) {
     attempts++;
-    const room = rooms[Math.floor(Math.random() * rooms.length)];
-    const x = room.x + 1 + Math.floor(Math.random() * (room.width - 2));
-    const y = room.y + 1 + Math.floor(Math.random() * (room.height - 2));
-    if (map[y]?.[x] === 1) {
-      const item = generateItem(dungeonLevel);
+    const randRoomIndex = rng ? rng.int(0, rooms.length - 1) : Math.floor(Math.random() * rooms.length);
+    const room = rooms[randRoomIndex];
+
+    // Random Point in Room
+    const x = room.x + 1 + (rng ? rng.int(0, room.width - 3) : Math.floor(Math.random() * (room.width - 2)));
+    const y = room.y + 1 + (rng ? rng.int(0, room.height - 3) : Math.floor(Math.random() * (room.height - 2)));
+
+    if (map[y]?.[x] === 1) { // 1 is FLOOR usually? Check TILE.FLOOR constant if possible but here it is hardcoded 1 in original
+      // Wait, original said map[y]?.[x] === 1. TILE.FLOOR is 1? 
+      // In DungeonGenerator TILE imported. Here it's not.
+      // Assuming 1 is floor.
+      const item = generateItem(dungeonLevel, null, rng);
       if (item) {
         item.x = x; item.y = y;
         items.push(item);

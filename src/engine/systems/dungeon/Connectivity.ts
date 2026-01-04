@@ -1,7 +1,7 @@
-
 import { TILE } from '@/data/constants';
 import { Room, WallSegment } from './DungeonUtils';
 import { Point } from '@/types';
+import { SeededRandom } from '@/utils/random';
 
 export function carveHorizontalCorridor(map: number[][], x1: number, x2: number, y: number) {
     const start = Math.min(x1, x2);
@@ -19,7 +19,7 @@ export function carveVerticalCorridor(map: number[][], y1: number, y2: number, x
     }
 }
 
-export function connectRooms(map: number[][], rooms: Room[]) {
+export function connectRooms(map: number[][], rooms: Room[], rng?: SeededRandom) {
     for (let i = 1; i < rooms.length; i++) {
         const prev = rooms[i - 1];
         const curr = rooms[i];
@@ -29,7 +29,7 @@ export function connectRooms(map: number[][], rooms: Room[]) {
         const currCenterX = Math.floor(curr.x + curr.width / 2);
         const currCenterY = Math.floor(curr.y + curr.height / 2);
 
-        if (Math.random() > 0.5) {
+        if ((rng ? rng.next() : Math.random()) > 0.5) {
             carveHorizontalCorridor(map, prevCenterX, currCenterX, prevCenterY);
             carveVerticalCorridor(map, prevCenterY, currCenterY, currCenterX);
         } else {
@@ -39,7 +39,7 @@ export function connectRooms(map: number[][], rooms: Room[]) {
     }
 }
 
-export function ensureConnectivity(map: number[][], rooms: Room[]) {
+export function ensureConnectivity(map: number[][], rooms: Room[], rng?: SeededRandom) {
     const width = map[0].length;
     const height = map.length;
     let connected = false;
@@ -112,7 +112,7 @@ export function ensureConnectivity(map: number[][], rooms: Room[]) {
                 const targetCx = Math.floor(bestCandidate.x + bestCandidate.width / 2);
                 const targetCy = Math.floor(bestCandidate.y + bestCandidate.height / 2);
 
-                if (Math.random() > 0.5) {
+                if ((rng ? rng.next() : Math.random()) > 0.5) {
                     carveHorizontalCorridor(map, curCx, targetCx, curCy);
                     carveVerticalCorridor(map, curCy, targetCy, targetCx);
                 } else {
@@ -126,8 +126,18 @@ export function ensureConnectivity(map: number[][], rooms: Room[]) {
     }
 }
 
-export function placeDoors(map: number[][], rooms: Room[]) {
-    const shuffledRooms = [...rooms].sort(() => Math.random() - 0.5);
+export function placeDoors(map: number[][], rooms: Room[], rng?: SeededRandom) {
+    // Determine sort or shuffle
+    // If RNG provided, use it to shuffle. Otherwise default.
+    // However, JS sort is not random. We need to shuffle then iterate.
+    // Original: [...rooms].sort(() => Math.random() - 0.5)
+
+    let shuffledRooms = [...rooms];
+    if (rng) {
+        shuffledRooms = rng.shuffle(shuffledRooms);
+    } else {
+        shuffledRooms.sort(() => Math.random() - 0.5);
+    }
 
     shuffledRooms.forEach(room => {
         const walls: WallSegment[] = [
@@ -180,7 +190,7 @@ export function placeDoors(map: number[][], rooms: Room[]) {
                     }
                 }
 
-                if (!nearbyDoor && Math.random() < 0.8) {
+                if (!nearbyDoor && (rng ? rng.next() : Math.random()) < 0.8) {
                     map[best.y][best.x] = TILE.DOOR;
                 }
             }
