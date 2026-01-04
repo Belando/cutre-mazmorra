@@ -258,7 +258,7 @@ export function useGameEngine() {
 
     const gameState = useMemo(() => ({
         player, map: dungeon.map, enemies: dungeon.enemies, items: dungeon.items, chests: dungeon.chests,
-        torches: dungeon.torches, npcs: dungeon.npcs, stairs: dungeon.stairs, stairsUp: dungeon.stairsUp,
+        torches: dungeon.torches, corpses: dungeon.corpses, npcs: dungeon.npcs, stairs: dungeon.stairs, stairsUp: dungeon.stairsUp,
         visible: dungeon.visible, explored: dungeon.explored, level: dungeon.level, bossDefeated: dungeon.bossDefeated,
         inventory, equipment, questProgress, materials, effectsManager: effectsManager.current,
         spatialHash: spatialHash.current,

@@ -172,6 +172,48 @@ export const QUESTS: Record<string, Quest> = {
         targetCount: 3,
         reward: { gold: 100, exp: 50 },
     },
+    ancient_minerals: {
+        id: 'ancient_minerals',
+        name: 'Minerales Antiguos',
+        type: 'side',
+        description: 'Trae 3 bloques de obsidiana.',
+        target: 'obsidian',
+        targetType: 'collect',
+        targetCount: 3,
+        reward: { gold: 150, exp: 70 },
+    },
+
+    // Hunting Variants
+    hunting_shadows: {
+        id: 'hunting_shadows',
+        name: 'Cazador de Sombras',
+        type: 'side',
+        description: 'Exorciza 3 Fantasmas.',
+        target: ENEMY_IDS.GHOST,
+        targetType: 'kill',
+        targetCount: 3,
+        reward: { gold: 90, exp: 60 },
+    },
+    rat_king_challenge: {
+        id: 'rat_king_challenge',
+        name: 'El Desafío de la Rata',
+        type: 'side',
+        description: 'Derrota 3 Ratas Gigantes.',
+        target: ENEMY_IDS.GIANT_RAT,
+        targetType: 'kill',
+        targetCount: 3,
+        reward: { gold: 80, exp: 45, item: { name: 'Maza de Hueso', symbol: 'GiWarPick' } }, // Unique reward?
+    },
+    unnatural_bones: {
+        id: 'unnatural_bones',
+        name: 'Huesos Antinaturales',
+        type: 'side',
+        description: 'Destruye 3 Guardias Esqueleto.',
+        target: ENEMY_IDS.ELITE_SKELETON,
+        targetType: 'kill',
+        targetCount: 3,
+        reward: { gold: 120, exp: 90 },
+    },
 
     // Exploration quests
     explore_deep: {

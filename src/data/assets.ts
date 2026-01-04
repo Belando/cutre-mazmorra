@@ -50,6 +50,10 @@ export const ASSET_MANIFEST = [
     { key: 'floor_crypt', src: '/sprites/floor_crypt.png' },
     { key: 'lich', src: '/sprites/lich.png' },
 
+    { key: 'hell_wall', src: '/sprites/hell_wall.png' },
+    { key: 'lava_flow', src: '/sprites/lava_flow.png' },
+    { key: 'floor_hell', src: '/sprites/floor_hell.png' },
+
     // WARRIOR SPRITES (Restored)
     { key: 'warrior_idle_1', src: '/sprites/warrior/idle1.png' },
     { key: 'warrior_idle_2', src: '/sprites/warrior/idle2.png' },

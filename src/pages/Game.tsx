@@ -118,14 +118,30 @@ export default function Game() {
     const handleMouseClick = (e: React.MouseEvent<HTMLDivElement>) => {
         if (!gameState?.player || !gameState.map || ui.isModalOpen) return;
 
-        if (hoveredTarget && actions.performAttack) {
+        if (hoveredTarget) {
             const idx = gameState.enemies.findIndex((e: Enemy) => e.id === hoveredTarget.id);
             if (idx !== -1 && gameState.player) {
                 const target = gameState.enemies[idx];
+
+                // 1. Skill Execution (Prioritize Selected Skill)
+                // Fallback to Basic Attack if skill is on Cooldown
+                if (uiState.selectedSkill) {
+                    const cooldowns = gameState.player.skills?.cooldowns || {};
+                    const isOnCd = (cooldowns[uiState.selectedSkill] || 0) > 0;
+
+                    if (!isOnCd) {
+                        // Range/Mana checks are handled inside executeSkillAction -> useSkill
+                        actions.executeSkillAction(uiState.selectedSkill, target);
+                        return;
+                    }
+                    // If on CD, continue to Basic Attack below...
+                }
+
+                // 2. Basic Attack (Melee)
                 const player = gameState.player;
                 const dist = Math.max(Math.abs(target.x - player.x), Math.abs(target.y - player.y));
 
-                if (dist <= 1.5) { // Assuming global range for simplicity here, logic handled in action usually
+                if (dist <= 1.5) {
                     actions.performAttack(target, idx);
                 } else {
                     actions.addMessage("¡Está demasiado lejos!", 'warning');

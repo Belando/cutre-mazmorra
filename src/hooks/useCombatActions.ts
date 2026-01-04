@@ -3,9 +3,8 @@ import { ENEMY_STATS, EnemyType } from '@/data/enemies';
 import { soundManager } from "@/engine/systems/SoundSystem";
 import { calculatePlayerHit } from '@/engine/systems/CombatSystem';
 import { hasLineOfSight } from '@/engine/core/utils';
-import { Player } from './usePlayer';
 import { DungeonState } from './useDungeon';
-import { Entity } from '@/types';
+import { Entity, Player, Item } from '@/types';
 
 export interface CombatActionsContext {
     player: Player;
@@ -15,7 +14,7 @@ export interface CombatActionsContext {
     addMessage: (msg: string, type?: string) => void;
     effectsManager: any; // Using any for GameEffects as it's JS
     executeSkillAction: (skillId: string, targetEnemy?: Entity | null) => boolean;
-    handleEnemyDeath: (enemyIdx: number) => Entity[];
+    handleEnemyDeath: (enemy: Entity) => void;
 }
 
 export function useCombatActions(context: CombatActionsContext) {
@@ -38,13 +37,13 @@ export function useCombatActions(context: CombatActionsContext) {
             skills: { ...player.skills, buffs: newBuffs }
         });
 
-        const { damage, isCrit } = calculatePlayerHit(player, enemy);
+        const { damage, isCritical } = calculatePlayerHit(player, enemy);
 
-        soundManager.play(isCrit ? 'critical' : 'attack');
+        soundManager.play(isCritical ? 'critical' : 'attack');
         if (effectsManager.current) {
             effectsManager.current.addBlood(enemy.x, enemy.y);
-            effectsManager.current.addText(enemy.x, enemy.y, damage.toString(), isCrit ? '#ef4444' : '#fff', isCrit);
-            effectsManager.current.addShake(isCrit ? 10 : 3);
+            effectsManager.current.addText(enemy.x, enemy.y, damage.toString(), isCritical ? '#ef4444' : '#fff', isCritical);
+            effectsManager.current.addShake(isCritical ? 10 : 3);
         }
 
         const nextEnemies = [...(dungeon.enemies || [])];
@@ -58,7 +57,10 @@ export function useCombatActions(context: CombatActionsContext) {
             if (effectsManager.current) {
                 effectsManager.current.addExplosion(enemy.x, enemy.y, '#52525b');
             }
-            return handleEnemyDeath(enemyIdx);
+            // Fix: Pass the enemy object, not the index.
+            // Using the original enemy object as reference if needed, or the updated one?
+            // useCombatLogic uses it for ID/Type lookup. Passing the original 'enemy' is safest for type lookup.
+            return handleEnemyDeath(enemy);
         }
 
         // IMPORTANT: Actually update the dungeon state!

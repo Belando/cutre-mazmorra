@@ -40,12 +40,24 @@ export const DUNGEON_THEMES: Record<string, DungeonTheme> = {
         fogColor: 'rgba(5, 30, 10, 0.5)',
         embers: true, // Green spirits?
     },
+    lava: {
+        name: 'Profundidades de Magma',
+        wall: '#2d1b1b', // Reddish/Obsidian
+        wallDetail: '#3d2b2b',
+        floor: '#1a1010', // Dark Ash
+        floorDetail: '#2a1a1a',
+        ambient: 'rgba(60, 10, 5, 0.2)', // Red glow
+        fogColor: 'rgba(40, 5, 0, 0.4)',
+        lavaGlow: true,
+        embers: true, // Fire embers
+    }
 };
 
 export function getThemeForFloor(floor: number): DungeonTheme {
     if (floor <= 3) return DUNGEON_THEMES.stone;
     if (floor <= 6) return DUNGEON_THEMES.cave;
-    return DUNGEON_THEMES.crypt;
+    if (floor <= 9) return DUNGEON_THEMES.crypt;
+    return DUNGEON_THEMES.lava;
 }
 
 export function getThemeTileColors(floor: number) {
@@ -100,6 +112,12 @@ export function drawThemedFloor(ctx: CanvasRenderingContext2D, x: number, y: num
         if (seed % 5 === 0) {
             ctx.fillRect(x + s * 0.7, y + s * 0.6, 3, 3);
         }
+
+        // Lava Cracks?
+        if (theme.lavaGlow && seed % 13 === 0) {
+            ctx.fillStyle = '#ef4444';
+            ctx.fillRect(x + s * 0.4, y + s * 0.4, 4, 1);
+        }
     }
 }
 
@@ -132,14 +150,14 @@ export function drawAmbientOverlay(ctx: CanvasRenderingContext2D, canvasWidth: n
     } else if (floor <= 6) {
         // Cave Dripping/Bats? Just heavy shadow particles
         ctx.fillStyle = 'rgba(10, 10, 10, 0.3)';
-        ctx.fill(); // Wait, logic below expects particles
+        // ctx.fill(); // Removed erroneous fill
         for (let i = 0; i < 15; i++) {
             // Falling debris
             const x = (i * 97 + Math.sin(frame * 0.01 + i) * 10) % canvasWidth;
             const y = (frame * (1 + (i % 2)) + i * 50) % canvasHeight;
             ctx.fillRect(x, y, 2, 2);
         }
-    } else {
+    } else if (floor <= 9) {
         // Crypt Spirits (Green)
         if (theme.embers) {
             ctx.fillStyle = '#4ade80'; // Green
@@ -151,6 +169,24 @@ export function drawAmbientOverlay(ctx: CanvasRenderingContext2D, canvasWidth: n
                 ctx.beginPath();
                 ctx.arc(x, y, size * 1.5, 0, Math.PI * 2);
                 ctx.fill();
+            }
+            ctx.globalAlpha = 1;
+        }
+    } else {
+        // Lava / Magma (Red)
+        if (theme.embers) {
+            // Rising sparks
+            ctx.fillStyle = '#fb923c'; // Orange-Red
+            for (let i = 0; i < 25; i++) {
+                // Rising faster than spirits
+                const x = (Math.sin(frame * 0.02 + i) * 50 + i * 80) % canvasWidth;
+                // Move UP
+                const y = canvasHeight - ((frame * (1.5 + (i % 3) * 0.5) + i * 30) % canvasHeight);
+
+                const size = (i % 2) + 1;
+                ctx.globalAlpha = 0.4 + (Math.sin(frame * 0.1 + i) * 0.3);
+
+                ctx.fillRect(x, y, size, size);
             }
             ctx.globalAlpha = 1;
         }

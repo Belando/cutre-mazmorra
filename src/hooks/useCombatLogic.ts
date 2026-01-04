@@ -1,12 +1,12 @@
+import { useCallback } from 'react';
 import { ENEMY_STATS, EnemyType } from '@/data/enemies';
 import { ENTITY } from '@/data/constants';
 import { SKILLS, SKILL_COLORS } from '@/data/skills';
-import { QUESTS } from '@/data/quests'; // Import QUESTS
+import { QUESTS } from '@/data/quests';
 import { generateMaterialDrop, generateBossDrop } from "@/engine/systems/CraftingSystem";
 import { calculatePlayerStats, generateItem } from '@/engine/systems/ItemSystem';
 import { calculateBuffBonuses, getSkillEffectiveStats, useSkill, canUseSkill } from "@/engine/systems/SkillSystem";
 import { calculateMeleeDamage } from "@/engine/systems/CombatSystem";
-// import { soundManager } from '@/engine/systems/SoundSystem'; // DECOUPLED
 import { events, GAME_EVENTS } from '@/engine/core/EventManager';
 import { Item, Entity, Player, Enemy, Stats, SkillState } from '@/types';
 import { DungeonState } from './useDungeon';
@@ -41,7 +41,7 @@ export function useCombatLogic({
     activeQuests, setQuestProgress
 }: CombatLogicContext) {
 
-    const getMessage = (code: string, params: Record<string, any> = {}): string => {
+    const getMessage = useCallback((code: string, params: Record<string, any> = {}): string => {
         const MESSAGES: Record<string, string> = {
             'OUT_OF_RANGE': '¡Fuera de alcance!',
             'NO_LOS': '¡Sin línea de visión!',
@@ -63,7 +63,6 @@ export function useCombatLogic({
             // Skill System codes
             'SKILL_NOT_FOUND': 'Habilidad no encontrada',
             'ALREADY_LEARNED': 'Ya aprendida',
-            // Fallbacks for dynamic messages from SkillSystem if unmapped
         };
 
         let msg = MESSAGES[code] || code;
@@ -71,25 +70,22 @@ export function useCombatLogic({
             msg = msg.replace(`{${key}}`, String(val));
         });
 
-        // Handle complex dynamic codes from system (e.g. LEARNED:Fireball)
         if (code.startsWith('LEARNED:')) return `¡Aprendiste ${code.split(':')[1]}!`;
         if (code.startsWith('SKILL_IMPROVED:')) {
             const parts = code.split(':');
             return `${parts[1]} subió a nivel ${parts[2]}!`;
         }
         if (code.startsWith('EVOLVED:')) return `¡Evolucionaste a ${code.split(':')[1]}!`;
-
         return msg;
-    };
+    }, []);
 
-    // --- MANEJO DE MUERTE DE ENEMIGOS ---
-    const handleEnemyDeath = (enemyIdx: number): Entity[] => {
-        const enemy = dungeon.enemies[enemyIdx];
-        if (!enemy) return dungeon.enemies;
-
-        const info = ENEMY_STATS[enemy.type as EnemyType];
-        const newEnemies = [...dungeon.enemies];
-        newEnemies.splice(enemyIdx, 1);
+    const handleEnemyDeath = useCallback((enemy: Entity) => {
+        let info = ENEMY_STATS[enemy.type as EnemyType];
+        if (!info) {
+            console.warn(`Enemy mismatch: Type ${enemy.type} not found in stats. Using fallback.`);
+            // Fallback to allow death even if stats are missing
+            info = { id: 'unknown', name: 'Unknown Entity', exp: 0, hp: 0, attack: 0, defense: 0, symbol: '?', color: '#fff' } as any;
+        }
 
         // --- JUICE: CORPSE SPAWNING ---
         const corpse = {
@@ -100,11 +96,14 @@ export function useCombatLogic({
             timestamp: Date.now()
         };
 
-        setDungeon(prev => ({
-            ...prev,
-            enemies: newEnemies,
-            corpses: [...(prev.corpses || []), corpse]
-        }));
+        setDungeon(prev => {
+            const newEnemies = prev.enemies.filter(e => e !== enemy);
+            return {
+                ...prev,
+                enemies: newEnemies,
+                corpses: [...(prev.corpses || []), corpse]
+            };
+        });
         gainExp(info.exp);
         addMessage(getMessage('DEATH', { name: info.name, exp: info.exp }), 'death');
         events.emit(GAME_EVENTS.ENEMY_DIED, { enemy });
@@ -113,7 +112,7 @@ export function useCombatLogic({
         if (activeQuests && activeQuests.length > 0 && setQuestProgress) {
             setQuestProgress(prev => {
                 const next = { ...prev };
-                const enemyId = info.id; // Map ENEMY_TYPE -> String ID
+                const enemyId = info.id;
 
                 activeQuests.forEach(questId => {
                     const quest = QUESTS[questId];
@@ -123,17 +122,13 @@ export function useCombatLogic({
                         const current = next[questId] || 0;
                         next[questId] = current + 1;
                         if (next[questId] >= (quest.targetCount || 1) && current < (quest.targetCount || 1)) {
-                            // Quest Completed notice handled by NPC or UI, but we track progress here
                             addMessage(`¡Progreso de misión: ${next[questId]}/${quest.targetCount}!`, 'info');
                         }
                     } else if (quest.targetType === 'boss' && quest.target === enemyId) {
                         next[questId] = 1;
                         addMessage(`¡Jefe derrotado! Misión ${quest.name} lista.`, 'info');
                     } else if (quest.targetType === 'multi_kill') {
-                        // For multi-kill, we store an object: { [targetId]: count }
-                        // But prev[questId] might be undefined or {}.
                         const currentMulti = next[questId] || {};
-                        // Check if this enemy is one of the targets
                         const targetConfig = quest.targets?.find(t => t.target === enemyId);
                         if (targetConfig) {
                             const currentCount = currentMulti[enemyId] || 0;
@@ -157,20 +152,16 @@ export function useCombatLogic({
         }
 
         const isBoss = (enemy as Enemy).isBoss || false;
-
-        // 1. Drops
         const drops = isBoss ? generateBossDrop(enemy.type as any, dungeon.level) : generateMaterialDrop(enemy.type as EnemyType, dungeon.level);
         if (Math.random() < 0.15 || isBoss) {
             const lootItem = generateItem(dungeon.level) as Item | null;
             if (lootItem) drops.push(lootItem);
         }
 
-        // 3. Procesar Drops
         drops.forEach(item => {
             const success = addItem(item);
             if (success) {
                 addMessage(getMessage('PICKUP', { qty: (item as any).quantity || 1, item: item.name }), 'pickup');
-                // events.emit(GAME_EVENTS.ITEM_PICKUP); // Explicit event vs Sound
             } else {
                 addMessage(getMessage('INVENTORY_FULL', { item: item.name }), 'info');
             }
@@ -187,11 +178,11 @@ export function useCombatLogic({
             }
         }
         setStats((prev: any) => ({ ...prev, kills: prev.kills + 1 }));
-        return newEnemies;
-    };
+        // Returns nothing now
+    }, [dungeon.level, gainExp, addMessage, addItem, getMessage, effectsManager, spatialHash, activeQuests, setQuestProgress, setDungeon, setStats, setGameWon]);
 
     // --- EJECUCIÓN DE HABILIDADES ---
-    const executeSkillAction = (skillId: string, targetEnemy: Entity | null = null) => {
+    const executeSkillAction = useCallback((skillId: string, targetEnemy: Entity | null = null) => {
         const skill = SKILLS[skillId];
         if (!skill) return false;
 
@@ -236,10 +227,6 @@ export function useCombatLogic({
                 }
             }
 
-            // Sound Event Emission
-            // We could emit 'SKILL_USED' but SoundSystem isn't listening yet to dynamic payloads well
-            // So we emit specific sounds or a generic skill event.
-            // For now, let's map skillId to Event or generic sound
             if (skillId === 'fireball') events.emit('SOUND_PLAY', 'fireball');
             else if (skillId === 'heal') events.emit(GAME_EVENTS.PLAYER_HEAL);
             else events.emit('SOUND_PLAY', 'magic');
@@ -309,8 +296,11 @@ export function useCombatLogic({
                         if (dmgInfo.slow) enemy.slowed = dmgInfo.slow;
 
                         if ((enemy.hp || 0) <= 0) {
-                            currentEnemiesList = handleEnemyDeath(currentEnemiesList.indexOf(enemy));
-                            // soundManager.play('kill'); // REMOVED: Handled inside handleEnemyDeath
+                            // Manually remove from list for local updates
+                            currentEnemiesList.splice(currentEnemiesList.indexOf(enemy), 1);
+                            // Call side effects
+                            handleEnemyDeath(enemy);
+
                             if (effectsManager.current) effectsManager.current.addExplosion(enemy.x, enemy.y, '#52525b');
                         }
                     }
@@ -325,9 +315,9 @@ export function useCombatLogic({
             addMessage(getMessage(res.message || 'FAILURE'), 'info');
             return false;
         }
-    };
+    }, [player, dungeon.enemies, dungeon.visible, dungeon.map, addMessage, events, effectsManager, updatePlayer, setDungeon, setSelectedSkill, handleEnemyDeath, getMessage]);
 
-    const performAttack = (targetEnemy: Entity, enemyIdx: number) => {
+    const performAttack = useCallback((targetEnemy: Entity, enemyIdx: number) => {
         // 1. Calculate Damage using CombatSystem (Tags, Defense, Crits)
         const pStats = calculatePlayerStats(player);
         const { damage, isCritical } = calculateMeleeDamage(player, targetEnemy, pStats);
@@ -358,17 +348,20 @@ export function useCombatLogic({
 
         // 5. Update State or Handle Death
         if (updatedEnemy.hp <= 0) {
-            // handleEnemyDeath expects index from current dungeon state, which aligns with our clone
-            // But handleEnemyDeath clones internally too. 
-            // It's safer to just call handleEnemyDeath if dead, OR setDungeon if alive.
-            // Note: handleEnemyDeath uses 'dungeon.enemies' from closure. 
-            // If we assume handleEnemyDeath handles the state update, we just call it.
-            handleEnemyDeath(enemyIdx);
+            // Note: handleEnemyDeath now takes (enemy), not index. 
+            // We pass the ORIGINAL referenced enemy from the list? 
+            // Or the updated one? 
+            // handleEnemyDeath uses it for Side Effects (ID, Exp) and reference equality filter.
+            // If we pass 'updatedEnemy', reference equality filter will FAIL because updatedEnemy is a clone.
+            // So we MUST pass 'dungeon.enemies[enemyIdx]' (the original) or 'targetEnemy' (if it was original).
+            // 'targetEnemy' passed in arg is typically from map click, which is reference.
+            // Let's safe check. 'dungeon.enemies[enemyIdx]' is safe.
+            handleEnemyDeath(dungeon.enemies[enemyIdx]);
         } else {
             // Alive: Update Dungeon State
             setDungeon(prev => ({ ...prev, enemies: newEnemies }));
         }
-    };
+    }, [player, dungeon.enemies, calculatePlayerStats, calculateMeleeDamage, effectsManager, events, updatePlayer, setDungeon, handleEnemyDeath]);
 
     return { handleEnemyDeath, executeSkillAction, performAttack };
 }

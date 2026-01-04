@@ -17,6 +17,10 @@ import { RenderTile, RenderItem } from "@/types";
 
 // Helper to get biome sprite key
 function getBiomeSprite(base: string, level: number): string {
+    if (level >= 10) {
+        if (base === 'wall') return 'hell_wall';
+        if (base === 'floor') return 'floor_hell';
+    }
     if (level >= 7) return `${base}_crypt`;
     if (level >= 4) return `${base}_cave`;
     return base; // Default (stone)
@@ -25,6 +29,39 @@ function getBiomeSprite(base: string, level: number): string {
 function drawSpriteIsoFloor(ctx: CanvasRenderingContext2D, x: number, y: number, w: number, h: number, color: string, tileType: number, renderTile: RenderTile | null, level: number = 1) {
     let spriteKey = 'floor';
     const isVariant = renderTile?.variant !== 0;
+
+    // LAVA BIOME LOGIC
+    // Using a lower threshold for more lava (Math.abs noise 0-1 usually, but Perlin can be -1 to 1)
+    if (level >= 10 && renderTile && Math.abs(renderTile.noise) > 0.2) {
+        // Lava River
+        spriteKey = 'lava_flow';
+        const img = spriteManager.get(spriteKey);
+        if (img) {
+            // Lava is animated or static texture? Assuming static tileable for now or simple sheet
+            // If explicit animation needed, we need frame. For now just draw the tile.
+
+            // Draw slightly sunken? Or flush.
+            // Draw full tile
+            const scale = 1.25;
+            const drawW = w * scale;
+            const drawH = h * scale;
+            const dx = x - (drawW - w) / 2;
+            const dy = y - (drawH - h) / 2;
+            ctx.drawImage(img, dx, dy, drawW, drawH);
+
+            // Glow overlay
+            ctx.fillStyle = "rgba(255, 50, 0, 0.2)";
+            ctx.globalCompositeOperation = 'screen';
+            ctx.beginPath();
+            ctx.moveTo(x + w / 2, y);
+            ctx.lineTo(x + w, y + h / 2);
+            ctx.lineTo(x + w / 2, y + h);
+            ctx.lineTo(x, y + h / 2);
+            ctx.fill();
+            ctx.globalCompositeOperation = 'source-over';
+            return;
+        }
+    }
 
     if (tileType === TILE.FLOOR_GRASS) {
         spriteKey = 'floor_grass';
