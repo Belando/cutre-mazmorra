@@ -224,18 +224,10 @@ export class GameRenderer {
                 if (isOnCam(sx, sy)) {
                     renderList.push({
                         sortY: isoY + 0.1,
-                        type: 'custom',
-                        // type: 'enemy', // REPLACED
-                        draw: () => {
-                            ctx.save();
-                            ctx.translate(sx, sy + TILE_HEIGHT / 2);
-                            ctx.scale(1, 0.4);
-                            ctx.rotate((rotation * Math.PI) / 180);
-                            ctx.filter = 'brightness(0.5) sepia(1) hue-rotate(-50deg) saturate(3)';
-                            ctx.globalAlpha = 0.8;
-                            drawEnemy(ctx, String(type), 0, 0, SIZE, 0, false, 0, { x: 0, y: 0 }, 0, undefined, false);
-                            ctx.restore();
-                        }
+                        type: 'corpse',
+                        x: sx, y: sy, w: SIZE,
+                        texture: String(type),
+                        rotation: rotation
                     });
                 }
             });
@@ -257,8 +249,9 @@ export class GameRenderer {
                             // ItemSprite requires the Item object
                             renderList.push({
                                 sortY: isoY + 1,
-                                type: 'custom', // drawItemSprite is complex
-                                draw: () => drawItemSprite(ctx, item, sx - SIZE / 2, sy + TILE_HEIGHT / 2 - SIZE * 0.85, SIZE)
+                                type: 'item',
+                                item: item,
+                                x: sx, y: sy, w: SIZE
                             });
                         }
                     }
@@ -293,36 +286,18 @@ export class GameRenderer {
             const { x: psx, y: psy, isoY: pIsoY } = getScreenPos(player.x, player.y);
             renderList.push({
                 sortY: pIsoY + 3,
-                // type: 'player', // Using custom for now
-                x: psx, y: psy,
+                type: 'player',
+                x: psx, y: psy, w: SIZE,
                 appearance: player.appearance,
                 playerClass: player.class,
                 frame: this.frame,
                 lastAttackTime: player.lastAttackTime,
                 lastMoveTime: player.lastMoveTime,
-                // Passing invisible state via color/alpha logic? 
-                // Creating 'PLAYER' handler 
-                // We need to pass all these props.
-                // Using 'custom' for player to avoid moving `drawPlayer` huge signature logic right now
-                // Wait, player is CRITICAL. Let's try to optimize it. 
-                // Actually, just pushing 1 closure for player is fine. 100 closures for walls is the problem.
-                // I will use custom for player to be safe.
-                type: 'custom',
-                draw: () => {
-                    if (!isInvisible) {
-                        const glowSize = SIZE * 2 + Math.sin(this.frame * 0.1) * 5;
-                        const gradient = ctx.createRadialGradient(psx, psy + TILE_HEIGHT / 2, 0, psx, psy + TILE_HEIGHT / 2, glowSize);
-                        gradient.addColorStop(0, 'rgba(59, 130, 246, 0.4)');
-                        gradient.addColorStop(1, 'rgba(59, 130, 246, 0)');
-                        ctx.fillStyle = gradient;
-                        ctx.fillRect(psx - glowSize, psy + TILE_HEIGHT / 2 - glowSize, glowSize * 2, glowSize * 2);
-                    }
-                    const PLAYER_SIZE = SIZE * 0.866;
-                    drawPlayer(ctx, psx, psy, PLAYER_SIZE, player.appearance, player.class, this.frame,
-                        player.lastAttackTime || 0, player.lastAttackDir || { x: 0, y: 0 },
-                        player.lastSkillTime || 0, player.lastSkillId || null, isInvisible, player.lastMoveTime || 0,
-                        player.sprite);
-                }
+                lastAttackDir: player.lastAttackDir,
+                lastSkillTime: player.lastSkillTime,
+                lastSkillId: player.lastSkillId,
+                isInvisible: isInvisible,
+                spriteComp: player.sprite
             });
 
             // 6. NPCs
@@ -332,8 +307,9 @@ export class GameRenderer {
                     if (isOnCam(sx, sy)) {
                         renderList.push({
                             sortY: isoY + 2,
-                            type: 'custom',
-                            draw: () => drawNPC(ctx, npc, sx, sy, SIZE, this.frame)
+                            type: 'npc',
+                            npc: npc,
+                            x: sx, y: sy, w: SIZE
                         });
                     }
                 }
@@ -412,8 +388,47 @@ export class GameRenderer {
                 drawSpriteIsoWall(ctx, cmd.x, cmd.y, cmd.w, cmd.h, cmd.color, this.lastStaticRender.level ?? 1);
             }
         }
+        else if (cmd.type === 'corpse') {
+            if (cmd.x !== undefined && cmd.y !== undefined && cmd.w !== undefined && cmd.texture !== undefined && cmd.rotation !== undefined) {
+                ctx.save();
+                ctx.translate(cmd.x, cmd.y + TILE_HEIGHT / 2);
+                ctx.scale(1, 0.4);
+                ctx.rotate((cmd.rotation * Math.PI) / 180);
+                ctx.filter = 'brightness(0.5) sepia(1) hue-rotate(-50deg) saturate(3)';
+                ctx.globalAlpha = 0.8;
+                drawEnemy(ctx, String(cmd.texture), 0, 0, SIZE, 0, false, 0, { x: 0, y: 0 }, 0, undefined, false);
+                ctx.restore();
+            }
+        }
+        else if (cmd.type === 'item') {
+            if (cmd.item && cmd.x !== undefined && cmd.y !== undefined && cmd.w !== undefined) {
+                drawItemSprite(ctx, cmd.item, cmd.x - cmd.w / 2, cmd.y + TILE_HEIGHT / 2 - cmd.w * 0.85, cmd.w);
+            }
+        }
+        else if (cmd.type === 'player') {
+            if (cmd.x !== undefined && cmd.y !== undefined && cmd.w !== undefined && cmd.appearance && cmd.playerClass) {
+                // Glow effect
+                if (!cmd.isInvisible) {
+                    const glowSize = SIZE * 2 + Math.sin(this.frame * 0.1) * 5;
+                    const gradient = ctx.createRadialGradient(cmd.x, cmd.y + TILE_HEIGHT / 2, 0, cmd.x, cmd.y + TILE_HEIGHT / 2, glowSize);
+                    gradient.addColorStop(0, 'rgba(59, 130, 246, 0.4)');
+                    gradient.addColorStop(1, 'rgba(59, 130, 246, 0)');
+                    ctx.fillStyle = gradient;
+                    ctx.fillRect(cmd.x - glowSize, cmd.y + TILE_HEIGHT / 2 - glowSize, glowSize * 2, glowSize * 2);
+                }
+                const PLAYER_SIZE = SIZE * 0.866;
+                drawPlayer(ctx, cmd.x, cmd.y, PLAYER_SIZE, cmd.appearance, cmd.playerClass, this.frame,
+                    cmd.lastAttackTime || 0, cmd.lastAttackDir || { x: 0, y: 0 },
+                    cmd.lastSkillTime || 0, cmd.lastSkillId || null, !!cmd.isInvisible, cmd.lastMoveTime || 0,
+                    cmd.spriteComp); // spriteComp might be undefined if not set in cmd
+            }
+        }
+        else if (cmd.type === 'npc') {
+            if (cmd.npc && cmd.x !== undefined && cmd.y !== undefined && cmd.w !== undefined) {
+                drawNPC(ctx, cmd.npc, cmd.x, cmd.y, cmd.w, this.frame);
+            }
+        }
     }
-
 
     private drawHealthBar(ctx: CanvasRenderingContext2D, x: number, y: number, width: number, hp: number, maxHp: number) {
         const percent = Math.max(0, Math.min(1, hp / maxHp));

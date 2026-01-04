@@ -237,6 +237,9 @@ export type RenderCommandType =
     | 'sprite'
     | 'enemy'
     | 'player'
+    | 'corpse'
+    | 'item'
+    | 'npc'
     | 'rect'
     | 'healthbar'
     | 'text'
@@ -279,6 +282,11 @@ export interface RenderItem {
     isOpen?: boolean;
     rarity?: Rarity;
     item?: Item;
+    npc?: NPC;
+    rotation?: number;
+    lastSkillTime?: number;
+    lastSkillId?: string | null;
+    isInvisible?: boolean;
 
     // Custom Callback (Legacy fallback, try to avoid)
     draw?: () => void;

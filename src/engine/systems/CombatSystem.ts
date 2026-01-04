@@ -44,8 +44,8 @@ export function executeRangedAttack(player: Player, target: Enemy, equipment: Eq
   const range = getWeaponRange(equipment);
   const dist = getDistance(player, target);
 
-  if (dist > range) return { success: false, damage: 0, message: '¡Fuera de rango!' };
-  if (!hasLineOfSight(map, player.x, player.y, target.x, target.y)) return { success: false, damage: 0, message: '¡Sin visión!' };
+  if (dist > range) return { success: false, hit: false, damage: 0, isCritical: false, isKill: false, evaded: false, message: 'OUT_OF_RANGE' };
+  if (!hasLineOfSight(map, player.x, player.y, target.x, target.y)) return { success: false, hit: false, damage: 0, isCritical: false, isKill: false, evaded: false, message: 'NO_LOS' };
 
   // Penalización por distancia
   const rangePenalty = Math.max(0, (dist - 2) * 0.05);
@@ -67,8 +67,10 @@ export function executeRangedAttack(player: Player, target: Enemy, equipment: Eq
     success: true,
     hit: true,
     damage: finalDamage,
-    isCrit,
-    message: isCrit ? `¡CRÍTICO! Disparo inflige ${finalDamage}!` : `Disparo inflige ${finalDamage} daño.`,
+    isCritical: isCrit,
+    isKill: false,
+    evaded: false,
+    message: isCrit ? 'CRITICAL_HIT' : 'HIT',
     path: getProjectilePath(player.x, player.y, target.x, target.y, map)
   };
 }
@@ -159,7 +161,17 @@ export function processEnemyRangedAttack(enemy: Entity, player: Entity, map: num
 
   const enemyAtk = enemy.stats?.attack || 0;
   const damage = Math.floor(enemyAtk * 0.8);
-  return { type: 'ranged', attackType: info.type, damage, color: info.color };
+  return {
+    type: 'ranged',
+    attackType: info.type,
+    damage,
+    color: info.color,
+    success: true,
+    hit: true,
+    isCritical: false,
+    isKill: false,
+    evaded: false
+  };
 }
 
 /**
@@ -191,7 +203,14 @@ export function calculateEnemyDamage(enemy: Enemy, playerStats: Stats, playerBuf
 
   const evasionBonus = playerBuffs.reduce((sum, b) => sum + (b.evasion || 0), 0);
   if (evasionBonus > 0 && Math.random() < evasionBonus * 0.5) {
-    return { damage: 0, evaded: true };
+    return {
+      success: true,
+      hit: false,
+      damage: 0,
+      isCritical: false,
+      isKill: false,
+      evaded: true
+    };
   }
 
   const absorbPercent = playerBuffs.reduce((sum, b) => sum + (b.absorb || 0), 0);
@@ -199,7 +218,14 @@ export function calculateEnemyDamage(enemy: Enemy, playerStats: Stats, playerBuf
     baseDamage = Math.floor(baseDamage * (1 - absorbPercent));
   }
 
-  return { damage: Math.max(1, baseDamage), evaded: false };
+  return {
+    success: true,
+    hit: true,
+    damage: Math.max(1, baseDamage),
+    isCritical: false,
+    isKill: false,
+    evaded: false
+  };
 }
 
 // --- SISTEMA TÁCTICO ---
