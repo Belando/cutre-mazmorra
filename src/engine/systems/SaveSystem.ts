@@ -72,6 +72,27 @@ function migrateSave(data: any): SaveData {
     return data as SaveData;
 }
 
+function sanitizeSaveData(data: any): SaveData {
+    // Emergency Fallbacks for critical data structures
+    if (!data.gameState) data.gameState = {};
+    if (!data.quickSlots || !Array.isArray(data.quickSlots)) data.quickSlots = new Array(4).fill(null);
+    if (!data.materials) data.materials = {};
+    if (!data.questProgress) data.questProgress = {};
+    if (!data.activeQuests || !Array.isArray(data.activeQuests)) data.activeQuests = [];
+    if (!data.completedQuests || !Array.isArray(data.completedQuests)) data.completedQuests = [];
+
+    // Ensure stats exist to prevent "Cannot read property of undefined"
+    if (!data.stats) {
+        data.stats = {
+            hp: 10, maxHp: 10, attack: 1, defense: 0,
+            level: 1, exp: 0, nextLevelExp: 100,
+            kills: 0, turn: 0
+        };
+    }
+
+    return data as SaveData;
+}
+
 export function saveGame(
     gameState: GameState,
     stats: Stats,
@@ -186,6 +207,9 @@ export function loadGame(): SaveData | null {
 
         // MIGRATE
         saveData = migrateSave(saveData);
+
+        // SANITIZE (Ensure structural integrity)
+        saveData = sanitizeSaveData(saveData);
 
         // RESTORE MAP FROM SEED + DELTAS (If applicable)
         const gs = saveData.gameState;
