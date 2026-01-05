@@ -7,7 +7,7 @@ import {
   hasLineOfSight,
   getProjectilePath
 } from '@/engine/core/utils';
-import { TILE_TAGS } from '@/data/constants';
+import { ENTITY, TILE_TAGS } from '@/data/constants';
 import { ENEMY_STATS } from '@/data/enemies';
 import { Entity, Stats, Buff, Player, Enemy, EquipmentState, AttackResult, EntityTag, DamageType } from '@/types';
 

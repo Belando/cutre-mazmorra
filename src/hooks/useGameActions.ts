@@ -85,6 +85,7 @@ export interface GameActions {
     updateMapFOV: (map: any[][], player: any) => void;
     addMessage: (msg: string, type?: string) => void;
     effectsManager: any;
+    processCommand: (cmd: string) => void;
 }
 
 export function useGameActions(context: GameActionsContext): GameActions {
@@ -101,6 +102,44 @@ export function useGameActions(context: GameActionsContext): GameActions {
     const inventoryActions = useInventoryActions(context);
     const metaActions = useMetaActions(context);
     const skillActions = useSkillActions(context);
+
+    const processCommand = (cmd: string) => {
+        const parts = cmd.trim().split(' ');
+        const command = parts[0].toLowerCase();
+        const args = parts.slice(1);
+
+        switch (command) {
+            case '/warp':
+                const level = parseInt(args[0]);
+                if (!isNaN(level)) {
+                    initGame(level, null, 'dungeon');
+                    context.addMessage(`Teletransportado al piso ${level}.`, 'info');
+                } else if (args[0] === 'home') {
+                    initGame(1, null, 'home');
+                    context.addMessage(`viajando a casa...`, 'info');
+                } else {
+                    context.addMessage('Uso: /warp [nivel | home]', 'info');
+                }
+                break;
+            case '/levelup':
+                const amount = parseInt(args[0]) || 1;
+                if ((window as any).cheat) (window as any).cheat.levelUp(amount);
+                else context.addMessage('Cheats no disponibles.', 'error');
+                break;
+            case '/gold':
+                const gold = parseInt(args[0]) || 1000;
+                if ((window as any).cheat) (window as any).cheat.gold(gold);
+                break;
+            case '/god':
+                if ((window as any).cheat) (window as any).cheat.godMode();
+                break;
+            case '/help':
+                context.addMessage('Comandos: /warp [n], /levelup [n], /gold [n], /god', 'info');
+                break;
+            default:
+                context.addMessage(`Comando desconocido: ${command}`, 'error');
+        }
+    };
 
     return {
         executeSkillAction,
@@ -120,6 +159,7 @@ export function useGameActions(context: GameActionsContext): GameActions {
         setGameStarted, setGameOver, setGameWon, setSelectedAppearance, setPlayerClass, initGame,
         setMessages, updateMapFOV,
         addMessage: context.addMessage,
-        effectsManager: context.effectsManager
+        effectsManager: context.effectsManager,
+        processCommand
     } as GameActions;
 }

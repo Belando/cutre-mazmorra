@@ -42,6 +42,19 @@ El juego estará disponible en `http://localhost:5173`.
 | **Habilidades (1-4)** | Teclas numéricas `1`, `2`, `3`, `4` |
 | **Pausar** | `Esc` |
 
+### 💬 Comandos de Chat
+
+Puedes usar la barra de chat en la parte inferior izquierda para activar trucos y moverte rápido. Presiona Enter para enviar.
+
+| Comando | Descripción |
+| :--- | :--- |
+| `/help` | Muestra la lista de comandos disponibles. |
+| `/warp [nivel]` | Teletransporta al piso especificado (ej. `/warp 5`). |
+| `/warp home` | Vuelve a la base (hogar). |
+| `/levelup [n]` | Sube `n` niveles al personaje inmediatamente. |
+| `/gold [n]` | Añade `n` monedas de oro. |
+| `/god` | Activa el "Modo Dios" (Vida y Stats masivas). |
+
 ---
 
 ## 🏗️ Arquitectura del Sistema (Refactorizada)
@@ -60,14 +73,17 @@ El motor de combate (`CombatSystem.ts`) ya no contiene reglas específicas para 
 - **Tiles**: El terreno tiene propiedades como `FLAMMABLE` (Hierba) o `WET` (Agua).
 - **Interacciones**: Calcular el daño implica cruzar Tags y Elementos (ej. Fuego hace x1.5 daño a `PLANT`, Rayo se dispersa en `WATER`).
 
-### 3. Renderizado y Visuales (`src/renderer`)
-- **Oclusión de Muros**: Sistema de transparencia dinámica. Los muros que obstruyen la visión del jugador (situados al Sur/Este) se vuelven semitransparentes automáticamente.
-- **Interpolación de Movimiento**: Los sprites del jugador y enemigos se mueven suavemente entre casillas usando interpolación lineal (Lerp), mejorando el "game feel" respecto al movimiento rígido por grid.
+### 3. Sistema de IA y Comportamiento (`src/engine/ai`)
+Los enemigos utilizan un sistema de comportamiento modular basado en estrategias (Strategy Pattern):
+- **Aggressive**: Persigue al jugador directamente.
+- **Cautious**: Mantiene la distancia si está herido o prefiere atacar de lejos.
+- **Bosses**: Lógica personalizada compleja para jefes finales (fases, invocaciones).
 
-### 4. Capa de Lógica Desacoplada (`src/hooks`)
-La lógica de negocio se ha extraído de la UI:
-- **`useInventoryLogic.ts`**: Gestiona todo el estado del inventario, filtrado y ordenación, dejando a `InventoryPanel.tsx` como un componente puramente visual.
-- **`useCombatLogic.ts`**: Centraliza el flujo de turnos de combate, aplicación de daño y actualización de estado.
+### 4. Robustez de Datos (`SaveSystem.ts`)
+El sistema de guardado incluye:
+- **Migraciones de Versión**: Permite actualizar saves viejos a nuevas estructuras de datos sin perder progreso.
+- **Sanitización**: Rellena automáticamente datos corruptos o faltantes al cargar.
+- **Compresión Delta**: Guarda solo las diferencias del mapa procedimental para ahorrar espacio.
 
 ---
 
@@ -78,19 +94,3 @@ La lógica de negocio se ha extraído de la UI:
 - **Vite**: Entorno de desarrollo.
 - **Canvas API**: Renderizado del mapa y entidades (capa `GameRenderer`).
 - **Vitest**: Testing unitario de sistemas críticos (Combate, IA).
-
----
-
-## 🧪 Tests
-
-Para ejecutar las pruebas unitarias de los sistemas de combate y lógica:
-
-```bash
-npm run test
-```
-
-Para abrir la interfaz visual de Vitest:
-
-```bash
-npx vitest --ui
-```

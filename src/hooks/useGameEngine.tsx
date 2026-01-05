@@ -249,6 +249,33 @@ export function useGameEngine() {
         if (gameStarted && !player) initGame(1, null, 'home');
     }, [gameStarted, player, initGame]);
 
+    // CHEATS / DEBUG
+    useEffect(() => {
+        (window as any).cheat = {
+            levelUp: (amount = 1) => {
+                // 100 exp per level approx? Let's just give a lot.
+                // Or better, call gainExp loop.
+                // Assuming base exp needed is 100 * level or similar.
+                const expNeeded = (player?.nextLevelExp || 100) - (player?.exp || 0);
+                gainExp(expNeeded + 1);
+                console.log(`Level Up!`);
+                if (amount > 1) {
+                    setTimeout(() => (window as any).cheat.levelUp(amount - 1), 100);
+                }
+            },
+            godMode: () => {
+                const newHp = 9999;
+                setPlayer(p => p ? ({ ...p, hp: newHp, maxHp: newHp, stats: { ...p.stats, hp: newHp, maxHp: newHp, defense: 999 } }) : null);
+                console.log("God Mode Active");
+            },
+            gold: (amount = 1000) => {
+                updatePlayer({ gold: (player?.gold || 0) + amount });
+                console.log(`Rich! +${amount} gold`);
+            }
+        };
+        console.log("Cheats loaded: window.cheat.levelUp(), window.cheat.godMode(), window.cheat.gold()");
+    }, [player, gainExp, setPlayer, updatePlayer]);
+
     useEffect(() => {
         if (player && player.level > 1 && gameStarted) {
             effectsManager.current.addSparkles(player.x, player.y, '#ffff00');

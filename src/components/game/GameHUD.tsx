@@ -30,18 +30,10 @@ export default function GameHUD({
         e.preventDefault();
         if (!command.trim()) return;
 
-        if (command.startsWith('/warp ')) {
-            const level = parseInt(command.split(' ')[1]);
-            if (!isNaN(level)) {
-                actions.addMessage(`Warping to Level ${level}...`, 'info');
-                actions.initGame({ level, startLocation: level > 0 ? 'dungeon' : 'home' });
-            } else {
-                actions.addMessage(`Invalid Level: ${command.split(' ')[1]}`, 'error');
-            }
-        } else if (command === '/home') {
-            actions.initGame({ level: 0, startLocation: 'home' });
+        if (actions.processCommand) {
+            actions.processCommand(command);
         } else {
-            actions.addMessage(`Unknown command: ${command}`, 'error');
+            actions.addMessage('Chat System not available.', 'error');
         }
         setCommand('');
     };
@@ -73,7 +65,7 @@ export default function GameHUD({
                         type="text"
                         value={command}
                         onChange={(e) => setCommand(e.target.value)}
-                        placeholder="Enter command (/warp <level>)"
+                        placeholder="Escribe /help para lista de comandos..."
                         className="w-full bg-slate-900/90 border border-slate-700/50 rounded px-2 py-1 text-xs text-white focus:outline-none focus:border-blue-500 font-mono"
                         onKeyDown={(e) => e.stopPropagation()}
                     />

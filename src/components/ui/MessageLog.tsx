@@ -4,16 +4,26 @@ import { GameMessage } from '@/hooks/useGameEffects';
 
 interface MessageLogProps {
     messages: GameMessage[];
+    onCommand?: (cmd: string) => void;
 }
 
-export default function MessageLog({ messages }: MessageLogProps) {
+export default function MessageLog({ messages, onCommand }: MessageLogProps) {
     const scrollRef = useRef<HTMLDivElement>(null);
+    const [inputValue, setInputValue] = React.useState('');
 
     useEffect(() => {
         if (scrollRef.current) {
             scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
         }
     }, [messages]);
+
+    const handleSubmit = (e: React.FormEvent) => {
+        e.preventDefault();
+        if (inputValue.trim() && onCommand) {
+            onCommand(inputValue);
+            setInputValue('');
+        }
+    };
 
     return (
         <div className="h-full overflow-hidden border rounded-lg bg-black/60 backdrop-blur-md border-slate-700/50 flex flex-col">
@@ -23,7 +33,7 @@ export default function MessageLog({ messages }: MessageLogProps) {
             </div>
             <div
                 ref={scrollRef}
-                className="h-[calc(100%-28px)] overflow-y-auto p-2 space-y-0.5 custom-scrollbar"
+                className="flex-1 overflow-y-auto p-2 space-y-0.5 custom-scrollbar min-h-0"
             >
                 {messages.slice(-30).map((msg, i) => (
                     <p
@@ -34,6 +44,17 @@ export default function MessageLog({ messages }: MessageLogProps) {
                     </p>
                 ))}
             </div>
+
+            {/* Command Input */}
+            <form onSubmit={handleSubmit} className="p-1 border-t border-slate-700/50 bg-slate-900/40">
+                <input
+                    type="text"
+                    value={inputValue}
+                    onChange={(e) => setInputValue(e.target.value)}
+                    placeholder="Escribe un comando..."
+                    className="w-full bg-transparent border-none text-xs text-white placeholder-slate-600 focus:ring-0 px-2 py-1"
+                />
+            </form>
         </div>
     );
 }
