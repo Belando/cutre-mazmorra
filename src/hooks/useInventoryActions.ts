@@ -125,7 +125,7 @@ export function useInventoryActions(context: InventoryActionsContext) {
     const useQuickSlot = (idx: number) => {
         const newInv = [...inventory];
         const res = processQuickSlot(quickSlots, idx, newInv);
-        if (res.success) {
+        if (res.success && res.itemIndex !== undefined) {
             const useRes = useItemLogic(newInv, res.itemIndex, player);
             if (useRes.success) {
                 setInventory(newInv);
@@ -152,7 +152,6 @@ export function useInventoryActions(context: InventoryActionsContext) {
         craftItem,
         upgradeItem,
         assignQuickSlot,
-        useQuickSlot,
         useQuickSlot,
         reorderInventory,
         resetInventory: context.resetInventory

@@ -11,6 +11,7 @@ import { isLargeEnemy, getEnemySize } from "@/engine/systems/LargeEnemies";
 import { toScreen } from "@/utils/isometric";
 import { SIZE, TILE_HEIGHT, ENTITY } from "@/data/constants";
 import { drawEffects } from "./effects";
+import { getSpriteConfig } from "@/data/spriteConfig";
 
 export class GameRenderer {
     private staticCanvas: HTMLCanvasElement | null = null;
@@ -49,7 +50,7 @@ export class GameRenderer {
         this.dynamicCanvas = dynamicCanvas;
         this.lightingCanvas = lightingCanvas;
 
-        this.staticCtx = staticCanvas.getContext('2d', { alpha: false }); // Alpha false for optimization if background is opaque
+        this.staticCtx = staticCanvas.getContext('2d', { alpha: false });
         this.dynamicCtx = dynamicCanvas.getContext('2d');
         this.lightingCtx = lightingCanvas.getContext('2d');
     }
@@ -65,12 +66,24 @@ export class GameRenderer {
         if (!this.staticCanvas || !this.dynamicCanvas || !this.lightingCanvas || !state.player) return;
 
         this.frame++;
-        const { player, map, enemies, corpses = [], items, visible, explored, torches = [], chests = [], level = 1, npcs = [] } = state;
+        const { player } = state;
 
         // --- VISUAL INTERPOLATION (Smoothing) ---
-        const LERP_SPEED = 0.2; // 20% per frame = fast but smooth
+        this.updateVisuals(player, state.enemies || []);
 
-        // 1. Player Smoothing
+        // --- CAMERA UPDATE ---
+        const { offsetX, offsetY } = this.updateCamera(state, effectsManager);
+
+        // --- RENDER LAYERS ---
+        this.renderStaticLayer(state, offsetX, offsetY, viewportWidth, viewportHeight);
+        this.renderDynamicLayer(state, offsetX, offsetY, viewportWidth, viewportHeight, effectsManager);
+        this.renderLightingLayer(state, offsetX, offsetY);
+    }
+
+    private updateVisuals(player: any, enemies: any[]) {
+        const LERP_SPEED = 0.2;
+
+        // Player
         if (!this.playerVisual.initialized) {
             this.playerVisual.x = player.x;
             this.playerVisual.y = player.y;
@@ -80,9 +93,32 @@ export class GameRenderer {
             this.playerVisual.y += (player.y - this.playerVisual.y) * LERP_SPEED;
         }
 
-        // --- CAMERA UPDATE ---
+        // Enemies
+        const activeEnemyIds = new Set<string | number>();
+        enemies.forEach(enemy => {
+            const id = enemy.id;
+            activeEnemyIds.add(id);
+            let visual = this.enemyVisuals.get(id);
+            if (!visual) {
+                visual = { x: enemy.x, y: enemy.y };
+                this.enemyVisuals.set(id, visual);
+            } else {
+                const ENEMY_LERP = 0.1;
+                visual.x += (enemy.x - visual.x) * ENEMY_LERP;
+                visual.y += (enemy.y - visual.y) * ENEMY_LERP;
+            }
+        });
+        // Cleanup dead enemies
+        for (const id of this.enemyVisuals.keys()) {
+            if (!activeEnemyIds.has(id)) {
+                this.enemyVisuals.delete(id);
+            }
+        }
+    }
+
+    private updateCamera(state: GameState, effectsManager?: any) {
         // Use visual position for camera target to follow smoothly
-        const target = { x: this.playerVisual.x, y: this.playerVisual.y }; // Was getCameraTarget(player)
+        const target = { x: this.playerVisual.x, y: this.playerVisual.y };
         if (!this.cameraPos.initialized) {
             this.cameraPos.x = target.x;
             this.cameraPos.y = target.y;
@@ -102,8 +138,11 @@ export class GameRenderer {
                 offsetY += (Math.random() - 0.5) * (manager.screenShake * 0.1);
             }
         }
+        return { offsetX, offsetY };
+    }
 
-        // --- STATIC LAYER (Map) ---
+    private renderStaticLayer(state: GameState, offsetX: number, offsetY: number, viewportWidth: number, viewportHeight: number) {
+        const { map, visible, explored, level = 1 } = state;
         const cameraMoved = Math.abs(offsetX - this.lastStaticRender.cameraX) > 0.005 ||
             Math.abs(offsetY - this.lastStaticRender.cameraY) > 0.005;
         const mapChanged = map !== this.lastStaticRender.mapRef;
@@ -120,323 +159,298 @@ export class GameRenderer {
                 level: level
             };
         }
+    }
 
-        // --- DYNAMIC LAYER (Entities) ---
+    private renderDynamicLayer(state: GameState, offsetX: number, offsetY: number, viewportWidth: number, viewportHeight: number, effectsManager?: any) {
         const ctx = this.dynamicCtx;
-        if (ctx) {
-            const canvasW = this.dynamicCanvas.width;
-            const canvasH = this.dynamicCanvas.height;
-            const halfW = canvasW / 2;
-            const halfH = canvasH / 2;
+        if (!ctx || !this.dynamicCanvas) return;
 
-            ctx.clearRect(0, 0, canvasW, canvasH);
-            ctx.globalAlpha = 1;
-            ctx.globalCompositeOperation = 'source-over';
-            ctx.filter = 'none';
-            ctx.shadowBlur = 0;
+        const canvasW = this.dynamicCanvas.width;
+        const canvasH = this.dynamicCanvas.height;
+        const halfW = canvasW / 2;
+        const halfH = canvasH / 2;
 
-            const cameraScreen = toScreen(offsetX, offsetY);
-            const getScreenPos = (gx: number, gy: number) => {
-                const { x, y } = toScreen(gx, gy);
-                return {
-                    x: x - cameraScreen.x + halfW,
-                    y: y - cameraScreen.y + halfH,
-                    isoY: y
-                };
+        ctx.clearRect(0, 0, canvasW, canvasH);
+        ctx.globalAlpha = 1;
+        ctx.globalCompositeOperation = 'source-over';
+        ctx.filter = 'none';
+        ctx.shadowBlur = 0;
+
+        const cameraScreen = toScreen(offsetX, offsetY);
+        const getScreenPos = (gx: number, gy: number) => {
+            const { x, y } = toScreen(gx, gy);
+            return {
+                x: x - cameraScreen.x + halfW,
+                y: y - cameraScreen.y + halfH,
+                isoY: y
             };
-            const isOnCam = (sx: number, sy: number) => {
-                const margin = SIZE * 4;
-                return sx >= -margin && sx < canvasW + margin && sy >= -margin && sy < canvasH + margin;
-            };
+        };
+        const isOnCam = (sx: number, sy: number) => {
+            const margin = SIZE * 4;
+            return sx >= -margin && sx < canvasW + margin && sy >= -margin && sy < canvasH + margin;
+        };
 
-            const renderList: RenderItem[] = []; // Uses the new interface
+        const renderList: RenderItem[] = [];
 
-            // 0. WALLS (Dynamic Sorting)
-            // drawMap pushes 'wall' or 'sprite' commands now
-            drawMap(ctx, state, offsetX, offsetY, viewportWidth, viewportHeight, renderList, 'wall');
+        // 0. WALLS
+        drawMap(ctx, state, offsetX, offsetY, viewportWidth, viewportHeight, renderList, 'wall');
 
-            // 1. Torches
-            torches.forEach(torch => {
-                if (explored[torch.y]?.[torch.x]) {
-                    const { x: sx, y: sy, isoY } = getScreenPos(torch.x, torch.y);
-                    if (isOnCam(sx, sy)) {
-                        // Determine orientation based on empty space
-                        const isRightEmpty = map[torch.y]?.[torch.x + 1] !== 0; // If not wall (0)
+        // Populate Render List
+        this.addTorches(renderList, state, getScreenPos, isOnCam);
+        this.addEnvironmentObjects(renderList, state, getScreenPos, isOnCam);
+        this.addChests(renderList, state, getScreenPos, isOnCam);
+        this.addCorpses(renderList, state, getScreenPos, isOnCam);
+        this.addItems(renderList, state, getScreenPos, isOnCam);
+        this.addEnemies(renderList, state, getScreenPos, isOnCam);
+        this.addPlayer(renderList, state, getScreenPos); // Player always checked
+        this.addNPCs(renderList, state, getScreenPos, isOnCam);
 
-                        // Flip if valid right face exposed
-                        const flipX = isRightEmpty;
+        // Occlusion Check
+        this.applyOcclusion(renderList, getScreenPos);
 
-                        renderList.push({
-                            sortY: isoY + 1.6, // Higher than walls (1.5) to render in front
-                            type: 'sprite',
-                            texture: 'wallTorch',
-                            x: sx, y: sy, w: SIZE, frame: this.frame,
-                            flipX: flipX
-                        });
-                    }
-                }
-            });
+        // Sort & Execute
+        renderList.sort((a, b) => a.sortY - b.sortY);
 
-            // 1.5 Static Entities
-            if (state.entities) {
-                state.entities.forEach((row, y) => {
-                    if (!visible[y]) return;
-                    row.forEach((entityType, x) => {
-                        if (entityType === ENTITY.NONE || !visible[y][x]) return;
+        for (const item of renderList) {
+            if (item.draw) item.draw();
+            else this.executeCommand(ctx, item, state.level || 1);
+        }
 
-                        const { x: sx, y: sy, isoY } = getScreenPos(x, y);
-                        if (isOnCam(sx, sy)) {
-                            let drawType = '';
-                            if (entityType === ENTITY.TREE) drawType = 'tree';
-                            else if (entityType === ENTITY.ROCK) drawType = 'rock';
-                            else if (entityType === ENTITY.PLANT) drawType = 'plant';
-                            else if (entityType === ENTITY.DUNGEON_GATE) drawType = 'dungeon_gate';
-                            else if (entityType === ENTITY.CRATE) drawType = 'crate';
-                            else if (entityType === ENTITY.BARREL) drawType = 'barrel';
-                            else if (entityType === ENTITY.SPIKES) drawType = 'spikes';
+        // Ambient Effects
+        const theme = getThemeForFloor(state.level || 1);
+        if (theme.lavaGlow || theme.embers) {
+            drawAmbientOverlay(ctx, canvasW, canvasH, state.level || 1, this.frame);
+        }
 
-                            if (drawType) {
-                                let zOffset = 1.5;
-                                if (drawType === 'dungeon_gate') zOffset = 2.0;
-                                else if (drawType === 'spikes') zOffset = 0.1;
-
-                                renderList.push({
-                                    sortY: isoY + zOffset,
-                                    type: 'sprite',
-                                    texture: drawType,
-                                    x: sx, y: sy, w: SIZE,
-                                    // Hack: pass x/y coords in 'h' or 'frame' if needed for seed? 
-                                    // drawEnvironmentSprite uses x/y for standard variants. 
-                                    // We can pass them in the payload.
-                                    frame: x + y * 1000 // Using frame as seed carrier? No, frame is animation. 
-                                    // We'll update executeCommand to handle extra args if needed.
-                                });
-                            }
-                        }
-                    });
-                });
+        // Effects Manager
+        if (effectsManager) {
+            const manager = (effectsManager as any).current || effectsManager;
+            if (typeof manager.update === 'function') manager.update();
+            if (manager.effects) {
+                drawEffects(ctx, manager.effects, offsetX, offsetY, SIZE, halfW, halfH);
             }
+        }
+    }
 
-            // 2. Chests
-            chests.forEach(chest => {
-                if (visible[chest.y]?.[chest.x]) {
-                    const { x: sx, y: sy, isoY } = getScreenPos(chest.x, chest.y);
-                    if (isOnCam(sx, sy)) {
-                        renderList.push({
-                            sortY: isoY + 0.5,
-                            type: 'sprite',
-                            texture: 'chest',
-                            x: sx, y: sy, w: SIZE,
-                            isOpen: chest.isOpen, rarity: chest.rarity
-                        });
-                    }
+    private addTorches(renderList: RenderItem[], state: GameState, getScreenPos: any, isOnCam: any) {
+        const { torches = [], explored, map } = state;
+        const config = getSpriteConfig("torch");
+
+        torches.forEach(torch => {
+            if (explored[torch.y]?.[torch.x]) {
+                const { x: sx, y: sy, isoY } = getScreenPos(torch.x, torch.y);
+                if (isOnCam(sx, sy)) {
+                    const isRightEmpty = map[torch.y]?.[torch.x + 1] !== 0;
+                    renderList.push({
+                        sortY: isoY + config.zOffset,
+                        type: 'sprite',
+                        texture: 'wallTorch',
+                        x: sx, y: sy, w: SIZE, frame: this.frame,
+                        flipX: isRightEmpty
+                    });
                 }
-            });
+            }
+        });
+    }
 
-            // 2.5 CORPSES
-            corpses.forEach(corpse => {
-                const { x, y, type, rotation } = corpse;
-                if (!visible[y]?.[x]) return;
+    private addEnvironmentObjects(renderList: RenderItem[], state: GameState, getScreenPos: any, isOnCam: any) {
+        if (!state.entities) return;
+        const { visible } = state;
+
+        state.entities.forEach((row, y) => {
+            if (!visible[y]) return;
+            row.forEach((entityType, x) => {
+                if (entityType === ENTITY.NONE || !visible[y][x]) return;
 
                 const { x: sx, y: sy, isoY } = getScreenPos(x, y);
                 if (isOnCam(sx, sy)) {
-                    renderList.push({
-                        sortY: isoY + 0.1,
-                        type: 'corpse',
-                        x: sx, y: sy, w: SIZE,
-                        texture: String(type),
-                        rotation: rotation
-                    });
-                }
-            });
+                    let drawType = '';
+                    if (entityType === ENTITY.TREE) drawType = 'tree';
+                    else if (entityType === ENTITY.ROCK) drawType = 'rock';
+                    else if (entityType === ENTITY.PLANT) drawType = 'plant';
+                    else if (entityType === ENTITY.DUNGEON_GATE) drawType = 'dungeon_gate';
+                    else if (entityType === ENTITY.CRATE) drawType = 'crate';
+                    else if (entityType === ENTITY.BARREL) drawType = 'barrel';
+                    else if (entityType === ENTITY.SPIKES) drawType = 'spikes';
 
-            // 3. Items
-            items.forEach(item => {
-                if (item.x === undefined || item.y === undefined) return;
-                if (visible[item.y]?.[item.x]) {
-                    const { x: sx, y: sy, isoY } = getScreenPos(item.x, item.y);
-                    if (isOnCam(sx, sy)) {
-                        if (item.category === 'currency') {
-                            renderList.push({
-                                sortY: isoY + 1,
-                                type: 'sprite',
-                                texture: 'goldPile',
-                                x: sx, y: sy, w: SIZE
-                            });
-                        } else {
-                            // ItemSprite requires the Item object
-                            renderList.push({
-                                sortY: isoY + 1,
-                                type: 'item',
-                                item: item,
-                                x: sx, y: sy, w: SIZE
-                            });
-                        }
-                    }
-                }
-            });
-
-            // 4. Enemies
-            // Update Enemy Visuals
-            const activeEnemyIds = new Set<string | number>();
-            enemies.forEach(enemy => {
-                const id = enemy.id;
-                activeEnemyIds.add(id);
-                let visual = this.enemyVisuals.get(id);
-                if (!visual) {
-                    visual = { x: enemy.x, y: enemy.y };
-                    this.enemyVisuals.set(id, visual);
-                } else {
-                    const ENEMY_LERP = 0.1; // Slower than player (0.2) to emphasize movement
-                    visual.x += (enemy.x - visual.x) * ENEMY_LERP;
-                    visual.y += (enemy.y - visual.y) * ENEMY_LERP;
-                }
-            });
-            // Cleanup dead enemies
-            for (const id of this.enemyVisuals.keys()) {
-                if (!activeEnemyIds.has(id)) {
-                    this.enemyVisuals.delete(id);
-                }
-            }
-
-            enemies.forEach(enemy => {
-                if (visible[enemy.y]?.[enemy.x]) {
-                    const visualPos = this.enemyVisuals.get(enemy.id);
-                    const { x: sx, y: sy, isoY } = getScreenPos(
-                        visualPos ? visualPos.x : enemy.x,
-                        visualPos ? visualPos.y : enemy.y
-                    );
-                    if (isOnCam(sx, sy)) {
-                        const isLarge = isLargeEnemy(String(enemy.type));
+                    if (drawType) {
+                        const config = getSpriteConfig(drawType);
                         renderList.push({
-                            sortY: isoY + 2,
-                            type: 'enemy',
+                            sortY: isoY + config.zOffset,
+                            type: 'sprite',
+                            texture: drawType,
                             x: sx, y: sy, w: SIZE,
-                            enemyType: enemy.type,
-                            stunned: (enemy.stunned ?? 0) > 0,
-                            lastAttackTime: enemy.lastAttackTime || 0,
-                            lastAttackDir: enemy.lastAttackDir,
-                            lastMoveTime: enemy.lastMoveTime,
-                            spriteComp: enemy.sprite,
-                            isLarge: isLarge,
-                            health: enemy.hp, maxHealth: enemy.maxHp // For healthbar
+                            frame: x + y
                         });
                     }
                 }
             });
+        });
+    }
 
-            // 5. Player
-            const isInvisible = player.skills.buffs.some(b => b.invisible) || false;
-            // Use visual position for rendering
-            const { x: psx, y: psy, isoY: pIsoY } = getScreenPos(this.playerVisual.x, this.playerVisual.y);
-            renderList.push({
-                sortY: pIsoY + 3,
-                type: 'player',
-                x: psx, y: psy, w: SIZE,
-                appearance: player.appearance,
-                playerClass: player.class,
-                frame: this.frame,
-                lastAttackTime: player.lastAttackTime,
-                lastMoveTime: player.lastMoveTime,
-                lastAttackDir: player.lastAttackDir,
-                lastSkillTime: player.lastSkillTime,
-                lastSkillId: player.lastSkillId,
-                isInvisible: isInvisible,
-                spriteComp: player.sprite
-            });
+    private addChests(renderList: RenderItem[], state: GameState, getScreenPos: any, isOnCam: any) {
+        const { chests = [], visible } = state;
+        const config = getSpriteConfig("chest");
 
-            // 6. NPCs
-            npcs.forEach(npc => {
-                if (visible[npc.y]?.[npc.x]) {
-                    const { x: sx, y: sy, isoY } = getScreenPos(npc.x, npc.y);
-                    if (isOnCam(sx, sy)) {
+        chests.forEach(chest => {
+            if (visible[chest.y]?.[chest.x]) {
+                const { x: sx, y: sy, isoY } = getScreenPos(chest.x, chest.y);
+                if (isOnCam(sx, sy)) {
+                    renderList.push({
+                        sortY: isoY + config.zOffset,
+                        type: 'sprite',
+                        texture: 'chest',
+                        x: sx, y: sy, w: SIZE,
+                        isOpen: chest.isOpen, rarity: chest.rarity
+                    });
+                }
+            }
+        });
+    }
+
+    private addCorpses(renderList: RenderItem[], state: GameState, getScreenPos: any, isOnCam: any) {
+        const { corpses = [], visible } = state;
+        const config = getSpriteConfig("corpse");
+
+        corpses.forEach(corpse => {
+            const { x, y, type, rotation } = corpse;
+            if (!visible[y]?.[x]) return;
+
+            const { x: sx, y: sy, isoY } = getScreenPos(x, y);
+            if (isOnCam(sx, sy)) {
+                renderList.push({
+                    sortY: isoY + config.zOffset,
+                    type: 'corpse',
+                    x: sx, y: sy, w: SIZE,
+                    texture: String(type),
+                    rotation: rotation
+                });
+            }
+        });
+    }
+
+    private addItems(renderList: RenderItem[], state: GameState, getScreenPos: any, isOnCam: any) {
+        const { items = [], visible } = state;
+        const config = getSpriteConfig("item");
+
+        items.forEach(item => {
+            if (item.x === undefined || item.y === undefined) return;
+            if (visible[item.y]?.[item.x]) {
+                const { x: sx, y: sy, isoY } = getScreenPos(item.x, item.y);
+                if (isOnCam(sx, sy)) {
+                    if (item.category === 'currency') {
                         renderList.push({
-                            sortY: isoY + 2,
-                            type: 'npc',
-                            npc: npc,
+                            sortY: isoY + config.zOffset,
+                            type: 'sprite',
+                            texture: 'goldPile',
+                            x: sx, y: sy, w: SIZE
+                        });
+                    } else {
+                        renderList.push({
+                            sortY: isoY + config.zOffset,
+                            type: 'item',
+                            item: item,
                             x: sx, y: sy, w: SIZE
                         });
                     }
                 }
-            });
-
-            // --- OCCLUSION CHECK (Phase 4) ---
-            // Walls "in front" of the player need to be transparent.
-            // In isometric projection (diamond), items with higher Y (grid) block lower Y.
-            // If player is at (px, py), walls at (px, py+1), (px+1, py), (px+1, py+1) are immediate blockers.
-            // Let's broaden slightly: Wall.isoY > Player.isoY but screen position overlaps?
-            // Simpler: Grid based check.
-            // Potential blocking offsets relative to player
-            // [0,1], [1,0], [1,1] are strictly "South/East" (Front)
-            // Also need to handle walls slightly further if they are tall (1.5x height).
-
-            // We can search the renderList or just add logic to the loop. 
-            // Searching renderList is safer as it handles all walls added.
-            // But iteration is cleaner if we just mutate.
-            renderList.forEach(item => {
-                if (item.type === 'wall' && item.color) { // Ensure it's a wall
-                    // Reverse engineer grid pos? Or assume if sortY > playerSortY it's in front.
-                    // The wall item in renderList has screen x/y but not grid pos explicitly unless we passed it.
-                    // Wait, we didn't pass grid x/y to RenderItem for walls in drawMap!
-                    // We need to calculate it or heuristic based on screen pos.
-
-                    // Heuristic: If item.sortY > pIsoY (Player IsoY) AND distance < threshold
-                    // Player sortY is roughly (px+py)*SIZE/2 + 3 (z height).
-                    // Wall sortY is (wx+wy)*SIZE/2 + 1.5.
-
-                    const pIsoY = (this.playerVisual.x + this.playerVisual.y) * TILE_HEIGHT / 2;
-
-                    if (item.sortY > pIsoY + 0.1) { // It is visually in front
-                        const dx = Math.abs(item.x! - psx); // Screen X distance
-                        const dy = Math.abs(item.y! - psy); // Screen Y distance
-
-                        // If clear overlap
-                        if (dx < SIZE * 0.8 && dy < SIZE * 1.5) {
-                            item.opacity = 0.4; // Make transparent
-                        }
-                    }
-                }
-            });
-
-            // Sort & Execute using Static/Switch
-            renderList.sort((a, b) => a.sortY - b.sortY);
-
-            for (const item of renderList) {
-                if (item.draw) {
-                    item.draw();
-                } else {
-                    this.executeCommand(ctx, item);
-                }
             }
-
-            // Ambient Effects
-            const theme = getThemeForFloor(level);
-            if (theme.lavaGlow || theme.embers) {
-                drawAmbientOverlay(ctx, canvasW, canvasH, level, this.frame);
-            }
-
-            // Effects Manager
-            if (effectsManager) {
-                const manager = (effectsManager as any).current || effectsManager;
-                if (typeof manager.update === 'function') manager.update();
-                if (manager.effects) {
-                    drawEffects(ctx, manager.effects, offsetX, offsetY, SIZE, halfW, halfH);
-                }
-            }
-        }
-
-        // --- LIGHTING LAYER ---
-        const lightCtx = this.lightingCtx;
-        if (lightCtx) {
-            if (this.lightingCanvas.width !== this.dynamicCanvas.width) {
-                this.lightingCanvas.width = this.dynamicCanvas.width;
-                this.lightingCanvas.height = this.dynamicCanvas.height;
-            }
-            renderLighting(lightCtx, this.lightingCanvas.width, this.lightingCanvas.height, state, offsetX, offsetY);
-        }
+        });
     }
 
-    private executeCommand(ctx: CanvasRenderingContext2D, cmd: RenderItem) {
+    private addEnemies(renderList: RenderItem[], state: GameState, getScreenPos: any, isOnCam: any) {
+        const { enemies = [], visible } = state;
+        const config = getSpriteConfig("enemy");
+
+        enemies.forEach(enemy => {
+            if (visible[enemy.y]?.[enemy.x]) {
+                const visualPos = this.enemyVisuals.get(enemy.id);
+                const { x: sx, y: sy, isoY } = getScreenPos(
+                    visualPos ? visualPos.x : enemy.x,
+                    visualPos ? visualPos.y : enemy.y
+                );
+                if (isOnCam(sx, sy)) {
+                    const isLarge = isLargeEnemy(String(enemy.type));
+                    renderList.push({
+                        sortY: isoY + config.zOffset,
+                        type: 'enemy',
+                        x: sx, y: sy, w: SIZE,
+                        enemyType: enemy.type,
+                        stunned: (enemy.stunned ?? 0) > 0,
+                        lastAttackTime: enemy.lastAttackTime || 0,
+                        lastAttackDir: enemy.lastAttackDir,
+                        lastMoveTime: enemy.lastMoveTime,
+                        spriteComp: enemy.sprite,
+                        isLarge: isLarge,
+                        health: enemy.hp, maxHealth: enemy.maxHp
+                    });
+                }
+            }
+        });
+    }
+
+    private addPlayer(renderList: RenderItem[], state: GameState, getScreenPos: any) {
+        if (!state.player) return;
+        const { player } = state;
+        const config = getSpriteConfig("player");
+
+        const isInvisible = player.skills.buffs.some(b => b.invisible) || false;
+        const { x: psx, y: psy, isoY: pIsoY } = getScreenPos(this.playerVisual.x, this.playerVisual.y);
+
+        renderList.push({
+            sortY: pIsoY + config.zOffset,
+            type: 'player',
+            x: psx, y: psy, w: SIZE,
+            appearance: player.appearance,
+            playerClass: player.class,
+            frame: this.frame,
+            lastAttackTime: player.lastAttackTime,
+            lastMoveTime: player.lastMoveTime,
+            lastAttackDir: player.lastAttackDir,
+            lastSkillTime: player.lastSkillTime,
+            lastSkillId: player.lastSkillId,
+            isInvisible: isInvisible,
+            spriteComp: player.sprite
+        });
+    }
+
+    private addNPCs(renderList: RenderItem[], state: GameState, getScreenPos: any, isOnCam: any) {
+        const { npcs = [], visible } = state;
+        const config = getSpriteConfig("npc");
+
+        npcs.forEach(npc => {
+            if (visible[npc.y]?.[npc.x]) {
+                const { x: sx, y: sy, isoY } = getScreenPos(npc.x, npc.y);
+                if (isOnCam(sx, sy)) {
+                    renderList.push({
+                        sortY: isoY + config.zOffset,
+                        type: 'npc',
+                        npc: npc,
+                        x: sx, y: sy, w: SIZE
+                    });
+                }
+            }
+        });
+    }
+
+    private applyOcclusion(renderList: RenderItem[], getScreenPos: any) {
+        const { x: psx, y: psy } = getScreenPos(this.playerVisual.x, this.playerVisual.y);
+        const pIsoY = (this.playerVisual.x + this.playerVisual.y) * TILE_HEIGHT / 2;
+
+        renderList.forEach(item => {
+            if (item.type === 'wall' && item.color) {
+                if (item.sortY > pIsoY + 0.1) {
+                    const dx = Math.abs(item.x! - psx);
+                    const dy = Math.abs(item.y! - psy);
+                    if (dx < SIZE * 0.8 && dy < SIZE * 1.5) {
+                        item.opacity = 0.4;
+                    }
+                }
+            }
+        });
+    }
+
+    private executeCommand(ctx: CanvasRenderingContext2D, cmd: RenderItem, level: number) {
         const prevAlpha = ctx.globalAlpha;
         if (cmd.opacity !== undefined) {
             ctx.globalAlpha = cmd.opacity;
@@ -444,11 +458,10 @@ export class GameRenderer {
 
         if (cmd.type === 'sprite') {
             if (cmd.texture && cmd.x !== undefined && cmd.y !== undefined && cmd.w !== undefined) {
-                // handle special variants for Environment
                 if (cmd.isOpen !== undefined) { // CHEST
                     drawEnvironmentSprite(ctx, 'chest', cmd.x, cmd.y, cmd.w, cmd.isOpen, cmd.rarity);
                 } else {
-                    drawEnvironmentSprite(ctx, cmd.texture, cmd.x, cmd.y, cmd.w, cmd.frame); // frame can be seed or animation
+                    drawEnvironmentSprite(ctx, cmd.texture, cmd.x, cmd.y, cmd.w, cmd.frame);
                 }
             }
         }
@@ -473,14 +486,15 @@ export class GameRenderer {
         }
         else if (cmd.type === 'wall') {
             if (cmd.x !== undefined && cmd.y !== undefined && cmd.w !== undefined && cmd.h !== undefined && cmd.color) {
-                drawSpriteIsoWall(ctx, cmd.x, cmd.y, cmd.w, cmd.h, cmd.color, this.lastStaticRender.level ?? 1);
+                drawSpriteIsoWall(ctx, cmd.x, cmd.y, cmd.w, cmd.h, cmd.color, level);
             }
         }
         else if (cmd.type === 'corpse') {
             if (cmd.x !== undefined && cmd.y !== undefined && cmd.w !== undefined && cmd.texture !== undefined && cmd.rotation !== undefined) {
+                const config = getSpriteConfig("corpse");
                 ctx.save();
                 ctx.translate(cmd.x, cmd.y + TILE_HEIGHT / 2);
-                ctx.scale(1, 0.4);
+                ctx.scale(1, 0.4); // This might be visual scaling, hardcoded for now or move to config? Keeping logic for now.
                 ctx.rotate((cmd.rotation * Math.PI) / 180);
                 ctx.filter = 'brightness(0.5) sepia(1) hue-rotate(-50deg) saturate(3)';
                 ctx.globalAlpha = 0.8;
@@ -495,7 +509,6 @@ export class GameRenderer {
         }
         else if (cmd.type === 'player') {
             if (cmd.x !== undefined && cmd.y !== undefined && cmd.w !== undefined && cmd.appearance && cmd.playerClass) {
-                // Glow effect
                 if (!cmd.isInvisible) {
                     const glowSize = SIZE * 2 + Math.sin(this.frame * 0.1) * 5;
                     const gradient = ctx.createRadialGradient(cmd.x, cmd.y + TILE_HEIGHT / 2, 0, cmd.x, cmd.y + TILE_HEIGHT / 2, glowSize);
@@ -508,7 +521,7 @@ export class GameRenderer {
                 drawPlayer(ctx, cmd.x, cmd.y, PLAYER_SIZE, cmd.appearance, cmd.playerClass, this.frame,
                     cmd.lastAttackTime || 0, cmd.lastAttackDir || { x: 0, y: 0 },
                     cmd.lastSkillTime || 0, cmd.lastSkillId || null, !!cmd.isInvisible, cmd.lastMoveTime || 0,
-                    cmd.spriteComp); // spriteComp might be undefined if not set in cmd
+                    cmd.spriteComp);
             }
         }
         else if (cmd.type === 'npc') {
@@ -517,9 +530,18 @@ export class GameRenderer {
             }
         }
 
-        // Restore Alpha
         if (cmd.opacity !== undefined) {
             ctx.globalAlpha = prevAlpha;
+        }
+    }
+
+    private renderLightingLayer(state: GameState, offsetX: number, offsetY: number) {
+        if (this.lightingCtx && this.lightingCanvas && this.dynamicCanvas) {
+            if (this.lightingCanvas.width !== this.dynamicCanvas.width) {
+                this.lightingCanvas.width = this.dynamicCanvas.width;
+                this.lightingCanvas.height = this.dynamicCanvas.height;
+            }
+            renderLighting(this.lightingCtx, this.lightingCanvas.width, this.lightingCanvas.height, state, offsetX, offsetY);
         }
     }
 
