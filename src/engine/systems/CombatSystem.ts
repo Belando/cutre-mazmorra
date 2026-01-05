@@ -7,9 +7,9 @@ import {
   hasLineOfSight,
   getProjectilePath
 } from '@/engine/core/utils';
-import { ENTITY, TILE_TAGS } from '@/data/constants';
+import { TILE_TAGS } from '@/data/constants';
 import { ENEMY_STATS } from '@/data/enemies';
-import { Entity, Stats, Buff, Player, Enemy, EquipmentState, AttackResult } from '@/types';
+import { Entity, Stats, Buff, Player, Enemy, EquipmentState, AttackResult, EntityTag, DamageType } from '@/types';
 
 // --- COMBATE DEL JUGADOR ---
 
@@ -77,9 +77,9 @@ export function executeRangedAttack(player: Player, target: Enemy, equipment: Eq
 }
 
 // Helper to get tags from an entity
-export function getEntityTags(entity: Entity): string[] {
-  if (entity.type === 'player') return ['PLAYER', 'HUMANOID']; // Default player tags
-  if (entity.tags) return entity.tags;
+export function getEntityTags(entity: Entity): EntityTag[] {
+  if (entity.type === 'player') return [EntityTag.PLAYER, EntityTag.HUMANOID];
+  if (entity.tags) return entity.tags as EntityTag[];
 
   // Fallback if tags not on instance, check stats (should shouldn't happen if initialized correctly)
   const stats = ENEMY_STATS[Number(entity.type)];
@@ -87,24 +87,21 @@ export function getEntityTags(entity: Entity): string[] {
 }
 
 // Helper for damage calculation
-export function calculateModifiers(damage: number, attackerTags: string[], defenderTags: string[], attackElement?: string): { damage: number, isCritical: boolean, message?: string } {
+export function calculateModifiers(damage: number, attackerTags: EntityTag[], defenderTags: EntityTag[], attackElement?: string): { damage: number, isCritical: boolean, message?: string } {
   let finalDamage = damage;
   let message = '';
 
-  // Example: HOLY weapon vs UNDEAD (Hardcoded logic for now, should be data-driven later via Item Tags)
-  // For now, let's assume Player has a 'HOLY' tag if they have a specific item? 
-  // Or simpler: specific elements vs tags.
-
   // Element interactions
-  if (attackElement === 'fire' && defenderTags.includes('PLANT')) {
+  // Using Enums for comparison
+  if (attackElement === DamageType.FIRE && defenderTags.includes(EntityTag.PLANT)) {
     finalDamage *= 1.5;
     message = '¡Efectivo!';
   }
-  if (attackElement === 'ice' && defenderTags.includes('FIRE')) {
+  if (attackElement === DamageType.ICE && defenderTags.includes(EntityTag.FIRE)) {
     finalDamage *= 1.5;
     message = '¡Vaporizado!';
   }
-  if (attackElement === 'holy' && defenderTags.includes('UNDEAD')) {
+  if (attackElement === DamageType.HOLY && defenderTags.includes(EntityTag.UNDEAD)) {
     finalDamage *= 2.0;
     message = '¡Purificado!';
   }
@@ -124,15 +121,9 @@ export function processTileInteraction(x: number, y: number, element: string, ma
   const tile = map[y]?.[x];
   if (tile === undefined) return null;
 
-  // Import TILE_TAGS dynamically or passed as arg? 
-  // We can't import inside function easily if not already imported.
-  // Assuming TILE_TAGS is imported from constants.
+  const tags = (TILE_TAGS as any)[tile] || [];
 
-  const tags = (TILE_TAGS as any)[tile] || []; // Cast any to avoid strict typing issues with import locally if needed
-
-  if (element === 'fire' && tags.includes('FLAMMABLE')) {
-    // In a full ECS, we would spawn a "FireHazard" entity here.
-    // For now, we return a message that the System or Renderer can use to show a particle/log.
+  if (element === DamageType.FIRE && tags.includes('FLAMMABLE')) {
     return 'BURNING_GROUND';
   }
 
@@ -156,10 +147,10 @@ export function calculateMeleeDamage(attacker: Entity, defender: Entity, attacke
   const critChance = (attackerStats.critChance || 5) / 100;
   const isCritical = Math.random() < critChance;
 
-  // Integrate Tags (Even though this signature misses element for now, use Physical)
+  // Integrate Tags
   const atTags = getEntityTags(attacker);
   const dfTags = getEntityTags(defender);
-  const mod = calculateModifiers(damage, atTags, dfTags, 'physical');
+  const mod = calculateModifiers(damage, atTags, dfTags, DamageType.PHYSICAL); // Use Enum
   damage = mod.damage;
 
   return {
@@ -173,16 +164,16 @@ export function calculateMeleeDamage(attacker: Entity, defender: Entity, attacke
  * @param player The attacking player
  * @param targetEnemy The target enemy
  */
-export function calculatePlayerHit(player: Player, targetEnemy: Enemy): { damage: number, isCritical: boolean, type: string } {
+export function calculatePlayerHit(player: Player, targetEnemy: Enemy): { damage: number, isCritical: boolean, type: DamageType | string } {
   const stats = calculatePlayerStats(player);
   const buffs = calculateBuffBonuses(player.skills?.buffs || [], stats);
 
   let attackPower = (stats.attack || 0) + (buffs.attackBonus || 0);
-  let damageType = 'physical';
+  let damageType: DamageType | string = DamageType.PHYSICAL;
 
   if (player.class && ['mage', 'arcane', 'druid'].includes(player.class)) {
     attackPower = (stats.magicAttack || 0) + (buffs.magicAttackBonus || 0);
-    damageType = 'magical';
+    damageType = DamageType.MAGICAL;
   }
 
   const critChance = ((stats.critChance || 5) + (buffs.critChance || 0)) / 100;
@@ -207,7 +198,7 @@ interface RangedEnemyInfo {
   color: string;
 }
 
-export const ENEMY_RANGED_TYPES: Record<string, RangedEnemyInfo> = {}; // Deprecated shim if needed, or just remove
+export const ENEMY_RANGED_TYPES: Record<string, RangedEnemyInfo> = {};
 
 export function isEnemyRanged(enemyType: string | number): boolean {
   const stats = ENEMY_STATS[Number(enemyType)];
@@ -225,13 +216,9 @@ export function processEnemyRangedAttack(enemy: Entity, player: Entity, map: num
   const stats = ENEMY_STATS[Number(enemy.type)];
   if (!stats?.attacks) return null;
 
-  // Find a valid attack for the current distance
   const dist = getDistance(enemy, player);
 
   // Filter for ranged/magic attacks that are within range
-  // And also check min range (usually 2 for ranged)
-  // We pick the best attack (highest damage or priority?)
-  // For now: First valid ranged attack
   const attackDef = stats.attacks.find(a =>
     (a.type === 'ranged' || a.type === 'magic') &&
     dist <= a.range &&
@@ -240,19 +227,17 @@ export function processEnemyRangedAttack(enemy: Entity, player: Entity, map: num
 
   if (!attackDef) return null;
 
-  // Chance check
   if (attackDef.chance && Math.random() > attackDef.chance) return null;
 
   if (!hasLineOfSight(map, enemy.x, enemy.y, player.x, player.y)) return null;
 
   const enemyAtk = enemy.stats?.attack || stats.attack || 0;
-  // Apply damage multiplier from attack definition
   const damageMult = attackDef.damageMult || 1.0;
   const damage = Math.floor(enemyAtk * damageMult);
 
   return {
     type: attackDef.type,
-    attackType: attackDef.element || 'physical',
+    attackType: (attackDef.element as string) || DamageType.PHYSICAL, // Cast just in case interface mismatch
     damage,
     color: attackDef.color || '#ffffff',
     success: true,

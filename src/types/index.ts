@@ -5,6 +5,43 @@ export interface Point {
     y: number;
 }
 
+export enum EntityTag {
+    UNDEAD = 'UNDEAD',
+    BEAST = 'BEAST',
+    HUMANOID = 'HUMANOID',
+    FLYING = 'FLYING',
+    GHOST = 'GHOST',
+    SKELETON = 'SKELETON',
+    ORC = 'ORC',
+    GOBLIN = 'GOBLIN',
+    INSECT = 'INSECT',
+    CONSTRUCT = 'CONSTRUCT',
+    MAGIC = 'MAGIC',
+    GIANT = 'GIANT',
+    SPIRIT = 'SPIRIT',
+    DEMON = 'DEMON',
+    DRAGON = 'DRAGON',
+    VAMPIRE = 'VAMPIRE',
+    TRAP = 'TRAP',
+    AMORPHOUS = 'AMORPHOUS',
+    PLANT = 'PLANT',
+    FIRE = 'FIRE', // Elemental affinity tags if used on entities
+    PLAYER = 'PLAYER',
+    BOSS = 'BOSS'
+}
+
+export enum DamageType {
+    PHYSICAL = 'physical',
+    FIRE = 'fire',
+    ICE = 'ice',
+    POISON = 'poison',
+    LIGHTNING = 'lightning',
+    HOLY = 'holy',
+    DARK = 'dark',
+    VOID = 'void',
+    MAGICAL = 'magic' // General magic
+}
+
 export interface Stats {
     hp: number;
     maxHp: number;
