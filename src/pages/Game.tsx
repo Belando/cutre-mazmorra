@@ -28,6 +28,7 @@ export default function Game() {
     // Temp Local State (Character Creation)
     const [tempName, setTempName] = useState("Héroe");
     const [hoveredTarget, setHoveredTarget] = useState<Enemy | null>(null);
+    const [chatOpen, setChatOpen] = useState(false); // NEW
 
     // Sync Active NPC with Game State
     useEffect(() => {
@@ -45,6 +46,7 @@ export default function Game() {
         activeNPC: ui.activeNPC,
         pauseMenuOpen: ui.currentState === 'PAUSE_MENU',
         mapExpanded: ui.currentState === 'MAP_EXPANDED',
+        chatOpen, // NEW
 
         setInventoryOpen: (val: boolean | ((p: boolean) => boolean)) => {
             if (typeof val === 'function') ui.toggleInventory();
@@ -68,7 +70,8 @@ export default function Game() {
         setMapExpanded: (val: boolean | ((p: boolean) => boolean)) => {
             if (typeof val === 'function') ui.toggleMap();
             else val ? ui.openMap() : ui.closeAll();
-        }
+        },
+        setChatOpen // NEW
     };
 
     useInputHandler({
@@ -232,7 +235,9 @@ export default function Game() {
                 messages={messages}
                 mapExpanded={ui.currentState === 'MAP_EXPANDED'}
                 onExpandMap={(expanded) => expanded ? ui.openMap() : ui.closeAll()}
-                isInputDisabled={ui.isModalOpen || gameOver}
+                isInputDisabled={ui.isModalOpen || gameOver || chatOpen}
+                chatOpen={chatOpen}
+                onChatOpenChange={setChatOpen}
             />
 
             {/* 3. Menus & Overlays */}

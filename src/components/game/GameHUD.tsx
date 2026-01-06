@@ -13,6 +13,8 @@ interface GameHUDProps {
     mapExpanded: boolean;
     onExpandMap: (expanded: boolean) => void;
     isInputDisabled: boolean;
+    chatOpen?: boolean;
+    onChatOpenChange?: (open: boolean) => void;
 }
 
 export default function GameHUD({
@@ -22,22 +24,10 @@ export default function GameHUD({
     messages,
     mapExpanded,
     onExpandMap,
-    isInputDisabled
+    isInputDisabled,
+    chatOpen,
+    onChatOpenChange
 }: GameHUDProps) {
-    const [command, setCommand] = useState('');
-
-    const handleCommandSubmit = (e: React.FormEvent) => {
-        e.preventDefault();
-        if (!command.trim()) return;
-
-        if (actions.processCommand) {
-            actions.processCommand(command);
-        } else {
-            actions.addMessage('Chat System not available.', 'error');
-        }
-        setCommand('');
-    };
-
     return (
         <div className="absolute inset-0 pointer-events-none">
             {/* TOP LEFT: Player Stats */}
@@ -57,19 +47,13 @@ export default function GameHUD({
             {/* BOTTOM LEFT: Message Log & Chat */}
             <div className="absolute bottom-4 left-4 z-20 w-[400px]">
                 <div className="h-40 overflow-hidden pointer-events-auto mb-2">
-                    <MessageLog messages={messages} />
-                </div>
-                {/* Chat Input */}
-                <form onSubmit={handleCommandSubmit} className="pointer-events-auto">
-                    <input
-                        type="text"
-                        value={command}
-                        onChange={(e) => setCommand(e.target.value)}
-                        placeholder="Escribe /help para lista de comandos..."
-                        className="w-full bg-slate-900/90 border border-slate-700/50 rounded px-2 py-1 text-xs text-white focus:outline-none focus:border-blue-500 font-mono"
-                        onKeyDown={(e) => e.stopPropagation()}
+                    <MessageLog
+                        messages={messages}
+                        onCommand={actions.processCommand}
+                        isFocused={chatOpen}
+                        onFocusChange={onChatOpenChange}
                     />
-                </form>
+                </div>
             </div>
 
             {/* BOTTOM CENTER: Skills & QuickSlots */}

@@ -17,7 +17,7 @@ export const KEYBOARD_MAP: Record<string, InputIntent> = {
     'pagedown': InputIntent.MOVE_DOWN_RIGHT,
 
     'e': InputIntent.INTERACT,
-    'enter': InputIntent.DESCEND,
+    'enter': InputIntent.TOGGLE_CHAT,
     ' ': InputIntent.ATTACK,
 
     'q': InputIntent.QUICK_SLOT_1,
@@ -28,7 +28,6 @@ export const KEYBOARD_MAP: Record<string, InputIntent> = {
     'i': InputIntent.TOGGLE_INVENTORY,
     't': InputIntent.TOGGLE_SKILLS,
     'escape': InputIntent.CLOSE_UI,
-    'p': InputIntent.TOGGLE_PAUSE, // Alternative to ESC
 
     'g': InputIntent.SAVE_GAME
 };

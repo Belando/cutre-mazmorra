@@ -99,6 +99,22 @@ export function useInteractionActions(context: InteractionActionsContext) {
                 }
             }
 
+
+            // 1.5. Interactuar con Puerta (NEW)
+            const mapTile = dungeon.map?.[ty]?.[tx];
+            if (mapTile === 3) { // TILE.DOOR
+                soundManager.play('door');
+                addMessage("Abriste la puerta.", 'info');
+
+                setDungeon(prev => {
+                    const newMap = [...prev.map];
+                    newMap[ty] = [...newMap[ty]];
+                    newMap[ty][tx] = 5; // TILE.DOOR_OPEN
+                    return { ...prev, map: newMap };
+                });
+                return null;
+            }
+
             // 2. Interactuar con NPC
             const npcRef = entities.find(e => e.type === 'npc') as NPC | undefined;
             if (npcRef) {
@@ -226,6 +242,31 @@ export function useInteractionActions(context: InteractionActionsContext) {
                 return null;
             }
         }
+
+
+        // 4. Interactuar con Escaleras (Stairs)
+        // Check current tile
+        const currentTile = dungeon.map?.[player.y]?.[player.x];
+
+        if (currentTile === 2) { // TILE.STAIRS (Down)
+            if (dungeon.enemies.some((e: any) => e.isBoss)) {
+                addMessage("¡Mata al jefe primero!", 'info');
+            } else {
+                soundManager.play('stairs');
+                const nextLevel = dungeon.level === 0 ? 1 : dungeon.level + 1;
+                initGame(nextLevel, player, 'dungeon');
+                return null;
+            }
+        } else if (currentTile === 4) { // TILE.STAIRS_UP (Up)
+            soundManager.play('stairs');
+            if (dungeon.level > 1) {
+                initGame(dungeon.level - 1, player, 'dungeon');
+            } else {
+                initGame(1, player, 'home');
+            }
+            return null;
+        }
+
         addMessage("No hay nada aquí para interactuar.", 'info');
         return null;
     };

@@ -23,6 +23,7 @@ export enum InputIntent {
     TOGGLE_INVENTORY = 'TOGGLE_INVENTORY',
     TOGGLE_SKILLS = 'TOGGLE_SKILLS',
     TOGGLE_PAUSE = 'TOGGLE_PAUSE',
+    TOGGLE_CHAT = 'TOGGLE_CHAT',
     CLOSE_UI = 'CLOSE_UI', // Escape/Back generic
 
     // UI Navigation (future proofing)

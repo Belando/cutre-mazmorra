@@ -17,12 +17,14 @@ export interface InputHandlerModals {
     skillTreeOpen: boolean;
     activeNPC: NPC | null;
     pauseMenuOpen: boolean;
+    chatOpen: boolean; // NEW
     mapExpanded: boolean;
     setInventoryOpen: React.Dispatch<React.SetStateAction<boolean>>;
     setCraftingOpen: React.Dispatch<React.SetStateAction<boolean>>;
     setSkillTreeOpen: React.Dispatch<React.SetStateAction<boolean>>;
     setActiveNPC: React.Dispatch<React.SetStateAction<NPC | null>>;
     setPauseMenuOpen: React.Dispatch<React.SetStateAction<boolean>>;
+    setChatOpen: React.Dispatch<React.SetStateAction<boolean>>; // NEW
     setMapExpanded: React.Dispatch<React.SetStateAction<boolean>>;
 }
 
@@ -49,13 +51,22 @@ export function useInputHandler({
     modals,
     onAction
 }: InputHandlerParams) {
-    const { inventoryOpen, craftingOpen, skillTreeOpen, activeNPC, pauseMenuOpen, setInventoryOpen, setCraftingOpen, setSkillTreeOpen, setActiveNPC, setPauseMenuOpen } = modals;
+    const { inventoryOpen, craftingOpen, skillTreeOpen, activeNPC, pauseMenuOpen, chatOpen, setInventoryOpen, setCraftingOpen, setSkillTreeOpen, setActiveNPC, setPauseMenuOpen, setChatOpen } = modals;
 
     const lastActionTime = useRef(0);
     const lastIntentTime = useRef<number>(0);
 
     const { pressedKeys: keyboardKeys } = useKeyboardControls(); // Removed handleKeyDown callback to prefer loop polling
     const { pollGamepad, getCurrentState } = useGamepadControls();
+
+    const lastChatCloseTime = useRef(0);
+
+    // Track when chat closes to prevent immediate re-opening (bounce)
+    useEffect(() => {
+        if (!chatOpen) {
+            lastChatCloseTime.current = Date.now();
+        }
+    }, [chatOpen]);
 
     // Loop de Juego Principal (Input Polling)
     useEffect(() => {
@@ -71,12 +82,11 @@ export function useInputHandler({
             const currentIntents = resolveIntents(keyboardKeys.current, padState);
 
             // 2. Global Toggles (Debounced) - UI Menus
-            // Check for single-press actions (Intents logic needs simple debounce or "just pressed" tracking)
-            // For now, using a simple timestamp for UI toggles to prevent flickering
             if (now - lastIntentTime.current > 200) {
                 if (currentIntents.has(InputIntent.CLOSE_UI)) {
                     lastIntentTime.current = now;
-                    if (activeNPC) setActiveNPC(null);
+                    if (chatOpen) setChatOpen(false);
+                    else if (activeNPC) setActiveNPC(null);
                     else if (skillTreeOpen) setSkillTreeOpen(false);
                     else if (craftingOpen) setCraftingOpen(false);
                     else if (inventoryOpen) setInventoryOpen(false);
@@ -86,13 +96,19 @@ export function useInputHandler({
                     else setPauseMenuOpen(true);
                 } else if (currentIntents.has(InputIntent.TOGGLE_INVENTORY)) {
                     lastIntentTime.current = now;
-                    if (!activeNPC && !skillTreeOpen) setInventoryOpen(p => !p);
+                    if (!activeNPC && !skillTreeOpen && !chatOpen) setInventoryOpen(p => !p);
                 } else if (currentIntents.has(InputIntent.TOGGLE_SKILLS)) {
                     lastIntentTime.current = now;
-                    if (!activeNPC && !inventoryOpen) setSkillTreeOpen(p => !p);
+                    if (!activeNPC && !inventoryOpen && !chatOpen) setSkillTreeOpen(p => !p);
                 } else if (currentIntents.has(InputIntent.TOGGLE_PAUSE)) {
                     lastIntentTime.current = now;
-                    setPauseMenuOpen(p => !p);
+                    if (!chatOpen) setPauseMenuOpen(p => !p);
+                } else if (currentIntents.has(InputIntent.TOGGLE_CHAT)) {
+                    lastIntentTime.current = now;
+                    // Only open if enough time passed since last close (bounce protection)
+                    if (!chatOpen && now - lastChatCloseTime.current > 200) {
+                        setChatOpen(true);
+                    }
                 } else if (currentIntents.has(InputIntent.SAVE_GAME)) {
                     lastIntentTime.current = now;
                     actions.saveGame();
@@ -100,7 +116,7 @@ export function useInputHandler({
             }
 
             // 3. Game Actions (Blocked by UI)
-            const anyModalOpen = inventoryOpen || craftingOpen || skillTreeOpen || activeNPC || pauseMenuOpen || modals.mapExpanded;
+            const anyModalOpen = inventoryOpen || craftingOpen || skillTreeOpen || activeNPC || pauseMenuOpen || modals.mapExpanded || chatOpen;
 
             if (!anyModalOpen && now - lastActionTime.current >= INPUT_COOLDOWN) {
                 let actionTaken = false;

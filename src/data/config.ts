@@ -14,6 +14,6 @@ export const GAME_CONFIG = {
         MAX_ACCUMULATOR: 500,
     },
     ENTITIES: {
-        ENEMY_BASE_SPEED: 800,
+        ENEMY_BASE_SPEED: 350,
     }
 };

@@ -29,14 +29,50 @@ export function placeEntities(map: number[][], entities: number[][], rooms: Room
 }
 
 export function placeBoss(map: number[][], entities: number[][], stairsX: number, stairsY: number, bossType: number) {
-    const dirs = [[-1, 0], [1, 0], [0, -1], [0, 1], [-1, -1], [1, 1], [-1, 1], [1, -1]];
-    for (const [dx, dy] of dirs) {
-        if (map[stairsY + dy]?.[stairsX + dx] === TILE.FLOOR) {
-            entities[stairsY + dy][stairsX + dx] = bossType;
-            return;
+    // BFS to find nearest valid floor tile that isn't the stairs itself
+    const q: { x: number, y: number }[] = [{ x: stairsX, y: stairsY }];
+    const visited = new Set<string>();
+    visited.add(`${stairsX},${stairsY}`);
+
+    // We want to avoid placing ON the stairs if possible, so we start checking neighbors immediately
+    // If the queue pops the start node, we skip placing there unless it's the only option (fallback at end)
+
+    let attempts = 0;
+
+    while (q.length > 0 && attempts < 50) {
+        const curr = q.shift()!;
+        attempts++;
+
+        // Valid spot check: Floor, No Entity, Not Stairs (optional, but good)
+        // We know stairs are at stairsX, stairsY.
+        const isStairs = curr.x === stairsX && curr.y === stairsY;
+
+        if (!isStairs && map[curr.y]?.[curr.x] === TILE.FLOOR && entities[curr.y]?.[curr.x] === ENTITY.NONE) {
+            entities[curr.y][curr.x] = bossType;
+            return; // Placed!
+        }
+
+        const dirs = [[0, 1], [0, -1], [1, 0], [-1, 0], [1, 1], [-1, -1], [1, -1], [-1, 1]];
+        // Randomize dirs to avoid bias
+        dirs.sort(() => Math.random() - 0.5);
+
+        for (const [dx, dy] of dirs) {
+            const nx = curr.x + dx;
+            const ny = curr.y + dy;
+            if (ny >= 0 && ny < map.length && nx >= 0 && nx < map[0].length && !visited.has(`${nx},${ny}`)) {
+                // Only traverse floors or open doors? traverse everything to find nearest floor?
+                // Traverse only floor-ish to avoid jumping walls
+                if (map[ny][nx] !== TILE.WALL) {
+                    visited.add(`${nx},${ny}`);
+                    q.push({ x: nx, y: ny });
+                }
+            }
         }
     }
+
+    // Fallback: Force on stairs if absolutely nowhere else found (rare)
     entities[stairsY][stairsX] = bossType;
+    console.warn("Failed to place boss in open spot, placing on stairs.");
 }
 
 export function createEnemiesFromGrid(entitiesGrid: number[][], level: number, playerLevel: number): Enemy[] {

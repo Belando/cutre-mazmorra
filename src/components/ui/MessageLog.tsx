@@ -5,10 +5,13 @@ import { GameMessage } from '@/hooks/useGameEffects';
 interface MessageLogProps {
     messages: GameMessage[];
     onCommand?: (cmd: string) => void;
+    isFocused?: boolean;
+    onFocusChange?: (focused: boolean) => void;
 }
 
-export default function MessageLog({ messages, onCommand }: MessageLogProps) {
+export default function MessageLog({ messages, onCommand, isFocused, onFocusChange }: MessageLogProps) {
     const scrollRef = useRef<HTMLDivElement>(null);
+    const inputRef = useRef<HTMLInputElement>(null);
     const [inputValue, setInputValue] = React.useState('');
 
     useEffect(() => {
@@ -17,12 +20,22 @@ export default function MessageLog({ messages, onCommand }: MessageLogProps) {
         }
     }, [messages]);
 
+    useEffect(() => {
+        if (isFocused && inputRef.current) {
+            inputRef.current.focus();
+        } else if (!isFocused && inputRef.current) {
+            inputRef.current.blur();
+        }
+    }, [isFocused]);
+
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
         if (inputValue.trim() && onCommand) {
             onCommand(inputValue);
             setInputValue('');
         }
+        // Always blur on submit (close chat)
+        if (onFocusChange) onFocusChange(false);
     };
 
     return (
@@ -48,6 +61,7 @@ export default function MessageLog({ messages, onCommand }: MessageLogProps) {
             {/* Command Input */}
             <form onSubmit={handleSubmit} className="p-1 border-t border-slate-700/50 bg-slate-900/40">
                 <input
+                    ref={inputRef}
                     type="text"
                     value={inputValue}
                     onChange={(e) => setInputValue(e.target.value)}

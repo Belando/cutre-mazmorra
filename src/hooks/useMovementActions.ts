@@ -38,12 +38,10 @@ export function useMovementActions(
         selectedSkill,
     } = context;
 
-    const openingDoors = useRef(new Set<string>());
-
     const move = (dx: number, dy: number) => {
         // MOVEMENT COOLDOWN / SLOW LOGIC
         const now = Date.now();
-        const baseSpeed = 100; // ms
+        const baseSpeed = 150; // ms
         const moveDelay = (player.slowed || 0) > 0 ? 300 : baseSpeed;
 
         if (player.lastMoveTime && now - player.lastMoveTime < moveDelay) return;
@@ -55,52 +53,25 @@ export function useMovementActions(
         if (targetTile === TILE.WALL) return;
 
         if (targetTile === TILE.DOOR) {
-            const doorKey = `${nx},${ny}`;
-
-            // Si la puerta ya se está abriendo, ignoramos la interacción (no repetimos sonido)
-            if (openingDoors.current.has(doorKey)) return;
-
-            openingDoors.current.add(doorKey);
-            soundManager.play('door');
-            addMessage("La puerta se está abriendo...", 'info');
-
-            setTimeout(() => {
-                setDungeon(prev => {
-                    const newMap = [...prev.map];
-                    newMap[ny] = [...newMap[ny]];
-                    newMap[ny][nx] = TILE.DOOR_OPEN;
-                    return { ...prev, map: newMap };
-                });
-                // Actualizamos FOV desde la posición donde se inició la acción (o la actual si no se movió)
-                updateMapFOV(player.x, player.y);
-                openingDoors.current.delete(doorKey);
-            }, 1000);
-
+            addMessage("La puerta está cerrada. (Usa 'E' para abrir)", 'info');
+            soundManager.play('error');
             return;
         }
 
         const entitiesAtTarget = spatialHash.get(nx, ny);
 
-        // Bloqueos
-        // Bloqueos
-        if (entitiesAtTarget.some(e => e.type === 'chest')) {
-            addMessage("Un cofre bloquea el camino (Usa 'E')", 'info');
-            soundManager.play('error');
-            return;
-        }
-        if (entitiesAtTarget.some(e => e.type === 'npc')) {
-            addMessage("Un NPC bloquea el camino (Usa 'E')", 'info');
-            soundManager.play('error');
+        // Bloqueos (Cofres, NPCs)
+        if (entitiesAtTarget.some(e => e.type === 'chest' || e.type === 'npc')) {
+            addMessage("Algo bloquea el camino (Usa 'E')", 'info');
             return;
         }
 
         // --- INTERACTIVITY CHECK (Crates/Barrels) ---
-        // Check map entities grid (assuming useDungeon keeps track of static entities there?)
-        // Or check `dungeon.entities` which is number[][]
-        // NOTE: spatialHash stores dynamic entities. Static ones are usually in dungeon.entities?
-        // Let's check dungeon.entities grid first for destructibles.
+        // Check both direct entities grid and spatial hash for robustness
         const staticEntity = dungeon.entities[ny]?.[nx];
-        if (staticEntity === ENTITY.CRATE || staticEntity === ENTITY.BARREL) {
+        const isDestructible = staticEntity === ENTITY.CRATE || staticEntity === ENTITY.BARREL;
+
+        if (isDestructible) {
             // Attack the object!
             soundManager.play('hit');
             if (effectsManager.current) {
@@ -112,8 +83,6 @@ export function useMovementActions(
             setDungeon(prev => {
                 const newEntities = prev.entities.map(row => [...row]);
                 newEntities[ny][nx] = ENTITY.NONE;
-
-                // Spawn Wood Chip Particles (visual only via effectsManager above)
 
                 // Chance for loot
                 const dropChance = Math.random();
@@ -159,8 +128,6 @@ export function useMovementActions(
         // Blocking Obstacles (Trees, Rocks, Gate, Invisible Blockers)
         const obstacle = entitiesAtTarget.find(e => ['tree', 'rock', 'dungeon_gate', 'blocker'].includes(String(e.type)));
         if (obstacle) {
-            // Optional: Play a "thud" sound?
-            // soundManager.play('error'); 
             return;
         }
 
@@ -171,12 +138,17 @@ export function useMovementActions(
             return;
         }
 
-        // Combate
-        const enemyRef = entitiesAtTarget.find(e => e.type === 'enemy');
-        if (enemyRef) {
-            const enemyIdx = dungeon.enemies.findIndex(e => e.x === nx && e.y === ny);
-            if (enemyIdx !== -1) {
-                const enemy = dungeon.enemies[enemyIdx];
+        // Combate - Check SpatialHash AND direct enemies list for fail-safe
+        // Safety check for entitiesAtTarget
+        const safeEntities = entitiesAtTarget || [];
+        const enemyRef = safeEntities.find(e => e.type === 'enemy');
+        const enemyDirect = dungeon.enemies?.find(e => e.x === nx && e.y === ny);
+
+        if (enemyRef || enemyDirect) {
+            const enemy = enemyDirect || (enemyRef ? dungeon.enemies.find(e => e.id === enemyRef.id) : null);
+
+            if (enemy) {
+                const enemyIdx = dungeon.enemies.findIndex(e => e.id === enemy.id);
                 if (selectedSkill && SKILLS[selectedSkill] && SKILLS[selectedSkill].type === 'melee') {
                     const cooldowns = player.skills?.cooldowns || {};
                     if (canUseSkill(selectedSkill, cooldowns)) {
@@ -186,7 +158,10 @@ export function useMovementActions(
                 }
                 const nextEnemiesState = performAttack(enemy, enemyIdx);
                 setDungeon(prev => ({ ...prev, enemies: nextEnemiesState }));
-                // Trigger FOV update or other immediate effects if needed
+                return;
+            } else {
+                // Fallback if we detected an enemy ref but couldn't find it in the list (Zombie ref?)
+                // Prevent movement anyway
                 return;
             }
         }

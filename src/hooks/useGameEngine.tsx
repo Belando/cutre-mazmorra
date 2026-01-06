@@ -273,7 +273,7 @@ export function useGameEngine() {
                 console.log(`Rich! +${amount} gold`);
             }
         };
-        console.log("Cheats loaded: window.cheat.levelUp(), window.cheat.godMode(), window.cheat.gold()");
+        // console.log("Cheats loaded"); // Removed spam
     }, [player, gainExp, setPlayer, updatePlayer]);
 
     useEffect(() => {
@@ -284,8 +284,16 @@ export function useGameEngine() {
     }, [player?.level]);
 
     const gameState = useMemo(() => ({
-        player, map: dungeon.map, enemies: dungeon.enemies, items: dungeon.items, chests: dungeon.chests,
-        torches: dungeon.torches, corpses: dungeon.corpses, npcs: dungeon.npcs, stairs: dungeon.stairs, stairsUp: dungeon.stairsUp,
+        player,
+        map: dungeon.map || [],
+        enemies: dungeon.enemies || [],
+        items: dungeon.items || [],
+        chests: dungeon.chests || [],
+        torches: dungeon.torches || [],
+        corpses: dungeon.corpses || [],
+        npcs: dungeon.npcs || [],
+        stairs: dungeon.stairs,
+        stairsUp: dungeon.stairsUp,
         visible: dungeon.visible, explored: dungeon.explored, level: dungeon.level, bossDefeated: dungeon.bossDefeated,
         inventory, equipment, questProgress, materials, effectsManager: effectsManager.current,
         spatialHash: spatialHash.current,
