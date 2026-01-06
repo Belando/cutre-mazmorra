@@ -1,5 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { calculateMeleeDamage, calculatePlayerHit, calculateEnemyDamage } from './CombatSystem';
+import { calculatePlayerStats } from './ItemSystem';
+import { calculateBuffBonuses } from './SkillSystem';
 import { Player, Enemy, Stats, Item } from '@/types';
 
 // Mock Player Data
@@ -100,16 +102,11 @@ describe('CombatSystem Integration Tests', () => {
         equipAttack: 5
       };
 
-      // Recalculate stats simulation (normally done by ItemSystem, but here we can rely on integration if available or mock effectively)
-      // Ideally we'd test calculatePlayerStats -> calculatePlayerHit flow. 
-      // Since CombatSystem calls calculatePlayerStats internally using the passed player object, 
-      // and calculatePlayerStats sums equipment... we expect it to work if ItemSystem logic is sound.
+      // Manually calculate stats and buffs as CombatSystem is now decoupled
+      const stats = calculatePlayerStats(equippedPlayer);
+      const buffs = calculateBuffBonuses(equippedPlayer.skills.buffs, stats);
 
-      // However, calculatePlayerHit imports calculatePlayerStats. 
-      // If we run this test, it will execute the REAL calculatePlayerStats.
-      // calculatePlayerStats sums base + equipment stats.
-
-      const result = calculatePlayerHit(equippedPlayer, mockEnemy);
+      const result = calculatePlayerHit(equippedPlayer, mockEnemy, stats, buffs);
 
       // Base 10 + Sword 5 = 15 Attack. Enemy Def 2.
       // Expected ~13 +/- variance.
@@ -119,20 +116,8 @@ describe('CombatSystem Integration Tests', () => {
     it('should apply class bonuses (Warrior Melee)', () => {
       // Warrior gets +15% melee damage
       const warrior = { ...mockPlayer, class: 'warrior' };
-      // We need to verify if calculatePlayerHit applies the class bonus internally 
-      // OR if it just returns raw damage and `actions.performAttack` applies it.
-      // Checking CombatSystem.ts... 
-      // calculatePlayerHit returns { damage, isCrit, type }. 
-      // It does NOT seem to call applyClassBonus inside calculatePlayerHit in the code I read earlier?
-      // Let's re-read CombatSystem.ts in the previous turn. 
-      // Ah, wait. I see 'applyClassBonus' exported function. 
-      // But 'calculatePlayerHit' logic:
-      // let attackPower = ...
-      // let damage = ...
-      // It does NOT call applyClassBonus.
-
-      // This means the bonus is applied LATER. 
-      // Correct test would be to test `applyClassBonus` function directly.
+      // This logic is applied in applyClassBonus usually, not calculatePlayerHit directly for base damage calculation
+      // verify calculatePlayerHit returns raw damage.
     });
   });
 

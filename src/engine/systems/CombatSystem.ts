@@ -1,6 +1,3 @@
-import { calculatePlayerStats } from './ItemSystem';
-import { calculateBuffBonuses } from './SkillSystem';
-import { getWeaponRange, calculateEquipmentStats } from './EquipmentSystem';
 // IMPORTAMOS las utilidades centralizadas
 import {
   getDistance,
@@ -9,7 +6,8 @@ import {
 } from '@/engine/core/utils';
 import { ENTITY, TILE_TAGS } from '@/data/constants';
 import { ENEMY_STATS } from '@/data/enemies';
-import { Entity, Stats, Buff, Player, Enemy, EquipmentState, AttackResult, EntityTag, DamageType } from '@/types';
+import { Entity, Stats, Buff, Player, Enemy, AttackResult, EntityTag, DamageType } from '@/types';
+import { BuffBonuses } from '../systems/SkillSystem'; // Type import only if possible, or define locally
 
 // --- COMBATE DEL JUGADOR ---
 
@@ -18,10 +16,9 @@ import { Entity, Stats, Buff, Player, Enemy, EquipmentState, AttackResult, Entit
  * @param player The player entity acting as the source
  * @param enemies List of potential targets
  * @param map Terrain map for Line of Sight checks
- * @param equipment Current equipment to determine weapon range
+ * @param range Weapon range
  */
-export function getRangedTargets(player: Player, enemies: Enemy[], map: number[][], equipment: EquipmentState): Enemy[] {
-  const range = getWeaponRange(equipment);
+export function getRangedTargets(player: Player, enemies: Enemy[], map: number[][], range: number): Enemy[] {
   if (range === 0) return [];
 
   return enemies.filter(enemy => {
@@ -37,12 +34,11 @@ export function getRangedTargets(player: Player, enemies: Enemy[], map: number[]
  * Calculates hit chance, damage, and crit chance based on stats and distance.
  * @param player The attacker
  * @param target The victim
- * @param equipment Equipment for range calculations
+ * @param range Weapon range
  * @param playerStats Aggregated player stats
  * @param map Map for LoS verification
  */
-export function executeRangedAttack(player: Player, target: Enemy, equipment: EquipmentState, playerStats: Stats, map: number[][]): AttackResult {
-  const range = getWeaponRange(equipment);
+export function executeRangedAttack(player: Player, target: Enemy, range: number, playerStats: Stats, map: number[][]): AttackResult {
   const dist = getDistance(player, target);
 
   if (dist > range) return { success: false, hit: false, damage: 0, isCritical: false, isKill: false, evaded: false, message: 'OUT_OF_RANGE' };
@@ -163,11 +159,10 @@ export function calculateMeleeDamage(attacker: Entity, defender: Entity, attacke
  * Calculates damage for a player's melee hit, considering stats, buffs, and class bonuses.
  * @param player The attacking player
  * @param targetEnemy The target enemy
+ * @param stats Calculated player stats
+ * @param buffs Active buff bonuses
  */
-export function calculatePlayerHit(player: Player, targetEnemy: Enemy): { damage: number, isCritical: boolean, type: DamageType | string } {
-  const stats = calculatePlayerStats(player);
-  const buffs = calculateBuffBonuses(player.skills?.buffs || [], stats);
-
+export function calculatePlayerHit(player: Player, targetEnemy: Enemy, stats: Stats, buffs: BuffBonuses): { damage: number, isCritical: boolean, type: DamageType | string } {
   let attackPower = (stats.attack || 0) + (buffs.attackBonus || 0);
   let damageType: DamageType | string = DamageType.PHYSICAL;
 
@@ -374,13 +369,12 @@ export function applyClassBonus(damage: number, playerClass: string, attackType:
   return Math.floor(damage * mult);
 }
 
-export function calculateEffectiveDefense(baseDef: number, playerClass: string, equipment: EquipmentState): number {
+export function calculateEffectiveDefense(baseDef: number, playerClass: string, equipmentDefense: number): number {
   const bonuses = CLASS_COMBAT_BONUSES[playerClass];
   let defense = baseDef;
 
-  if (bonuses?.armorBonus && equipment) {
-    const eqStats = calculateEquipmentStats(equipment);
-    defense += Math.floor((eqStats.defense || 0) * bonuses.armorBonus);
+  if (bonuses?.armorBonus && equipmentDefense) {
+    defense += Math.floor(equipmentDefense * bonuses.armorBonus);
   }
 
   return defense;

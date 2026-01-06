@@ -1,6 +1,8 @@
 import { SKILLS } from '@/data/skills';
 import { ENEMY_STATS, EnemyType } from '@/data/enemies';
 import { soundManager } from "@/engine/systems/SoundSystem";
+import { calculatePlayerStats } from '@/engine/systems/ItemSystem';
+import { calculateBuffBonuses } from '@/engine/systems/SkillSystem';
 import { calculatePlayerHit } from '@/engine/systems/CombatSystem';
 import { hasLineOfSight } from '@/engine/core/utils';
 import { DungeonState } from './useDungeon';
@@ -37,7 +39,11 @@ export function useCombatActions(context: CombatActionsContext) {
             skills: { ...player.skills, buffs: newBuffs }
         });
 
-        const { damage, isCritical } = calculatePlayerHit(player, enemy);
+        // Pre-calculate stats for CombatSystem injection
+        const stats = calculatePlayerStats(player);
+        const buffs = calculateBuffBonuses(player.skills?.buffs || [], stats);
+
+        const { damage, isCritical } = calculatePlayerHit(player, enemy, stats, buffs);
 
         soundManager.play(isCritical ? 'critical' : 'attack');
         if (effectsManager.current) {
