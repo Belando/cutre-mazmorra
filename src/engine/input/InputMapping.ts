@@ -29,7 +29,7 @@ export const KEYBOARD_MAP: Record<string, InputIntent> = {
     't': InputIntent.TOGGLE_SKILLS,
     'escape': InputIntent.CLOSE_UI,
 
-    'g': InputIntent.SAVE_GAME
+
 };
 
 // Default Gamepad Bindings (Abstracted names from useGamepadControls)

@@ -7,6 +7,8 @@ import { ENTITY } from '@/data/constants';
 import CharacterSelect from '@/components/ui/CharacterSelect';
 import GameOverlays from '@/components/overlays/GameOverlays';
 import PauseMenu from '@/components/ui/PauseMenu';
+import Grimoire from '@/components/ui/Grimoire';
+
 import VirtualCursor from '@/components/ui/VirtualCursor';
 
 // New Components
@@ -46,6 +48,7 @@ export default function Game() {
         activeNPC: ui.activeNPC,
         pauseMenuOpen: ui.currentState === 'PAUSE_MENU',
         mapExpanded: ui.currentState === 'MAP_EXPANDED',
+        grimoireOpen: ui.currentState === 'GRIMOIRE',
         chatOpen, // NEW
 
         setInventoryOpen: (val: boolean | ((p: boolean) => boolean)) => {
@@ -70,6 +73,10 @@ export default function Game() {
         setMapExpanded: (val: boolean | ((p: boolean) => boolean)) => {
             if (typeof val === 'function') ui.toggleMap();
             else val ? ui.openMap() : ui.closeAll();
+        },
+        setGrimoireOpen: (val: boolean | ((p: boolean) => boolean)) => {
+            if (typeof val === 'function') ui.toggleGrimoire();
+            else val ? ui.openGrimoire() : ui.openPauseMenu(); // Return to pause menu logic?
         },
         setChatOpen // NEW
     };
@@ -251,6 +258,13 @@ export default function Game() {
                 onSave={() => { actions.saveGame(); ui.closeAll(); }}
                 onLoad={() => { actions.loadGame(); ui.closeAll(); }}
                 onExit={() => { window.location.reload(); }}
+                onOpenGrimoire={ui.openGrimoire}
+            />
+
+            <Grimoire
+                isOpen={ui.currentState === 'GRIMOIRE'}
+                onClose={ui.openPauseMenu}
+                gameState={gameState}
             />
 
             {/* 4. Global Overlays (Inventory, Crafting, GameOver, etc.) */}

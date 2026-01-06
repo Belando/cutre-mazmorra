@@ -8,7 +8,8 @@ import {
     GiSave,
     GiLoad,
     GiExitDoor,
-    GiPauseButton
+    GiPauseButton,
+    GiSkullCrossedBones
 } from 'react-icons/gi';
 
 interface PauseMenuProps {
@@ -21,6 +22,7 @@ interface PauseMenuProps {
     onSave: () => void;
     onLoad: () => void;
     onExit: () => void;
+    onOpenGrimoire: () => void;
 }
 
 export default function PauseMenu({
@@ -32,7 +34,8 @@ export default function PauseMenu({
     onOpenMap,
     onSave,
     onLoad,
-    onExit
+    onExit,
+    onOpenGrimoire
 }: PauseMenuProps) {
     if (!isOpen) return null;
 
@@ -70,6 +73,7 @@ export default function PauseMenu({
                         <MenuButton icon={GiBookCover} label="Talentos" sub="Habilidades" onClick={onOpenSkills} color="text-purple-400" />
                         <MenuButton icon={GiTrophy} label="Logros" sub="Misiones" onClick={onOpenQuests} color="text-blue-400" />
                         <MenuButton icon={GiCompass} label="Mundo" sub="Mapa" onClick={onOpenMap} color="text-emerald-400" />
+                        <MenuButton icon={GiSkullCrossedBones} label="Grimorio" sub="Bestiario" onClick={onOpenGrimoire} color="text-red-500" />
                     </div>
 
                     {/* SEPARATOR */}

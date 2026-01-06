@@ -89,7 +89,7 @@ export default function InventoryPanel({
                 <div className="flex flex-col border-r w-80 bg-slate-900/80 border-slate-700">
                     <EquipmentPaperDoll
                         player={player}
-                        equipment={equipment as any}
+                        equipment={equipment}
                         onSelectSlot={handleSelectEquipSlot}
                         selectedSlot={selectedSlot}
                     />
@@ -108,7 +108,7 @@ export default function InventoryPanel({
                         <InventoryGrid
                             inventory={processedInventory}
                             selectedIndex={selectedIndex}
-                            selectedItem={selectedItemState}
+                            selectedItem={selectedItemState || null}
                             onSelect={handleSelectGridItem}
                             onReorder={onReorder}
                         />
@@ -117,7 +117,7 @@ export default function InventoryPanel({
 
                 {/* RIGHT: Details Panel */}
                 <ItemDetailsPanel
-                    item={selectedItemState as any}
+                    item={selectedItemState || null}
                     player={player}
                     onClose={onClose}
                     onUse={() => { onUseItem(selectedItemState!.index!); setSelectedItemState(null); }}

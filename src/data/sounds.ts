@@ -2,7 +2,7 @@ export type SoundEffectName =
     | 'step' | 'chest' | 'door' | 'stairs' | 'pickup' | 'equip' | 'error' | 'levelUp'
     | 'attack' | 'hit' | 'enemy_hit' | 'critical' | 'kill' | 'anvil'
     | 'fireball' | 'ice' | 'heal' | 'buff' | 'magic'
-    | 'start_adventure' | 'gameOver' | 'speech';
+    | 'start_adventure' | 'gameOver' | 'speech' | 'break';
 
 export const SOUND_ASSETS: Record<SoundEffectName | string, string> = {
     'step': '/sounds/sfx/steps.wav',
@@ -19,6 +19,7 @@ export const SOUND_ASSETS: Record<SoundEffectName | string, string> = {
     'critical': '/sounds/sfx/crit.mp3',
     'kill': '/sounds/sfx/kill.mp3',
     'anvil': '/sounds/sfx/anvil.mp3',
+    'break': '/sounds/sfx/impact.mp3', // Reusing impact for break
 
     'fireball': '/sounds/sfx/fireball.mp3',
     'ice': '/sounds/sfx/ice.mp3',

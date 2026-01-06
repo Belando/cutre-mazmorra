@@ -108,6 +108,19 @@ export function useCombatLogic({
         addMessage(getMessage('DEATH', { name: info.name, exp: info.exp }), 'death');
         events.emit(GAME_EVENTS.ENEMY_DIED, { enemy });
 
+        // --- BESTIARY UPDATE ---
+        const bestiaryId = info.id; // Or enemy.type ensuring string mapping
+        if (bestiaryId) {
+            updatePlayer({
+                bestiary: {
+                    ...player.bestiary,
+                    [bestiaryId]: {
+                        kills: (player.bestiary?.[bestiaryId]?.kills || 0) + 1
+                    }
+                }
+            });
+        }
+
         // --- QUEST PROGRESS UPDATE ---
         if (activeQuests && activeQuests.length > 0 && setQuestProgress) {
             setQuestProgress(prev => {

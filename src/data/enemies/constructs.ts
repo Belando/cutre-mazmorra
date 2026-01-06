@@ -11,11 +11,27 @@ export const CONSTRUCT_STATS: Record<number, EnemyStats> = {
 
 export const DEMON_STATS: Record<number, EnemyStats> = {
     [ENTITY.ENEMY_DEMON]: {
-        id: ENEMY_IDS.DEMON, name: 'Demonio', hp: 55, attack: 13, defense: 6, exp: 35, symbol: 'D', color: '#ef4444', minLevel: 6, renderKey: 'demon', aiBehavior: 'aggressive', tags: [EntityTag.DEMON],
-        attacks: [{ type: 'magic', range: 5, name: 'Bola de Fuego', color: '#ef4444', element: DamageType.FIRE, effect: { type: 'burn', duration: 4, chance: 0.4 } }]
+        id: ENEMY_IDS.DEMON,
+        name: 'Lesser Demon',
+        hp: 120,
+        attack: 25,
+        defense: 8,
+        exp: 60,
+        symbol: 'D',
+        color: '#ff0000',
+        minLevel: 6,
+        renderKey: 'demon', // Placeholder
+        tags: [EntityTag.DEMON, EntityTag.FIRE],
+        damageType: DamageType.MAGICAL,
+        aiBehavior: 'aggressive',
+        attacks: [
+            { type: 'melee', range: 1, name: 'Claw', damageMult: 1.0 },
+            { type: 'magic', range: 3, name: 'Fireball', element: DamageType.FIRE, damageMult: 1.2 }
+        ],
+        resistances: { 'fire': 1.0, 'poison': 0.5 }
     },
     [ENTITY.ENEMY_DRAGON]: {
         id: ENEMY_IDS.DRAGON, name: 'Dragón Joven', hp: 70, attack: 15, defense: 8, exp: 50, symbol: 'd', color: '#f59e0b', minLevel: 7, renderKey: 'dragon', aiBehavior: 'aggressive', tags: [EntityTag.DRAGON, EntityTag.FLYING],
-        attacks: [{ type: 'magic', range: 6, name: 'Aliento de Fuego', color: '#f59e0b', element: DamageType.FIRE, effect: { type: 'burn', duration: 4, chance: 0.4 } }]
+        attacks: [{ type: 'melee', range: 1, name: 'Mordisco', damageMult: 1.2 }, { type: 'magic', range: 4, name: 'Aliento de Fuego', color: '#f59e0b', element: DamageType.FIRE }]
     },
 };

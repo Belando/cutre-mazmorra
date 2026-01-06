@@ -10,16 +10,52 @@ export const BOSS_STATS: Record<number, EnemyStats> = {
     [ENTITY.BOSS_SPIDER_QUEEN]: { id: ENEMY_IDS.BOSS_SPIDER_QUEEN, name: 'Reina Araña', hp: 90, attack: 14, defense: 5, exp: 100, symbol: 'Q', color: '#9333ea', isBoss: true, minLevel: 4, renderKey: 'spider_queen', aiBehavior: 'boss', tags: [EntityTag.BEAST, EntityTag.INSECT, EntityTag.BOSS] },
     [ENTITY.BOSS_GOLEM_KING]: { id: ENEMY_IDS.BOSS_GOLEM_KING, name: 'Rey Gólem', hp: 140, attack: 14, defense: 12, exp: 120, symbol: 'K', color: '#57534e', isBoss: true, minLevel: 4, renderKey: 'golem_king', aiBehavior: 'boss', tags: [EntityTag.CONSTRUCT, EntityTag.GIANT, EntityTag.BOSS] },
     [ENTITY.BOSS_LICH]: {
-        id: ENEMY_IDS.BOSS_LICH, name: 'Liche', hp: 120, attack: 16, defense: 7, exp: 130, symbol: 'L', color: '#06b6d4', isBoss: true, minLevel: 5, renderKey: 'lich', aiBehavior: 'boss', tags: [EntityTag.UNDEAD, EntityTag.MAGIC, EntityTag.BOSS],
-        attacks: [{ type: 'magic', range: 7, name: 'Rayo de Hielo', color: '#06b6d4', element: DamageType.ICE }]
+
+        id: 'lich_king',
+        name: 'The Lich King',
+        hp: 800,
+        attack: 35,
+        defense: 12,
+        exp: 2000,
+        symbol: 'L',
+        color: '#9933ff',
+        minLevel: 10,
+        renderKey: 'lich',
+        isBoss: true,
+        tags: [EntityTag.UNDEAD, EntityTag.MAGIC, EntityTag.BOSS],
+        damageType: DamageType.MAGICAL,
+        aiBehavior: 'boss_caster',
+        attacks: [
+            { type: 'magic', range: 6, name: 'Death Coil', element: DamageType.DARK, damageMult: 1.5 },
+            { type: 'magic', range: 8, name: 'Frost Nova', element: DamageType.ICE, damageMult: 1.2, effect: { type: 'slow', duration: 3, chance: 0.5 } }
+        ],
+        resistances: { 'physical': 0.5, 'dark': 1.0, 'poison': 1.0, 'ice': 0.8 }
     },
     [ENTITY.BOSS_VAMPIRE_LORD]: {
         id: ENEMY_IDS.BOSS_VAMPIRE_LORD, name: 'Señor Vampiro', hp: 130, attack: 17, defense: 6, exp: 145, symbol: 'V', color: '#991b1b', isBoss: true, minLevel: 5, renderKey: 'vampire_lord', aiBehavior: 'boss', tags: [EntityTag.UNDEAD, EntityTag.VAMPIRE, EntityTag.BOSS],
         attacks: [{ type: 'magic', range: 5, name: 'Drenar Almas', color: '#991b1b', effect: { type: 'drain', duration: 0, chance: 1 } }]
     },
     [ENTITY.BOSS_DEMON_LORD]: {
-        id: ENEMY_IDS.BOSS_DEMON_LORD, name: 'Señor Demonio', hp: 150, attack: 18, defense: 8, exp: 160, symbol: 'D', color: '#dc2626', isBoss: true, minLevel: 6, renderKey: 'demon_lord', aiBehavior: 'boss', tags: [EntityTag.DEMON, EntityTag.BOSS],
-        attacks: [{ type: 'magic', range: 6, name: 'Infierno', color: '#ef4444', element: DamageType.FIRE, effect: { type: 'burn', duration: 4, chance: 0.5 } }]
+
+        id: 'demon_lord',
+        name: 'Balor, Lord of Fire',
+        hp: 1200,
+        attack: 50,
+        defense: 15,
+        exp: 3000,
+        symbol: 'B',
+        color: '#ff3300',
+        minLevel: 15,
+        renderKey: 'demon_lord',
+        isBoss: true,
+        tags: [EntityTag.DEMON, EntityTag.FIRE, EntityTag.BOSS, EntityTag.GIANT],
+        damageType: DamageType.MAGICAL,
+        aiBehavior: 'boss_aggressive',
+        attacks: [
+            { type: 'melee', range: 2, name: 'Flaming Whip', element: DamageType.FIRE, damageMult: 1.2 },
+            { type: 'magic', range: 6, name: 'Hellfire', element: DamageType.FIRE, damageMult: 1.8, effect: { type: 'burn', duration: 3, chance: 0.8 } }
+        ],
+        resistances: { 'fire': 1.0, 'ice': -0.5, 'physical': 0.3 }
     },
     [ENTITY.BOSS_ANCIENT_DRAGON]: {
         id: ENEMY_IDS.BOSS_ANCIENT_DRAGON, name: 'Dragón Ancestral', hp: 200, attack: 22, defense: 10, exp: 250, symbol: 'D', color: '#fbbf24', isBoss: true, minLevel: 7, renderKey: 'ancient_dragon', aiBehavior: 'boss', tags: [EntityTag.DRAGON, EntityTag.FLYING, EntityTag.BOSS],

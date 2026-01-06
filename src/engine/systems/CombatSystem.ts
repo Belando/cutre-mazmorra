@@ -9,6 +9,8 @@ import { ENEMY_STATS } from '@/data/enemies';
 import { Entity, Stats, Buff, Player, Enemy, AttackResult, EntityTag, DamageType } from '@/types';
 import { BuffBonuses } from '../systems/SkillSystem'; // Type import only if possible, or define locally
 
+import { CLASS_CONFIG } from '@/data/classes';
+
 // --- COMBATE DEL JUGADOR ---
 
 /**

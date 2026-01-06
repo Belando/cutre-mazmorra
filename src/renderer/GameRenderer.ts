@@ -450,88 +450,111 @@ export class GameRenderer {
         });
     }
 
+    // ... (previous code)
+
     private executeCommand(ctx: CanvasRenderingContext2D, cmd: RenderItem, level: number) {
         const prevAlpha = ctx.globalAlpha;
         if (cmd.opacity !== undefined) {
             ctx.globalAlpha = cmd.opacity;
         }
 
-        if (cmd.type === 'sprite') {
-            if (cmd.texture && cmd.x !== undefined && cmd.y !== undefined && cmd.w !== undefined) {
-                if (cmd.isOpen !== undefined) { // CHEST
-                    drawEnvironmentSprite(ctx, 'chest', cmd.x, cmd.y, cmd.w, cmd.isOpen, cmd.rarity);
-                } else {
-                    drawEnvironmentSprite(ctx, cmd.texture, cmd.x, cmd.y, cmd.w, cmd.frame);
-                }
-            }
-        }
-        else if (cmd.type === 'enemy') {
-            if (cmd.enemyType !== undefined && cmd.x !== undefined && cmd.y !== undefined && cmd.w !== undefined) {
-                if (cmd.isLarge) {
-                    drawLargeEnemy(ctx, String(cmd.enemyType), cmd.x, cmd.y, cmd.w * 2, this.frame, !!cmd.stunned, cmd.lastAttackTime || 0);
-                    if (cmd.health !== undefined && cmd.maxHealth) {
-                        this.drawHealthBar(ctx, cmd.x - cmd.w, cmd.y - cmd.w * 2, cmd.w * 2, cmd.health, cmd.maxHealth);
-                    }
-                } else {
-                    const sizeInfo = getEnemySize(String(cmd.enemyType));
-                    const drawSize = cmd.w * (sizeInfo.scale || 1);
-                    drawEnemy(ctx, String(cmd.enemyType), cmd.x, cmd.y, drawSize, this.frame,
-                        !!cmd.stunned, cmd.lastAttackTime || 0, cmd.lastAttackDir || { x: 0, y: 0 },
-                        cmd.lastMoveTime || 0, cmd.spriteComp, false);
-                    if (cmd.health !== undefined && cmd.maxHealth) {
-                        this.drawHealthBar(ctx, cmd.x - drawSize / 2, cmd.y - drawSize * 1.2, drawSize, cmd.health, cmd.maxHealth);
-                    }
-                }
-            }
-        }
-        else if (cmd.type === 'wall') {
-            if (cmd.x !== undefined && cmd.y !== undefined && cmd.w !== undefined && cmd.h !== undefined && cmd.color) {
-                drawSpriteIsoWall(ctx, cmd.x, cmd.y, cmd.w, cmd.h, cmd.color, level);
-            }
-        }
-        else if (cmd.type === 'corpse') {
-            if (cmd.x !== undefined && cmd.y !== undefined && cmd.w !== undefined && cmd.texture !== undefined && cmd.rotation !== undefined) {
-                const config = getSpriteConfig("corpse");
-                ctx.save();
-                ctx.translate(cmd.x, cmd.y + TILE_HEIGHT / 2);
-                ctx.scale(1, 0.4); // This might be visual scaling, hardcoded for now or move to config? Keeping logic for now.
-                ctx.rotate((cmd.rotation * Math.PI) / 180);
-                ctx.filter = 'brightness(0.5) sepia(1) hue-rotate(-50deg) saturate(3)';
-                ctx.globalAlpha = 0.8;
-                drawEnemy(ctx, String(cmd.texture), 0, 0, SIZE, 0, false, 0, { x: 0, y: 0 }, 0, undefined, false);
-                ctx.restore();
-            }
-        }
-        else if (cmd.type === 'item') {
-            if (cmd.item && cmd.x !== undefined && cmd.y !== undefined && cmd.w !== undefined) {
-                drawItemSprite(ctx, cmd.item, cmd.x - cmd.w / 2, cmd.y + TILE_HEIGHT / 2 - cmd.w * 0.85, cmd.w);
-            }
-        }
-        else if (cmd.type === 'player') {
-            if (cmd.x !== undefined && cmd.y !== undefined && cmd.w !== undefined && cmd.appearance && cmd.playerClass) {
-                if (!cmd.isInvisible) {
-                    const glowSize = SIZE * 2 + Math.sin(this.frame * 0.1) * 5;
-                    const gradient = ctx.createRadialGradient(cmd.x, cmd.y + TILE_HEIGHT / 2, 0, cmd.x, cmd.y + TILE_HEIGHT / 2, glowSize);
-                    gradient.addColorStop(0, 'rgba(59, 130, 246, 0.4)');
-                    gradient.addColorStop(1, 'rgba(59, 130, 246, 0)');
-                    ctx.fillStyle = gradient;
-                    ctx.fillRect(cmd.x - glowSize, cmd.y + TILE_HEIGHT / 2 - glowSize, glowSize * 2, glowSize * 2);
-                }
-                const PLAYER_SIZE = SIZE * 0.866;
-                drawPlayer(ctx, cmd.x, cmd.y, PLAYER_SIZE, cmd.appearance, cmd.playerClass, this.frame,
-                    cmd.lastAttackTime || 0, cmd.lastAttackDir || { x: 0, y: 0 },
-                    cmd.lastSkillTime || 0, cmd.lastSkillId || null, !!cmd.isInvisible, cmd.lastMoveTime || 0,
-                    cmd.spriteComp);
-            }
-        }
-        else if (cmd.type === 'npc') {
-            if (cmd.npc && cmd.x !== undefined && cmd.y !== undefined && cmd.w !== undefined) {
-                drawNPC(ctx, cmd.npc, cmd.x, cmd.y, cmd.w, this.frame);
-            }
+        const strategy = this.renderStrategies[cmd.type];
+        if (strategy) {
+            strategy.call(this, ctx, cmd, level);
         }
 
         if (cmd.opacity !== undefined) {
             ctx.globalAlpha = prevAlpha;
+        }
+    }
+
+    private renderStrategies: Record<string, (ctx: CanvasRenderingContext2D, cmd: RenderItem, level: number) => void> = {
+        'sprite': this.renderSprite,
+        'enemy': this.renderEnemy,
+        'wall': this.renderWall,
+        'corpse': this.renderCorpse,
+        'item': this.renderItem,
+        'player': this.renderPlayer,
+        'npc': this.renderNPC
+    };
+
+    private renderSprite(ctx: CanvasRenderingContext2D, cmd: RenderItem) {
+        if (cmd.texture && cmd.x !== undefined && cmd.y !== undefined && cmd.w !== undefined) {
+            if (cmd.isOpen !== undefined) { // CHEST
+                drawEnvironmentSprite(ctx, 'chest', cmd.x, cmd.y, cmd.w, cmd.isOpen, cmd.rarity);
+            } else {
+                drawEnvironmentSprite(ctx, cmd.texture, cmd.x, cmd.y, cmd.w, cmd.frame);
+            }
+        }
+    }
+
+    private renderEnemy(ctx: CanvasRenderingContext2D, cmd: RenderItem) {
+        if (cmd.enemyType === undefined || cmd.x === undefined || cmd.y === undefined || cmd.w === undefined) return;
+
+        if (cmd.isLarge) {
+            drawLargeEnemy(ctx, String(cmd.enemyType), cmd.x, cmd.y, cmd.w * 2, this.frame, !!cmd.stunned, cmd.lastAttackTime || 0);
+            if (cmd.health !== undefined && cmd.maxHealth) {
+                this.drawHealthBar(ctx, cmd.x - cmd.w, cmd.y - cmd.w * 2, cmd.w * 2, cmd.health, cmd.maxHealth);
+            }
+        } else {
+            const sizeInfo = getEnemySize(String(cmd.enemyType));
+            const drawSize = cmd.w * (sizeInfo.scale || 1);
+            drawEnemy(ctx, String(cmd.enemyType), cmd.x, cmd.y, drawSize, this.frame,
+                !!cmd.stunned, cmd.lastAttackTime || 0, cmd.lastAttackDir || { x: 0, y: 0 },
+                cmd.lastMoveTime || 0, cmd.spriteComp, false);
+            if (cmd.health !== undefined && cmd.maxHealth) {
+                this.drawHealthBar(ctx, cmd.x - drawSize / 2, cmd.y - drawSize * 1.2, drawSize, cmd.health, cmd.maxHealth);
+            }
+        }
+    }
+
+    private renderWall(ctx: CanvasRenderingContext2D, cmd: RenderItem, level: number) {
+        if (cmd.x !== undefined && cmd.y !== undefined && cmd.w !== undefined && cmd.h !== undefined && cmd.color) {
+            drawSpriteIsoWall(ctx, cmd.x, cmd.y, cmd.w, cmd.h, cmd.color, level);
+        }
+    }
+
+    private renderCorpse(ctx: CanvasRenderingContext2D, cmd: RenderItem) {
+        if (cmd.x !== undefined && cmd.y !== undefined && cmd.w !== undefined && cmd.texture !== undefined && cmd.rotation !== undefined) {
+            const config = getSpriteConfig("corpse");
+            ctx.save();
+            ctx.translate(cmd.x, cmd.y + TILE_HEIGHT / 2);
+            ctx.scale(1, 0.4);
+            ctx.rotate((cmd.rotation * Math.PI) / 180);
+            ctx.filter = 'brightness(0.5) sepia(1) hue-rotate(-50deg) saturate(3)';
+            ctx.globalAlpha = 0.8;
+            drawEnemy(ctx, String(cmd.texture), 0, 0, SIZE, 0, false, 0, { x: 0, y: 0 }, 0, undefined, false);
+            ctx.restore();
+        }
+    }
+
+    private renderItem(ctx: CanvasRenderingContext2D, cmd: RenderItem) {
+        if (cmd.item && cmd.x !== undefined && cmd.y !== undefined && cmd.w !== undefined) {
+            drawItemSprite(ctx, cmd.item, cmd.x - cmd.w / 2, cmd.y + TILE_HEIGHT / 2 - cmd.w * 0.85, cmd.w);
+        }
+    }
+
+    private renderPlayer(ctx: CanvasRenderingContext2D, cmd: RenderItem) {
+        if (cmd.x !== undefined && cmd.y !== undefined && cmd.w !== undefined && cmd.appearance && cmd.playerClass) {
+            if (!cmd.isInvisible) {
+                const glowSize = SIZE * 2 + Math.sin(this.frame * 0.1) * 5;
+                const gradient = ctx.createRadialGradient(cmd.x, cmd.y + TILE_HEIGHT / 2, 0, cmd.x, cmd.y + TILE_HEIGHT / 2, glowSize);
+                gradient.addColorStop(0, 'rgba(59, 130, 246, 0.4)');
+                gradient.addColorStop(1, 'rgba(59, 130, 246, 0)');
+                ctx.fillStyle = gradient;
+                ctx.fillRect(cmd.x - glowSize, cmd.y + TILE_HEIGHT / 2 - glowSize, glowSize * 2, glowSize * 2);
+            }
+            const PLAYER_SIZE = SIZE * 0.866;
+            drawPlayer(ctx, cmd.x, cmd.y, PLAYER_SIZE, cmd.appearance, cmd.playerClass, this.frame,
+                cmd.lastAttackTime || 0, cmd.lastAttackDir || { x: 0, y: 0 },
+                cmd.lastSkillTime || 0, cmd.lastSkillId || null, !!cmd.isInvisible, cmd.lastMoveTime || 0,
+                cmd.spriteComp);
+        }
+    }
+
+    private renderNPC(ctx: CanvasRenderingContext2D, cmd: RenderItem) {
+        if (cmd.npc && cmd.x !== undefined && cmd.y !== undefined && cmd.w !== undefined) {
+            drawNPC(ctx, cmd.npc, cmd.x, cmd.y, cmd.w, this.frame);
         }
     }
 

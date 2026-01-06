@@ -35,6 +35,7 @@ export interface EnemyStats {
     aiBehavior?: string;
     attacks?: EnemyAttack[];
     resistances?: Record<string, number>;
+    damageType?: DamageType | string;
 }
 
 export interface LargeEnemyConfig {

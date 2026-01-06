@@ -68,7 +68,7 @@ export interface Appearance {
 
 export interface IEffectsManager {
     update: () => void;
-    draw: (ctx: CanvasRenderingContext2D, cameraX: number, cameraY: number, size: number, halfW: number, halfH: number) => void;
+    update: () => void;
     addText: (x: number, y: number, text: string, color: string, isCritical?: boolean, isSmall?: boolean) => void;
     addSparkles: (x: number, y: number, color: string) => void;
     current?: IEffectsManager;
@@ -209,6 +209,7 @@ export interface Player extends BaseEntity {
 
     lastSkillTime?: number;
     lastSkillId?: string | null;
+    bestiary: Record<string, { kills: number; }>;
 }
 
 export interface Enemy extends BaseEntity {

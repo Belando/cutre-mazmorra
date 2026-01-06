@@ -241,6 +241,61 @@ export function useInteractionActions(context: InteractionActionsContext) {
                 }
                 return null;
             }
+
+            // NEW: Breakables (Crates/Barrels)
+            const crateRef = entities.find(e => e.type === 'crate');
+            if (crateRef) {
+                soundManager.play('break'); // You might need to add a 'break' sound or reuse 'hit'
+                if (effectsManager.current) {
+                    effectsManager.current.addSparkles(tx, ty, '#fbbf24');
+                    effectsManager.current.addText(tx, ty, "¡Roto!", '#ffffff');
+                }
+
+                // Random loot chance?
+                if (Math.random() < 0.3) {
+                    const goldAmount = Math.floor(Math.random() * 5) + 1;
+                    updatePlayer({ gold: player.gold + goldAmount });
+                    addMessage(`Encontraste ${goldAmount} oro en la caja.`, 'pickup');
+                }
+
+                if (spatialHash) spatialHash.remove(tx, ty, crateRef);
+
+                // Persist removal
+                if (dungeon.entities && dungeon.entities[ty] && dungeon.entities[ty][tx] === 206) { // CRATE
+                    const newEntities = [...dungeon.entities];
+                    newEntities[ty] = [...newEntities[ty]];
+                    newEntities[ty][tx] = 0;
+                    setDungeon(prev => ({ ...prev, entities: newEntities }));
+                }
+                return null;
+            }
+
+            const barrelRef = entities.find(e => e.type === 'barrel');
+            if (barrelRef) {
+                soundManager.play('break');
+                if (effectsManager.current) {
+                    effectsManager.current.addSparkles(tx, ty, '#9ca3af');
+                    effectsManager.current.addText(tx, ty, "¡Roto!", '#ffffff');
+                }
+
+                if (Math.random() < 0.3) {
+                    // Potion logic or just gold
+                    const goldAmount = Math.floor(Math.random() * 5) + 1;
+                    updatePlayer({ gold: player.gold + goldAmount });
+                    addMessage(`Encontraste ${goldAmount} oro en el barril.`, 'pickup');
+                }
+
+                if (spatialHash) spatialHash.remove(tx, ty, barrelRef);
+
+                // Persist removal
+                if (dungeon.entities && dungeon.entities[ty] && dungeon.entities[ty][tx] === 207) { // BARREL
+                    const newEntities = [...dungeon.entities];
+                    newEntities[ty] = [...newEntities[ty]];
+                    newEntities[ty][tx] = 0;
+                    setDungeon(prev => ({ ...prev, entities: newEntities }));
+                }
+                return null;
+            }
         }
 
 

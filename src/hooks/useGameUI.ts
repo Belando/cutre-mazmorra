@@ -8,7 +8,8 @@ export type GameUIState =
     | 'SKILLS'
     | 'PAUSE_MENU'
     | 'MAP_EXPANDED'
-    | 'NPC_DIALOG';
+    | 'NPC_DIALOG'
+    | 'GRIMOIRE';
 
 export interface GameUIContext {
     currentState: GameUIState;
@@ -21,12 +22,14 @@ export interface GameUIContext {
     openSkills: () => void;
     openPauseMenu: () => void;
     openMap: () => void;
+    openGrimoire: () => void;
     startDialog: (npc: NPC) => void;
     closeAll: () => void;
     toggleInventory: () => void;
     toggleSkills: () => void;
     togglePause: () => void;
     toggleMap: () => void;
+    toggleGrimoire: () => void;
 }
 
 export function useGameUI() {
@@ -45,6 +48,7 @@ export function useGameUI() {
     const openSkills = useCallback(() => setCurrentState('SKILLS'), []);
     const openPauseMenu = useCallback(() => setCurrentState('PAUSE_MENU'), []);
     const openMap = useCallback(() => setCurrentState('MAP_EXPANDED'), []);
+    const openGrimoire = useCallback(() => setCurrentState('GRIMOIRE'), []);
 
     const startDialog = useCallback((npc: NPC) => {
         setActiveNPC(npc);
@@ -68,6 +72,10 @@ export function useGameUI() {
         setCurrentState(prev => prev === 'MAP_EXPANDED' ? 'PLAYING' : 'MAP_EXPANDED');
     }, []);
 
+    const toggleGrimoire = useCallback(() => {
+        setCurrentState(prev => prev === 'GRIMOIRE' ? 'PLAYING' : 'GRIMOIRE');
+    }, []);
+
     return {
         currentState,
         activeNPC,
@@ -77,11 +85,13 @@ export function useGameUI() {
         openSkills,
         openPauseMenu,
         openMap,
+        openGrimoire,
         startDialog,
         closeAll,
         toggleInventory,
         toggleSkills,
         togglePause,
-        toggleMap
+        toggleMap,
+        toggleGrimoire
     };
 }

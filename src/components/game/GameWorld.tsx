@@ -1,6 +1,7 @@
 import React from 'react';
 import { motion } from 'framer-motion';
 import GameBoard from "@/components/game/GameBoard";
+import { InteractionPrompt } from "@/components/ui/InteractionPrompt";
 
 interface GameWorldProps {
     gameState: any;
@@ -16,6 +17,7 @@ export default function GameWorld({
     hoveredTarget,
     onMouseMove,
     onClick,
+    activeNPC,
     isInteractable
 }: GameWorldProps) {
 
@@ -29,14 +31,7 @@ export default function GameWorld({
                 <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="relative pointer-events-auto">
                     <GameBoard gameState={gameState} viewportWidth={24} viewportHeight={15} hoveredTarget={hoveredTarget} />
 
-                    {isInteractable && (
-                        <div className="absolute z-30 transform -translate-x-1/2 -translate-y-16 top-1/2 left-1/2 animate-bounce pointer-events-none">
-                            <div className="bg-slate-900/90 text-yellow-400 px-3 py-1.5 rounded-full text-xs font-bold border border-yellow-500/50 shadow-lg flex items-center gap-2">
-                                <span className="w-5 h-5 bg-yellow-500 text-black rounded flex items-center justify-center text-[10px]">E</span>
-                                Interactuar
-                            </div>
-                        </div>
-                    )}
+                    <InteractionPrompt gameState={gameState} />
                 </motion.div>
             </div>
         </div>
