@@ -1,12 +1,14 @@
 import { useEffect, useRef } from 'react';
-import { getUnlockedSkills } from "@/engine/systems/SkillSystem";
-import { SKILLS } from '@/data/skills';
 import { GameActions } from './useGameActions';
 import { GameState, Entity, NPC } from '@/types';
 import { useKeyboardControls } from './useKeyboardControls';
 import { useGamepadControls } from './useGamepadControls';
-import { InputIntent } from '@/engine/input/InputTypes';
 import { resolveIntents } from '@/engine/input/InputMapping';
+
+// Sub-hooks
+import { useMenuInput } from './input/useMenuInput';
+import { useMovementInput } from './input/useMovementInput';
+import { useActionInput } from './input/useActionInput';
 
 const INPUT_COOLDOWN = 160;
 
@@ -52,22 +54,27 @@ export function useInputHandler({
     modals,
     onAction
 }: InputHandlerParams) {
-    const { inventoryOpen, craftingOpen, skillTreeOpen, activeNPC, pauseMenuOpen, chatOpen, mapExpanded, grimoireOpen, setInventoryOpen, setCraftingOpen, setSkillTreeOpen, setActiveNPC, setPauseMenuOpen, setChatOpen, setMapExpanded, setGrimoireOpen } = modals;
 
+    // --- STATE REFS ---
     const lastActionTime = useRef(0);
     const lastIntentTime = useRef(0);
+    const lastChatCloseTime = useRef(0);
 
+    // --- CONTROLS ---
     const { pressedKeys: keyboardKeys } = useKeyboardControls();
     const { pollGamepad, getCurrentState } = useGamepadControls();
 
-    const lastChatCloseTime = useRef(0);
+    // --- SUB-HOOKS ---
+    const { handleMenuInput } = useMenuInput(modals, uiState, actions);
+    const { handleMovementInput } = useMovementInput(actions);
+    const { handleActionInput } = useActionInput(actions, gameState, uiState, modals.setActiveNPC, onAction);
 
     // Track when chat closes to prevent immediate re-opening (bounce)
     useEffect(() => {
-        if (!chatOpen) {
+        if (!modals.chatOpen) {
             lastChatCloseTime.current = Date.now();
         }
-    }, [chatOpen]);
+    }, [modals.chatOpen]);
 
     // Loop de Juego Principal (Input Polling)
     useEffect(() => {
@@ -84,102 +91,35 @@ export function useInputHandler({
 
             // 2. Global Toggles (Debounced) - UI Menus
             if (now - lastIntentTime.current > 200) {
-                if (currentIntents.has(InputIntent.CLOSE_UI)) {
+                if (handleMenuInput(currentIntents, lastChatCloseTime.current)) {
                     lastIntentTime.current = now;
-                    if (chatOpen) setChatOpen(false);
-                    else if (activeNPC) setActiveNPC(null);
-                    else if (skillTreeOpen) setSkillTreeOpen(false);
-                    else if (craftingOpen) setCraftingOpen(false);
-                    else if (inventoryOpen) setInventoryOpen(false);
-                    else if (grimoireOpen) setGrimoireOpen(false);
-                    else if (pauseMenuOpen) setPauseMenuOpen(false);
-                    else if (modals.mapExpanded) modals.setMapExpanded(false);
-                    else if (uiState.rangedMode) actions.setRangedMode(false);
-                    else setPauseMenuOpen(true);
-                } else if (currentIntents.has(InputIntent.TOGGLE_INVENTORY)) {
-                    lastIntentTime.current = now;
-                    if (!activeNPC && !skillTreeOpen && !chatOpen) setInventoryOpen(p => !p);
-                } else if (currentIntents.has(InputIntent.TOGGLE_SKILLS)) {
-                    lastIntentTime.current = now;
-                    if (!activeNPC && !inventoryOpen && !chatOpen) setSkillTreeOpen(p => !p);
-                } else if (currentIntents.has(InputIntent.TOGGLE_PAUSE)) {
-                    lastIntentTime.current = now;
-                    if (!chatOpen) setPauseMenuOpen(p => !p);
-                } else if (currentIntents.has(InputIntent.TOGGLE_CHAT)) {
-                    lastIntentTime.current = now;
-                    if (!chatOpen && now - lastChatCloseTime.current > 200) {
-                        setChatOpen(true);
-                    }
                 }
-            } // <--- ESTA LLAVE FALTABA
+            }
 
             // 3. Game Actions (Blocked by UI)
-            const anyModalOpen = inventoryOpen || craftingOpen || skillTreeOpen || activeNPC || pauseMenuOpen || modals.mapExpanded || chatOpen || grimoireOpen;
+            const anyModalOpen =
+                modals.inventoryOpen ||
+                modals.craftingOpen ||
+                modals.skillTreeOpen ||
+                modals.activeNPC ||
+                modals.pauseMenuOpen ||
+                modals.mapExpanded ||
+                modals.chatOpen ||
+                modals.grimoireOpen;
 
             if (!anyModalOpen && now - lastActionTime.current >= INPUT_COOLDOWN) {
                 let actionTaken = false;
-                let dx = 0;
-                let dy = 0;
 
-                // --- MOVEMENT ---
-                if (currentIntents.has(InputIntent.MOVE_UP)) dy -= 1;
-                if (currentIntents.has(InputIntent.MOVE_DOWN)) dy += 1;
-                if (currentIntents.has(InputIntent.MOVE_LEFT)) dx -= 1;
-                if (currentIntents.has(InputIntent.MOVE_RIGHT)) dx += 1;
-
-                if (currentIntents.has(InputIntent.MOVE_UP_LEFT)) { dx = -1; dy = -1; }
-                if (currentIntents.has(InputIntent.MOVE_UP_RIGHT)) { dx = 1; dy = -1; }
-                if (currentIntents.has(InputIntent.MOVE_DOWN_LEFT)) { dx = -1; dy = 1; }
-                if (currentIntents.has(InputIntent.MOVE_DOWN_RIGHT)) { dx = 1; dy = 1; }
-
-                if (dx !== 0 || dy !== 0) {
-                    const gridDx = dx + dy;
-                    const gridDy = dy - dx;
-                    actions.move(Math.sign(gridDx), Math.sign(gridDy));
+                // Priority 1: Movement
+                if (handleMovementInput(currentIntents)) {
                     actionTaken = true;
                 }
 
-                // --- ACTIONS ---
+                // Priority 2: Actions (if no movement)
                 if (!actionTaken) {
-                    if (currentIntents.has(InputIntent.INTERACT)) {
-                        const result = actions.interact();
-                        if (result?.type === 'npc') {
-                            setActiveNPC(result.data);
-                            actionTaken = true;
-                        } else if (result?.type === 'chest') {
-                            actionTaken = true;
-                        }
-                    } else if (currentIntents.has(InputIntent.DESCEND)) {
-                        actions.descend(false);
+                    if (handleActionInput(currentIntents, keyboardKeys.current)) {
                         actionTaken = true;
-                    } else if (currentIntents.has(InputIntent.ATTACK)) {
-                        if (uiState.selectedSkill) {
-                            const skill = SKILLS[uiState.selectedSkill];
-                            if (skill && skill.type !== 'melee') {
-                                const success = actions.executeSkillAction(uiState.selectedSkill);
-                                if (success) actionTaken = true;
-                            }
-                        }
                     }
-
-                    // --- QUICK SLOTS ---
-                    if (currentIntents.has(InputIntent.QUICK_SLOT_1)) { actions.useQuickSlot(0); actionTaken = true; }
-                    if (currentIntents.has(InputIntent.QUICK_SLOT_2)) { actions.useQuickSlot(1); actionTaken = true; }
-                    if (currentIntents.has(InputIntent.QUICK_SLOT_3)) { actions.useQuickSlot(2); actionTaken = true; }
-
-                    // Legacy Numeric keys 1-6
-                    keyboardKeys.current.forEach((key: string) => {
-                        if (key >= '1' && key <= '6') {
-                            const index = parseInt(key) - 1;
-                            if (gameState?.player?.skills && gameState?.player?.level !== undefined) {
-                                const unlocked = getUnlockedSkills(gameState.player.level, gameState.player.skills.learned);
-                                if (unlocked[index]) {
-                                    actions.setSelectedSkill(uiState.selectedSkill === unlocked[index].id ? null : unlocked[index].id);
-                                    actionTaken = true;
-                                }
-                            }
-                        }
-                    });
                 }
 
                 if (actionTaken) {
@@ -201,6 +141,10 @@ export function useInputHandler({
         onAction,
         keyboardKeys,
         pollGamepad,
-        getCurrentState
+        getCurrentState,
+        handleMenuInput,
+        handleMovementInput,
+        handleActionInput,
+        uiState // Dependency for actions that rely on UI state
     ]);
 }

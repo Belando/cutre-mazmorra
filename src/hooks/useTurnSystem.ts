@@ -15,7 +15,7 @@ export interface ProcessTurnParams {
     setPlayer: React.Dispatch<React.SetStateAction<Player | null>>;
     addMessage: (msg: string, type?: string) => void;
     setGameOver: React.Dispatch<React.SetStateAction<boolean>>;
-    showFloatingText?: (x: number, y: number, text: string, color: string, floatUp?: boolean, isDamage?: boolean) => void;
+    showFloatingText?: (x: number, y: number, text: string, color: string, floatUp?: boolean, isDamage?: boolean, icon?: string) => void;
     spatialHash: SpatialHash;
 }
 
@@ -93,7 +93,8 @@ export function useTurnSystem() {
                     soundManager.play('enemy_hit');
                     // ------------------------------------------------
 
-                    if (showFloatingText) showFloatingText(player.x, player.y, `${combatResult.damage}`, '#dc2626', false, true);
+                    const icon = combatResult.isCritical ? '💀' : '⚔️';
+                    if (showFloatingText) showFloatingText(player.x, player.y, `${combatResult.damage}`, '#dc2626', combatResult.isCritical, true, icon);
                 }
             }
         });

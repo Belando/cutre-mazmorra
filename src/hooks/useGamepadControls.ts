@@ -74,6 +74,15 @@ export function useGamepadControls() {
         if (buttons[4]?.pressed) newState.l1 = true;
         if (buttons[5]?.pressed) newState.r1 = true;
 
+        if (newState.dpadUp || newState.dpadDown || newState.dpadLeft || newState.dpadRight ||
+            newState.buttonA || newState.buttonB || newState.buttonX || newState.buttonY ||
+            newState.start || newState.select || newState.l1 || newState.r1 ||
+            Math.abs(axes[0]) > DEADZONE || Math.abs(axes[1]) > DEADZONE
+        ) {
+            // Dispatch custom event for UI prompts
+            window.dispatchEvent(new Event('gamepad-interaction'));
+        }
+
         currentState.current = newState;
         return newState;
     };

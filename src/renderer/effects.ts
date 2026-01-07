@@ -148,6 +148,11 @@ export function drawEffects(
         ctx.translate(screenX, screenY);
         ctx.scale(scale, scale);
 
+        if (effect.icon) {
+            ctx.font = `${fontSize * 1.2}px serif`; // Use emoji/symbol font size
+            ctx.fillText(effect.icon, -fontSize * 1.5, 0);
+        }
+
         ctx.strokeText(effect.text, 0, 0);
         ctx.fillText(effect.text, 0, 0);
         ctx.restore();

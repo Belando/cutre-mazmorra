@@ -8,6 +8,7 @@ export const HUMANOID_STATS: Record<number, EnemyStats> = {
     [ENTITY.ENEMY_ORC]: { id: ENEMY_IDS.ORC, name: 'Orco', hp: 22, attack: 6, defense: 3, exp: 12, symbol: 'o', color: '#f97316', minLevel: 2, renderKey: 'orc', aiBehavior: 'aggressive', tags: [EntityTag.HUMANOID, EntityTag.ORC] },
     [ENTITY.ENEMY_CULTIST]: {
         id: ENEMY_IDS.CULTIST, name: 'Cultista', hp: 20, attack: 9, defense: 2, exp: 15, symbol: 'c', color: '#be123c', minLevel: 3, renderKey: 'cultist', aiBehavior: 'cautious', tags: [EntityTag.HUMANOID, EntityTag.MAGIC],
+        damageType: DamageType.MAGICAL,
         attacks: [{ type: 'magic', range: 6, name: 'Rayo Oscuro', color: '#a855f7', element: DamageType.DARK, damageMult: 0.8 }]
     },
     [ENTITY.ENEMY_TROLL]: { id: ENEMY_IDS.TROLL, name: 'Trol', hp: 40, attack: 9, defense: 5, exp: 22, symbol: 'T', color: '#a855f7', minLevel: 4, renderKey: 'troll', aiBehavior: 'aggressive', tags: [EntityTag.HUMANOID, EntityTag.GIANT] },

@@ -16,6 +16,7 @@ export interface BaseEffect extends Point {
 export interface TextEffect extends BaseEffect {
     type: 'text';
     text: string;
+    icon?: string; // NEW: Icon property
     isCritical: boolean;
     isSmall: boolean;
     isSkillHit: boolean;
@@ -55,28 +56,16 @@ export interface ProjectileEffect extends BaseEffect {
 export type Effect = TextEffect | ParticleEffect | ProjectileEffect;
 
 export class EffectsManager {
-    effects: Effect[];
-    idCounter: number;
-    screenShake: number;
-
-    constructor() {
-        this.effects = [];
-        this.idCounter = 0;
-        this.screenShake = 0;
-    }
-
-    // --- SCREEN SHAKE ---
-    addShake(amount: number): void {
-        this.screenShake = Math.min(this.screenShake + amount, 25);
-    }
+    // ...
 
     // --- TEXTO FLOTANTE ---
-    addText(x: number, y: number, text: string, color: string = '#fff', isCritical: boolean = false, isSmall: boolean = false, isSkillHit: boolean = false): void {
+    addText(x: number, y: number, text: string, color: string = '#fff', isCritical: boolean = false, isSmall: boolean = false, isSkillHit: boolean = false, icon?: string): void {
         this.effects.push({
             id: this.idCounter++,
             type: 'text',
             x, y,
             text,
+            icon,
             color,
             isCritical,
             isSmall,

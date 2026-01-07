@@ -1,7 +1,7 @@
-
 import React from 'react';
 import { GameState } from '@/types';
 import { ENTITY, TILE } from '@/data/constants';
+import { useInputMethod } from '@/hooks/useInputMethod';
 
 interface InteractionPromptProps {
     gameState: GameState;
@@ -9,17 +9,24 @@ interface InteractionPromptProps {
 
 export const InteractionPrompt: React.FC<InteractionPromptProps> = ({ gameState }) => {
     const { player, map, entities, npcs, chests } = gameState;
+    const inputMethod = useInputMethod();
 
     if (!player) return null;
 
     const { x, y } = player;
 
+    const getKeyText = (action: string) => {
+        const isGamepad = inputMethod === 'gamepad';
+        const key = isGamepad ? 'Ⓐ' : 'E';
+        return `${key} - ${action}`;
+    };
+
     // Helper to get action text
     const getAction = (): string | null => {
         // 1. Check current tile (Stairs)
         const currentTile = map[y]?.[x];
-        if (currentTile === TILE.STAIRS) return "E - Descender";
-        if (currentTile === TILE.STAIRS_UP) return "E - Subir";
+        if (currentTile === TILE.STAIRS) return getKeyText("Descender");
+        if (currentTile === TILE.STAIRS_UP) return getKeyText("Subir");
 
         // 2. Check adjacent tiles
         const dirs = [[0, -1], [0, 1], [-1, 0], [1, 0]]; // Up, Down, Left, Right
@@ -33,27 +40,27 @@ export const InteractionPrompt: React.FC<InteractionPromptProps> = ({ gameState 
 
             // NPCs
             const npc = npcs.find(n => n.x === tx && n.y === ty);
-            if (npc) return "E - Hablar";
+            if (npc) return getKeyText("Hablar");
 
             // Chests
             const chest = chests.find(c => c.x === tx && c.y === ty);
-            if (chest && !chest.isOpen) return "E - Abrir";
+            if (chest && !chest.isOpen) return getKeyText("Abrir");
 
             // Doors
             const tile = map[ty][tx];
-            if (tile === TILE.DOOR) return "E - Abrir";
+            if (tile === TILE.DOOR) return getKeyText("Abrir");
 
             // Static Entities (Trees, Rocks, etc.)
             const entityType = entities[ty]?.[tx];
             if (entityType) {
                 if (entityType === ENTITY.TREE || entityType === ENTITY.ROCK || entityType === ENTITY.PLANT) {
-                    return "E - Recolectar";
+                    return getKeyText("Recolectar");
                 }
                 if (entityType === ENTITY.CRATE || entityType === ENTITY.BARREL) {
-                    return "E - Romper";
+                    return getKeyText("Romper");
                 }
                 if (entityType === ENTITY.DUNGEON_GATE) {
-                    return "E - Entrar";
+                    return getKeyText("Entrar");
                 }
             }
         }

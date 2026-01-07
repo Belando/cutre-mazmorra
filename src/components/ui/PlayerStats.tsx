@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { memo } from 'react';
 import {
     GiHearts,
     GiCheckedShield,
@@ -33,7 +33,7 @@ interface PlayerStatsProps {
     dungeonLevel: number;
 }
 
-export default function PlayerStats({ player, dungeonLevel }: PlayerStatsProps) {
+function PlayerStatsComponent({ player, dungeonLevel }: PlayerStatsProps) {
     if (!player) return null;
 
     const expForNext = player.level * 25;
@@ -121,3 +121,27 @@ function StatusIcon({ icon: Icon, color }: any) {
         </div>
     )
 }
+
+function arePropsEqual(prev: PlayerStatsProps, next: PlayerStatsProps) {
+    if (prev.dungeonLevel !== next.dungeonLevel) return false;
+
+    // Only re-render if visual stats change
+    const p1 = prev.player;
+    const p2 = next.player;
+
+    if (!p1 || !p2) return p1 === p2;
+
+    return (
+        p1.hp === p2.hp &&
+        p1.maxHp === p2.maxHp &&
+        p1.mp === p2.mp &&
+        p1.maxMp === p2.maxMp &&
+        p1.exp === p2.exp &&
+        p1.level === p2.level &&
+        p1.poisoned === p2.poisoned &&
+        p1.slowed === p2.slowed &&
+        p1.class === p2.class
+    );
+}
+
+export default memo(PlayerStatsComponent, arePropsEqual);

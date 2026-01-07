@@ -50,7 +50,10 @@ export function executeRangedAttack(player: Player, target: Enemy, range: number
   const rangePenalty = Math.max(0, (dist - 2) * 0.05);
 
   let attackPower = playerStats.attack || 0;
-  if (player.class && ['mage', 'arcane', 'druid'].includes(player.class)) {
+
+  // Check if player class is magic user based on config
+  const classConfig = CLASS_CONFIG[player.class];
+  if (classConfig?.isMagicUser) {
     attackPower = playerStats.magicAttack || 0;
   }
 
@@ -168,7 +171,9 @@ export function calculatePlayerHit(player: Player, targetEnemy: Enemy, stats: St
   let attackPower = (stats.attack || 0) + (buffs.attackBonus || 0);
   let damageType: DamageType | string = DamageType.PHYSICAL;
 
-  if (player.class && ['mage', 'arcane', 'druid'].includes(player.class)) {
+  // Use configuration instead of hardcoded list
+  const classConfig = CLASS_CONFIG[player.class];
+  if (classConfig?.isMagicUser) {
     attackPower = (stats.magicAttack || 0) + (buffs.magicAttackBonus || 0);
     damageType = DamageType.MAGICAL;
   }
@@ -259,15 +264,15 @@ export function calculateEnemyDamage(enemy: Enemy, playerStats: Stats, playerBuf
   const physDef = playerStats.defense || 0;
   const magicDef = playerStats.magicDefense || 0;
 
-  const isMagicEnemy = ([
-    ENTITY.ENEMY_WRAITH,
-    ENTITY.ENEMY_DEMON,
-    ENTITY.ENEMY_DRAGON,
-    ENTITY.ENEMY_CULTIST,
-    ENTITY.BOSS_LICH,
-    ENTITY.BOSS_DEMON_LORD
-  ] as number[]).includes(Number(enemy.type));
-  const defense = isMagicEnemy ? magicDef : physDef;
+  // Refactored Logic: Check damageType property instead of hardcoded list
+  let isMagicAttack = false;
+  const stats = ENEMY_STATS[Number(enemy.type)];
+
+  if (stats && stats.damageType === DamageType.MAGICAL) {
+    isMagicAttack = true;
+  }
+
+  const defense = isMagicAttack ? magicDef : physDef;
 
   const enemyAtk = enemy.stats?.attack || enemy.stats?.magicAttack || 5;
   let baseDamage = Math.max(1, enemyAtk - defense);

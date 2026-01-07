@@ -203,7 +203,7 @@ export function useCombatLogic({
             addMessage(getMessage('COOLDOWN', { skill: skill.name }), 'info');
             events.emit('SOUND_PLAY', 'error');
             if (effectsManager.current) {
-                effectsManager.current.addText(player.x, player.y, "CD", '#94a3b8', false, true);
+                effectsManager.current.addText(player.x, player.y, "CD", '#94a3b8', false, true, '⏳'); // Icon: Hourglass
             }
             return false;
         }
@@ -215,7 +215,7 @@ export function useCombatLogic({
             addMessage(getMessage('NO_MANA', { cost: manaCost }), 'info');
             events.emit('SOUND_PLAY', 'error');
             if (effectsManager.current) {
-                effectsManager.current.addText(player.x, player.y, "No MP", '#60a5fa', false, true);
+                effectsManager.current.addText(player.x, player.y, "No MP", '#60a5fa', false, true, '💧'); // Icon: Droplet
             }
             return false;
         }
@@ -253,7 +253,7 @@ export function useCombatLogic({
                 currentBuffs = [...currentBuffs, res.buff];
                 if (effectsManager.current) {
                     effectsManager.current.addSparkles(player.x, player.y, '#fbbf24');
-                    effectsManager.current.addText(player.x, player.y, 'BUFF', '#fbbf24');
+                    effectsManager.current.addText(player.x, player.y, 'BUFF', '#fbbf24', false, false, false, '✨'); // Icon: Sparkles
                 }
             }
 
@@ -272,7 +272,7 @@ export function useCombatLogic({
             updates.skills = newSkills;
 
             if (res.heal && effectsManager.current) {
-                effectsManager.current.addText(player.x, player.y, `+${res.heal}`, '#22c55e');
+                effectsManager.current.addText(player.x, player.y, `+${res.heal}`, '#22c55e', false, false, false, '💚'); // Icon: Heart
                 effectsManager.current.addSparkles(player.x, player.y, '#4ade80');
             }
 
@@ -298,7 +298,12 @@ export function useCombatLogic({
                             const finalColor = isCritical ? '#fef9c3' : damageColor;
                             const textToShow = isCritical ? `${dmgInfo.damage}!` : dmgInfo.damage.toString();
 
-                            effectsManager.current.addText(enemy.x, enemy.y, textToShow, finalColor, isCritical, false, true);
+                            let icon = isCritical ? '💀' : '⚔️';
+                            if (skillId === 'fireball') icon = '🔥';
+                            else if (skillId === 'ice_shard') icon = '❄️'; // Example
+                            else if (skillId === 'heal') icon = '💚';
+
+                            effectsManager.current.addText(enemy.x, enemy.y, textToShow, finalColor, isCritical, false, true, icon);
                             if (isCritical) effectsManager.current.addShake(5);
                         }
 
@@ -350,7 +355,8 @@ export function useCombatLogic({
             effectsManager.current.addBlood(updatedEnemy.x, updatedEnemy.y);
 
             const text = isCritical ? `${damage}!` : damage.toString();
-            effectsManager.current.addText(updatedEnemy.x, updatedEnemy.y, text, color, isCritical);
+            const icon = isCritical ? '💀' : '🗡️';
+            effectsManager.current.addText(updatedEnemy.x, updatedEnemy.y, text, color, isCritical, false, false, icon);
 
             if (isCritical) effectsManager.current.addShake(3);
         }

@@ -24,8 +24,8 @@ export function useGameEffects(): UseGameEffectsResult {
         setMessages(prev => [...prev, { text, type }].slice(-LOG_LENGTH));
     }, []);
 
-    const showFloatingText = useCallback((x: number, y: number, text: string, color: string, isCritical: boolean = false, isSmall: boolean = false) => {
-        effectsManager.current.addText(x, y, text, color, isCritical, isSmall);
+    const showFloatingText = useCallback((x: number, y: number, text: string, color: string, isCritical: boolean = false, isSmall: boolean = false, icon?: string) => {
+        effectsManager.current.addText(x, y, text, color, isCritical, isSmall, false, icon);
     }, []);
 
     return {
