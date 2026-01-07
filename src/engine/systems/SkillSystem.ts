@@ -302,6 +302,10 @@ export function calculateBuffBonuses(buffs: Buff[], playerStats: Stats): BuffBon
         if (buff.invisible) isInvisible = true;
         if (buff.evasion) evasionBonus += buff.evasion;
         if ((buff as any).absorb) absorbPercent += (buff as any).absorb;
+
+        // Systemic Tags from Buffs (e.g. 'Wet' buff gives 'WET' tag)
+        // This logic needs to be handled where tags are aggregated, usually in getEntityTags.
+        // For now, we leave this purely for stats.
     });
 
     return { attackBonus, defenseBonus, magicAttackBonus, critChance, isInvisible, evasionBonus, absorbPercent };

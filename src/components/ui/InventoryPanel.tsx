@@ -2,11 +2,12 @@ import { useState } from 'react';
 import { motion } from 'framer-motion';
 import { Item, Player, EquipmentState } from '@/types';
 import { useMenuNavigation } from '@/hooks/useMenuNavigation'; // Keep using this hook for gamepad
-import { useInventoryLogic } from '@/hooks/useInventoryLogic';
+import { useInventoryController } from '@/hooks/useInventoryController';
 import { EquipmentPaperDoll } from './inventory/EquipmentPaperDoll';
 import { InventoryHeader } from './inventory/InventoryHeader';
 import { InventoryGrid } from './inventory/InventoryGrid';
 import { ItemDetailsPanel } from './inventory/ItemDetailsPanel';
+import { ItemFilters } from './inventory/ItemFilters';
 
 // Extended Item type for UI state (helper props)
 export interface UIItem extends Item {
@@ -36,7 +37,10 @@ export default function InventoryPanel({
 }: InventoryPanelProps) {
 
     // Logic Hook
-    const { formattedGold, materialCounts, processedInventory } = useInventoryLogic({
+    const {
+        formattedGold, materialCounts, processedInventory,
+        sortMethod, setSortMethod, filterCategory, setFilterCategory
+    } = useInventoryController({
         inventory, equipment, player, materials
     });
 
@@ -102,6 +106,13 @@ export default function InventoryPanel({
 
                     {/* Header */}
                     <InventoryHeader materialCounts={materialCounts} formattedGold={formattedGold} />
+
+                    <ItemFilters
+                        currentFilter={filterCategory}
+                        onFilterChange={setFilterCategory}
+                        currentSort={sortMethod}
+                        onSortChange={setSortMethod}
+                    />
 
                     {/* Grid Container */}
                     <div className="p-6 overflow-y-auto custom-scrollbar flex-1">

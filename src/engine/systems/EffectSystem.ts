@@ -56,7 +56,13 @@ export interface ProjectileEffect extends BaseEffect {
 export type Effect = TextEffect | ParticleEffect | ProjectileEffect;
 
 export class EffectsManager {
-    // ...
+    effects: Effect[] = [];
+    idCounter: number = 0;
+    screenShake: number = 0;
+
+    addShake(amount: number) {
+        this.screenShake += amount;
+    }
 
     // --- TEXTO FLOTANTE ---
     addText(x: number, y: number, text: string, color: string = '#fff', isCritical: boolean = false, isSmall: boolean = false, isSkillHit: boolean = false, icon?: string): void {
@@ -73,9 +79,9 @@ export class EffectsManager {
             life: isCritical ? 90 : 60,
             maxLife: isCritical ? 90 : 60,
             // Physics: Pop arch
-            vx: (Math.random() - 0.5) * (isCritical ? 0.2 : 0.1),
-            vy: isCritical ? -0.15 : -0.08, // Initial upward impulse
-            gravity: 0.005, // Soft gravity
+            vx: (Math.random() - 0.5) * (isCritical ? 0.3 : 0.15), // Wider spread
+            vy: isCritical ? -0.25 : -0.12, // Higher jump
+            gravity: 0.01, // Stronger gravity for "heavy" feel
             offsetY: 0
         });
     }
@@ -157,6 +163,24 @@ export class EffectsManager {
         }
     }
 
+    addDebris(x: number, y: number, color: string = '#a16207', count: number = 5): void {
+        for (let i = 0; i < count; i++) {
+            const angle = Math.random() * Math.PI * 2;
+            const speed = 0.05 + Math.random() * 0.1;
+            this.effects.push({
+                id: this.idCounter++,
+                type: 'particle',
+                style: 'rect', // Chips/Debris
+                x: x + 0.5, y: y + 0.5, z: 0.3 + Math.random() * 0.4,
+                vx: Math.cos(angle) * speed, vy: Math.sin(angle) * speed, vz: 0.1 + Math.random() * 0.15,
+                life: 40 + Math.random() * 20, maxLife: 60,
+                color: color,
+                size: 0.05 + Math.random() * 0.05,
+                gravity: 0.02, friction: 0.95, bounces: 1
+            });
+        }
+    }
+
     addSparkles(x: number, y: number, color: string = '#fbbf24'): void {
         for (let i = 0; i < 8; i++) {
             this.effects.push({
@@ -174,7 +198,7 @@ export class EffectsManager {
     // --- MOTOR DE FÍSICA ---
     update(): void {
         if (this.screenShake > 0) {
-            this.screenShake *= 0.9;
+            this.screenShake *= 0.85; // Faster fade out
             if (this.screenShake < 0.5) this.screenShake = 0;
         }
 

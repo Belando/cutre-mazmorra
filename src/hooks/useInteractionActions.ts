@@ -247,7 +247,7 @@ export function useInteractionActions(context: InteractionActionsContext) {
             if (crateRef) {
                 soundManager.play('break'); // You might need to add a 'break' sound or reuse 'hit'
                 if (effectsManager.current) {
-                    effectsManager.current.addSparkles(tx, ty, '#fbbf24');
+                    effectsManager.current.addDebris(tx, ty, '#fbbf24', 5); // Wood chips
                     effectsManager.current.addText(tx, ty, "¡Roto!", '#ffffff');
                 }
 
@@ -274,7 +274,7 @@ export function useInteractionActions(context: InteractionActionsContext) {
             if (barrelRef) {
                 soundManager.play('break');
                 if (effectsManager.current) {
-                    effectsManager.current.addSparkles(tx, ty, '#9ca3af');
+                    effectsManager.current.addDebris(tx, ty, '#9ca3af', 5); // Grey/Wood chips
                     effectsManager.current.addText(tx, ty, "¡Roto!", '#ffffff');
                 }
 

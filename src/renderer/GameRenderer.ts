@@ -116,7 +116,7 @@ export class GameRenderer {
         }
     }
 
-    private updateCamera(state: GameState, effectsManager?: any) {
+    private updateCamera(_state: GameState, effectsManager?: any) {
         // Use visual position for camera target to follow smoothly
         const target = { x: this.playerVisual.x, y: this.playerVisual.y };
         if (!this.cameraPos.initialized) {
@@ -134,8 +134,9 @@ export class GameRenderer {
         if (effectsManager) {
             const manager = (effectsManager as any).current || effectsManager;
             if (manager.screenShake > 0) {
-                offsetX += (Math.random() - 0.5) * (manager.screenShake * 0.1);
-                offsetY += (Math.random() - 0.5) * (manager.screenShake * 0.1);
+                // Increased visual multiplier for noticeable shake
+                offsetX += (Math.random() - 0.5) * (manager.screenShake * 0.5);
+                offsetY += (Math.random() - 0.5) * (manager.screenShake * 0.5);
             }
         }
         return { offsetX, offsetY };
@@ -516,7 +517,7 @@ export class GameRenderer {
 
     private renderCorpse(ctx: CanvasRenderingContext2D, cmd: RenderItem) {
         if (cmd.x !== undefined && cmd.y !== undefined && cmd.w !== undefined && cmd.texture !== undefined && cmd.rotation !== undefined) {
-            const config = getSpriteConfig("corpse");
+
             ctx.save();
             ctx.translate(cmd.x, cmd.y + TILE_HEIGHT / 2);
             ctx.scale(1, 0.4);

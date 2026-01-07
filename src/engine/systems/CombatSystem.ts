@@ -1,33 +1,17 @@
 // IMPORTAMOS las utilidades centralizadas
 import {
   getDistance,
-  hasLineOfSight,
   getProjectilePath
 } from '@/engine/core/utils';
-import { ENTITY, TILE_TAGS } from '@/data/constants';
+import { hasLineOfSight } from './VisionSystem';
+
 import { ENEMY_STATS } from '@/data/enemies';
 import { Entity, Stats, Buff, Player, Enemy, AttackResult, EntityTag, DamageType } from '@/types';
 import { BuffBonuses } from '../systems/SkillSystem'; // Type import only if possible, or define locally
 
 import { CLASS_CONFIG } from '@/data/classes';
 
-// --- COMBATE DEL JUGADOR ---
 
-/**
- * Filters enemies to find those within range and line of sight.
- * @param player The player entity acting as the source
- * @param enemies List of potential targets
- * @param map Terrain map for Line of Sight checks
- * @param range Weapon range
- */
-export function getRangedTargets(player: Player, enemies: Enemy[], map: number[][], range: number): Enemy[] {
-  if (range === 0) return [];
-
-  return enemies.filter(enemy => {
-    const dist = getDistance(player, enemy);
-    return dist <= range && dist > 0 && hasLineOfSight(map, player.x, player.y, enemy.x, enemy.y);
-  }).sort((a, b) => getDistance(player, a) - getDistance(player, b));
-}
 
 // AttackResult imported from @/types
 
@@ -94,14 +78,34 @@ export function calculateModifiers(damage: number, attackerTags: EntityTag[], de
 
   // Element interactions
   // Using Enums for comparison
-  if (attackElement === DamageType.FIRE && defenderTags.includes(EntityTag.PLANT)) {
-    finalDamage *= 1.5;
-    message = '¡Efectivo!';
+  if (attackElement === DamageType.FIRE) {
+    if (defenderTags.includes(EntityTag.PLANT) || defenderTags.includes(EntityTag.INSECT)) {
+      finalDamage *= 1.5;
+      message = '¡Efectivo!';
+    } else if (defenderTags.includes('OILY' as EntityTag)) { // Dynamic Tag
+      finalDamage *= 2.0;
+      message = '¡Ignición!';
+    }
   }
-  if (attackElement === DamageType.ICE && defenderTags.includes(EntityTag.FIRE)) {
-    finalDamage *= 1.5;
-    message = '¡Vaporizado!';
+
+  if (attackElement === DamageType.ICE) {
+    if (defenderTags.includes(EntityTag.FIRE)) {
+      finalDamage *= 1.5;
+      message = '¡Vaporizado!';
+    } else if (defenderTags.includes('WET' as EntityTag)) {
+      finalDamage *= 1.2;
+      message = '¡Congelado!';
+      // We can't apply status here directly without refactoring, but damage boost is good.
+    }
   }
+
+  if (attackElement === DamageType.LIGHTNING) {
+    if (defenderTags.includes('WET' as EntityTag) || defenderTags.includes('WATER' as EntityTag)) {
+      finalDamage *= 2.0;
+      message = '¡Electrocutado!';
+    }
+  }
+
   if (attackElement === DamageType.HOLY && defenderTags.includes(EntityTag.UNDEAD)) {
     finalDamage *= 2.0;
     message = '¡Purificado!';
@@ -110,26 +114,7 @@ export function calculateModifiers(damage: number, attackerTags: EntityTag[], de
   return { damage: Math.floor(finalDamage), isCritical: false, message };
 }
 
-/**
- * Checks for elemental interactions with the environment.
- * @param x Map X
- * @param y Map Y
- * @param element Attack element (e.g. 'fire', 'ice')
- * @param map Terrain map
- * @returns Effect result message or null
- */
-export function processTileInteraction(x: number, y: number, element: string, map: number[][]): string | null {
-  const tile = map[y]?.[x];
-  if (tile === undefined) return null;
 
-  const tags = (TILE_TAGS as any)[tile] || [];
-
-  if (element === DamageType.FIRE && tags.includes('FLAMMABLE')) {
-    return 'BURNING_GROUND';
-  }
-
-  return null;
-}
 
 // Calcular daño cuerpo a cuerpo (Genérico)
 /**

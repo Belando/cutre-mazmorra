@@ -4,7 +4,7 @@ import { soundManager } from "@/engine/systems/SoundSystem";
 import { calculatePlayerStats } from '@/engine/systems/ItemSystem';
 import { calculateBuffBonuses } from '@/engine/systems/SkillSystem';
 import { calculatePlayerHit } from '@/engine/systems/CombatSystem';
-import { hasLineOfSight } from '@/engine/core/utils';
+import { getRangedTargets } from '@/engine/systems/VisionSystem';
 import { DungeonState } from './useDungeon';
 import { Entity, Player, Item } from '@/types';
 
@@ -85,22 +85,10 @@ export function useCombatActions(context: CombatActionsContext) {
         // Logic for ranged skills auto-target if no target provided
         if (skill.type === 'ranged' && !targetEnemy) {
             let bestTarget: Entity | null = null;
-            let minDist = Infinity;
-
-            dungeon.enemies.forEach(e => {
-                const dist = Math.abs(e.x - player.x) + Math.abs(e.y - player.y);
-                if (
-                    dist <= (skill.range || 5) &&
-                    dungeon.visible[e.y]?.[e.x] &&
-                    // @ts-ignore - map type mismatch number[][] vs something else? useDungeon defines map as number[][]
-                    hasLineOfSight(dungeon.map, player.x, player.y, e.x, e.y)
-                ) {
-                    if (dist < minDist) {
-                        minDist = dist;
-                        bestTarget = e;
-                    }
-                }
-            });
+            const targets = getRangedTargets(player, dungeon.enemies, dungeon.map, skill.range || 5);
+            if (targets.length > 0) {
+                bestTarget = targets[0];
+            }
 
             if (bestTarget) {
                 targetEnemy = bestTarget;
