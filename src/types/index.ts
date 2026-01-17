@@ -5,6 +5,29 @@ export interface Point {
     y: number;
 }
 
+export type EntityType =
+    | 'player'
+    | 'enemy'
+    | 'npc'
+    | 'item'
+    | 'chest'
+    | 'prop'
+    | 'tree'
+    | 'rock'
+    | 'plant'
+    | 'dungeon_gate'
+    | 'workbench'
+    | 'blocker'
+    | 'corpse'
+    | 'other';
+
+export interface QuestProgress {
+    id: string;
+    stage: number;
+    completed: boolean;
+    data?: Record<string, any>; // Flexible data still needed for specific quest flags
+}
+
 export enum EntityTag {
     UNDEAD = 'UNDEAD',
     BEAST = 'BEAST',
@@ -67,7 +90,6 @@ export interface Appearance {
 }
 
 export interface IEffectsManager {
-    update: () => void;
     update: () => void;
     addText: (x: number, y: number, text: string, color: string, isCritical?: boolean, isSmall?: boolean) => void;
     addSparkles: (x: number, y: number, color: string) => void;
@@ -377,7 +399,7 @@ export interface GameState {
     playerStart?: Point;
     inventory: Item[];
     equipment: EquipmentState;
-    questProgress: Record<string, any>; // Storing complex quest data might still need 'any' for flexibility or specific QuestDatum type
+    questProgress: Record<string, QuestProgress>;
     materials: Record<string, number>;
     effectsManager?: IEffectsManager;
     spatialHash?: ISpatialHash;

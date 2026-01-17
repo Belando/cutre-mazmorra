@@ -1,13 +1,14 @@
-import { GameState, Entity, Player } from "@/types";
+import { GameState, Entity, Player, EntityType, Stats } from "@/types";
 import { ENTITY } from "@/data/constants";
 
 // Entity is a union type, so we cannot extend it via interface. 
 // Using intersection on a type instead.
-export type SpatialEntity = Partial<Entity> & {
+export type SpatialEntity = Omit<Partial<Entity>, 'stats'> & {
     x: number;
     y: number;
-    type: string | number;
+    type: EntityType;
     ref?: any;
+    stats?: Partial<Stats>;
     [key: string]: any;
 };
 
@@ -110,7 +111,7 @@ export class SpatialHash {
                         // We need to import ENTITY/CONSTANTS conceptually, but avoiding cyclic dep.
                         // Let's rely on ID ranges or values known.
                         // TREE: 200, ROCK: 201, WORKBENCH: 202, GATE: 203
-                        let type = '';
+                        let type: EntityType | '' = ''; // Strict typing
                         if (id === ENTITY.TREE) type = 'tree';
                         else if (id === ENTITY.ROCK) type = 'rock';
                         else if (id === ENTITY.WORKBENCH) type = 'workbench';

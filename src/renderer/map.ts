@@ -355,80 +355,82 @@ export function drawMap(
 
     // PASS 2: WALLS & DECOR (Sorted by Y)
     // We iterate again to draw objects that stand UP, ensuring they cover the floor behind/around them.
-    for (let y = startY; y < endY; y++) {
-        for (let x = startX; x < endX; x++) {
-            if (!map[y] || map[y][x] === undefined) continue;
+    if (layer === 'all' || layer === 'wall') {
+        for (let y = startY; y < endY; y++) {
+            for (let x = startX; x < endX; x++) {
+                if (!map[y] || map[y][x] === undefined) continue;
 
-            let isExplored = explored[y]?.[x];
-            let isVisible = visible[y]?.[x];
+                let isExplored = explored[y]?.[x];
+                let isVisible = visible[y]?.[x];
 
-            if (isHome) {
-                isExplored = true;
-                isVisible = true;
-            }
+                if (isHome) {
+                    isExplored = true;
+                    isVisible = true;
+                }
 
-            if (isExplored) {
-                const tile = map[y][x];
-                const theme = getThemeForFloor(level);
+                if (isExplored) {
+                    const tile = map[y][x];
+                    const theme = getThemeForFloor(level);
 
-                const isoPos = toScreen(x, y);
-                const screenX = centerX + (isoPos.x - cameraScreen.x);
-                const screenY = centerY + (isoPos.y - cameraScreen.y);
-                const { isoY } = { isoY: (x + y) * TILE_HEIGHT / 2 }; // Calculate IsoY relative to map origin for sorting
+                    const isoPos = toScreen(x, y);
+                    const screenX = centerX + (isoPos.x - cameraScreen.x);
+                    const screenY = centerY + (isoPos.y - cameraScreen.y);
+                    const { isoY } = { isoY: (x + y) * TILE_HEIGHT / 2 }; // Calculate IsoY relative to map origin for sorting
 
-                if (tile === TILE.WALL) {
-                    const baseWallColor = isVisible ? theme.wall : adjustBrightness(theme.wall, -50);
-                    const drawX = screenX - TILE_WIDTH / 2;
-                    const drawY = screenY;
+                    if (tile === TILE.WALL) {
+                        const baseWallColor = isVisible ? theme.wall : adjustBrightness(theme.wall, -50);
+                        const drawX = screenX - TILE_WIDTH / 2;
+                        const drawY = screenY;
 
-                    // If renderList is provided, delegate drawing via COMMAND
-                    if (renderList) {
-                        renderList.push({
-                            sortY: isoY + 1.5,
-                            type: 'wall', // STATIC TYPE
-                            x: drawX, y: drawY, w: TILE_WIDTH, h: TILE_HEIGHT,
-                            color: baseWallColor,
-                            // Ideally pass level to pick sprite logic in renderer executor
-                            // For now we assume texture='wall' or generic.
-                            // To support biomes, we might need 'texture' field to be specific
-                            texture: 'wall', // Placeholder, executor will handle biome if we pass level logic or resolve here
-                            // Let's rely on executor knowing 'wall' + level context? No, item is isolated.
-                            // We need to pass the resolved Sprite Key?
-                            // getBiomeSprite('wall', level)
-                            // Let's use 'custom' for now if we want to reuse existing drawSpriteIsoWall inside executor?
-                            // OR better: Resolve sprite here.
-                        });
-                        // NOTE: Wall sorting optimization (Command-based not fully implemented so using custom for safety until Renderer updated)
-                        // ACTUALLY: `drawSpriteIsoWall` logic is complex. 
-                        // To do full object pooling we need to move that logic to `draw(cmd)`.
-                        // For this step I will use `type: 'custom'` and `draw: ...` TEMPORARILY if I can't port logic easily?
-                        // The user wants to REMOVE GC. Closures cause GC.
-                        // So I MUST remove `draw: () => ...`.
-                        // I will pass `frame: level` as hack for level? Or add `level` prop?
-                        // I added free-form props.
-                    } else {
-                        drawSpriteIsoWall(ctx, drawX, drawY, TILE_WIDTH, TILE_HEIGHT, baseWallColor, level);
-                        if (isVisible) {
-                            // Cobweb logic...
-                        }
-                    }
-
-                } else {
-                    if (tile === TILE.STAIRS) {
-                        drawEnvironmentSprite(ctx, 'stairs', screenX, screenY, TILE_WIDTH);
-                    }
-                    else if (tile === TILE.DOOR || tile === TILE.DOOR_OPEN) {
-                        const type = (tile === TILE.DOOR_OPEN) ? 'door_open' : 'door_closed';
-
+                        // If renderList is provided, delegate drawing via COMMAND
                         if (renderList) {
                             renderList.push({
-                                sortY: isoY + 1.1,
-                                type: 'sprite',
-                                texture: type,
-                                x: screenX, y: screenY - TILE_HEIGHT * 0.5, w: TILE_WIDTH
+                                sortY: isoY + 1.5,
+                                type: 'wall', // STATIC TYPE
+                                x: drawX, y: drawY, w: TILE_WIDTH, h: TILE_HEIGHT,
+                                color: baseWallColor,
+                                // Ideally pass level to pick sprite logic in renderer executor
+                                // For now we assume texture='wall' or generic.
+                                // To support biomes, we might need 'texture' field to be specific
+                                texture: 'wall', // Placeholder, executor will handle biome if we pass level logic or resolve here
+                                // Let's rely on executor knowing 'wall' + level context? No, item is isolated.
+                                // We need to pass the resolved Sprite Key?
+                                // getBiomeSprite('wall', level)
+                                // Let's use 'custom' for now if we want to reuse existing drawSpriteIsoWall inside executor?
+                                // OR better: Resolve sprite here.
                             });
+                            // NOTE: Wall sorting optimization (Command-based not fully implemented so using custom for safety until Renderer updated)
+                            // ACTUALLY: `drawSpriteIsoWall` logic is complex. 
+                            // To do full object pooling we need to move that logic to `draw(cmd)`.
+                            // For this step I will use `type: 'custom'` and `draw: ...` TEMPORARILY if I can't port logic easily?
+                            // The user wants to REMOVE GC. Closures cause GC.
+                            // So I MUST remove `draw: () => ...`.
+                            // I will pass `frame: level` as hack for level? Or add `level` prop?
+                            // I added free-form props.
                         } else {
-                            drawEnvironmentSprite(ctx, type, screenX, screenY - TILE_HEIGHT * 0.5, TILE_WIDTH);
+                            drawSpriteIsoWall(ctx, drawX, drawY, TILE_WIDTH, TILE_HEIGHT, baseWallColor, level);
+                            if (isVisible) {
+                                // Cobweb logic...
+                            }
+                        }
+
+                    } else {
+                        if (tile === TILE.STAIRS) {
+                            drawEnvironmentSprite(ctx, 'stairs', screenX, screenY, TILE_WIDTH);
+                        }
+                        else if (tile === TILE.DOOR || tile === TILE.DOOR_OPEN) {
+                            const type = (tile === TILE.DOOR_OPEN) ? 'door_open' : 'door_closed';
+
+                            if (renderList) {
+                                renderList.push({
+                                    sortY: isoY + 1.1,
+                                    type: 'sprite',
+                                    texture: type,
+                                    x: screenX, y: screenY - TILE_HEIGHT * 0.5, w: TILE_WIDTH
+                                });
+                            } else {
+                                drawEnvironmentSprite(ctx, type, screenX, screenY - TILE_HEIGHT * 0.5, TILE_WIDTH);
+                            }
                         }
                     }
                 }

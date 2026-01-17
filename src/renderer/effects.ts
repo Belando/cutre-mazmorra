@@ -120,10 +120,10 @@ export function drawEffects(
         ctx.globalAlpha = alpha;
         ctx.fillStyle = effect.color;
 
-        let fontSize = 14;
-        if (effect.isCritical) fontSize = 24;
-        else if (effect.isSkillHit) fontSize = 18;
-        else if (effect.isSmall) fontSize = 10;
+        let fontSize = 24;
+        if (effect.isCritical) fontSize = 48;
+        else if (effect.isSkillHit) fontSize = 36;
+        else if (effect.isSmall) fontSize = 16;
 
         ctx.font = `bold ${fontSize}px monospace`;
         ctx.textAlign = 'center';

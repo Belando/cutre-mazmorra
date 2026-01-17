@@ -1,4 +1,4 @@
-import { GameState, RenderItem } from "@/types";
+import { GameState, RenderItem, IEffectsManager } from "@/types";
 import { drawMap, lerpCamera, drawSpriteIsoWall } from "./map";
 import { getThemeForFloor, drawAmbientOverlay } from "@/components/game/DungeonThemes";
 import { renderLighting } from "./lighting";
@@ -9,7 +9,7 @@ import { drawNPC } from "./npcs";
 import { drawPlayer } from "./player";
 import { isLargeEnemy, getEnemySize } from "@/engine/systems/LargeEnemies";
 import { toScreen } from "@/utils/isometric";
-import { SIZE, TILE_HEIGHT, ENTITY } from "@/data/constants";
+import { SIZE, TILE_HEIGHT, ENTITY, TILE, TILE_WIDTH } from "@/data/constants";
 import { drawEffects } from "./effects";
 import { getSpriteConfig } from "@/data/spriteConfig";
 
@@ -39,6 +39,35 @@ export class GameRenderer {
     private playerVisual = { x: 0, y: 0, initialized: false };
     private enemyVisuals = new Map<string | number, { x: number, y: number }>();
 
+    // Object Pooling
+    private renderPool: RenderItem[] = [];
+    private poolIndex: number = 0;
+
+    private getRenderItem(): RenderItem {
+        if (this.poolIndex >= this.renderPool.length) {
+            this.renderPool.push({ sortY: 0, type: 'custom' }); // Initialize with dummy
+        }
+        const item = this.renderPool[this.poolIndex++];
+        this.resetRenderItem(item);
+        return item;
+    }
+
+    private resetRenderItem(item: RenderItem) {
+        // Resetting all optional fields to undefined or default
+        item.x = undefined; item.y = undefined; item.w = undefined; item.h = undefined;
+        item.color = undefined; item.texture = undefined; item.frame = undefined;
+        item.health = undefined; item.maxHealth = undefined; item.flipX = undefined;
+        item.appearance = undefined; item.playerClass = undefined;
+        item.enemyType = undefined; item.stunned = undefined;
+        item.lastAttackTime = undefined; item.lastMoveTime = undefined; item.lastAttackDir = undefined;
+        item.spriteComp = undefined; item.isLarge = undefined;
+        item.isOpen = undefined; item.rarity = undefined; item.item = undefined;
+        item.npc = undefined; item.rotation = undefined;
+        item.lastSkillTime = undefined; item.lastSkillId = undefined;
+        item.isInvisible = undefined; item.opacity = undefined;
+        item.draw = undefined;
+    }
+
     constructor() { }
 
     public setCanvases(
@@ -61,7 +90,7 @@ export class GameRenderer {
         viewportHeight: number,
         _dt: number,
         _hoveredTarget: any,
-        effectsManager?: any
+        effectsManager?: IEffectsManager
     ) {
         if (!this.staticCanvas || !this.dynamicCanvas || !this.lightingCanvas || !state.player) return;
 
@@ -103,7 +132,7 @@ export class GameRenderer {
                 visual = { x: enemy.x, y: enemy.y };
                 this.enemyVisuals.set(id, visual);
             } else {
-                const ENEMY_LERP = 0.1;
+                const ENEMY_LERP = 0.05;
                 visual.x += (enemy.x - visual.x) * ENEMY_LERP;
                 visual.y += (enemy.y - visual.y) * ENEMY_LERP;
             }
@@ -192,9 +221,10 @@ export class GameRenderer {
         };
 
         const renderList: RenderItem[] = [];
+        this.poolIndex = 0;
 
         // 0. WALLS
-        drawMap(ctx, state, offsetX, offsetY, viewportWidth, viewportHeight, renderList, 'wall');
+        this.addWallsAndDoors(renderList, state, offsetX, offsetY, viewportWidth, viewportHeight, getScreenPos, isOnCam);
 
         // Populate Render List
         this.addTorches(renderList, state, getScreenPos, isOnCam);
@@ -242,13 +272,13 @@ export class GameRenderer {
                 const { x: sx, y: sy, isoY } = getScreenPos(torch.x, torch.y);
                 if (isOnCam(sx, sy)) {
                     const isRightEmpty = map[torch.y]?.[torch.x + 1] !== 0;
-                    renderList.push({
-                        sortY: isoY + config.zOffset,
-                        type: 'sprite',
-                        texture: 'wallTorch',
-                        x: sx, y: sy, w: SIZE, frame: this.frame,
-                        flipX: isRightEmpty
-                    });
+                    const item = this.getRenderItem();
+                    item.sortY = isoY + config.zOffset;
+                    item.type = 'sprite';
+                    item.texture = 'wallTorch';
+                    item.x = sx; item.y = sy; item.w = SIZE; item.frame = this.frame;
+                    item.flipX = isRightEmpty;
+                    renderList.push(item);
                 }
             }
         });
@@ -276,13 +306,13 @@ export class GameRenderer {
 
                     if (drawType) {
                         const config = getSpriteConfig(drawType);
-                        renderList.push({
-                            sortY: isoY + config.zOffset,
-                            type: 'sprite',
-                            texture: drawType,
-                            x: sx, y: sy, w: SIZE,
-                            frame: x + y
-                        });
+                        const item = this.getRenderItem();
+                        item.sortY = isoY + config.zOffset;
+                        item.type = 'sprite';
+                        item.texture = drawType;
+                        item.x = sx; item.y = sy; item.w = SIZE;
+                        item.frame = x + y;
+                        renderList.push(item);
                     }
                 }
             });
@@ -297,13 +327,14 @@ export class GameRenderer {
             if (visible[chest.y]?.[chest.x]) {
                 const { x: sx, y: sy, isoY } = getScreenPos(chest.x, chest.y);
                 if (isOnCam(sx, sy)) {
-                    renderList.push({
-                        sortY: isoY + config.zOffset,
-                        type: 'sprite',
-                        texture: 'chest',
-                        x: sx, y: sy, w: SIZE,
-                        isOpen: chest.isOpen, rarity: chest.rarity
-                    });
+                    const item = this.getRenderItem();
+                    item.sortY = isoY + config.zOffset;
+                    item.type = 'sprite';
+                    item.texture = 'chest';
+                    item.x = sx; item.y = sy; item.w = SIZE;
+                    item.isOpen = chest.isOpen;
+                    item.rarity = chest.rarity;
+                    renderList.push(item);
                 }
             }
         });
@@ -319,13 +350,13 @@ export class GameRenderer {
 
             const { x: sx, y: sy, isoY } = getScreenPos(x, y);
             if (isOnCam(sx, sy)) {
-                renderList.push({
-                    sortY: isoY + config.zOffset,
-                    type: 'corpse',
-                    x: sx, y: sy, w: SIZE,
-                    texture: String(type),
-                    rotation: rotation
-                });
+                const item = this.getRenderItem();
+                item.sortY = isoY + config.zOffset;
+                item.type = 'corpse';
+                item.x = sx; item.y = sy; item.w = SIZE;
+                item.texture = String(type);
+                item.rotation = rotation;
+                renderList.push(item);
             }
         });
     }
@@ -334,26 +365,23 @@ export class GameRenderer {
         const { items = [], visible } = state;
         const config = getSpriteConfig("item");
 
-        items.forEach(item => {
-            if (item.x === undefined || item.y === undefined) return;
-            if (visible[item.y]?.[item.x]) {
-                const { x: sx, y: sy, isoY } = getScreenPos(item.x, item.y);
+        items.forEach(itemInfo => {
+            if (itemInfo.x === undefined || itemInfo.y === undefined) return;
+            if (visible[itemInfo.y]?.[itemInfo.x]) {
+                const { x: sx, y: sy, isoY } = getScreenPos(itemInfo.x, itemInfo.y);
                 if (isOnCam(sx, sy)) {
-                    if (item.category === 'currency') {
-                        renderList.push({
-                            sortY: isoY + config.zOffset,
-                            type: 'sprite',
-                            texture: 'goldPile',
-                            x: sx, y: sy, w: SIZE
-                        });
+                    const item = this.getRenderItem();
+                    item.sortY = isoY + config.zOffset;
+                    item.x = sx; item.y = sy; item.w = SIZE;
+
+                    if (itemInfo.category === 'currency') {
+                        item.type = 'sprite';
+                        item.texture = 'goldPile';
                     } else {
-                        renderList.push({
-                            sortY: isoY + config.zOffset,
-                            type: 'item',
-                            item: item,
-                            x: sx, y: sy, w: SIZE
-                        });
+                        item.type = 'item';
+                        item.item = itemInfo;
                     }
+                    renderList.push(item);
                 }
             }
         });
@@ -372,19 +400,19 @@ export class GameRenderer {
                 );
                 if (isOnCam(sx, sy)) {
                     const isLarge = isLargeEnemy(String(enemy.type));
-                    renderList.push({
-                        sortY: isoY + config.zOffset,
-                        type: 'enemy',
-                        x: sx, y: sy, w: SIZE,
-                        enemyType: enemy.type,
-                        stunned: (enemy.stunned ?? 0) > 0,
-                        lastAttackTime: enemy.lastAttackTime || 0,
-                        lastAttackDir: enemy.lastAttackDir,
-                        lastMoveTime: enemy.lastMoveTime,
-                        spriteComp: enemy.sprite,
-                        isLarge: isLarge,
-                        health: enemy.hp, maxHealth: enemy.maxHp
-                    });
+                    const item = this.getRenderItem();
+                    item.sortY = isoY + config.zOffset;
+                    item.type = 'enemy';
+                    item.x = sx; item.y = sy; item.w = SIZE;
+                    item.enemyType = enemy.type;
+                    item.stunned = (enemy.stunned ?? 0) > 0;
+                    item.lastAttackTime = enemy.lastAttackTime || 0;
+                    item.lastAttackDir = enemy.lastAttackDir;
+                    item.lastMoveTime = enemy.lastMoveTime;
+                    item.spriteComp = enemy.sprite;
+                    item.isLarge = isLarge;
+                    item.health = enemy.hp; item.maxHealth = enemy.maxHp;
+                    renderList.push(item);
                 }
             }
         });
@@ -398,21 +426,21 @@ export class GameRenderer {
         const isInvisible = player.skills.buffs.some(b => b.invisible) || false;
         const { x: psx, y: psy, isoY: pIsoY } = getScreenPos(this.playerVisual.x, this.playerVisual.y);
 
-        renderList.push({
-            sortY: pIsoY + config.zOffset,
-            type: 'player',
-            x: psx, y: psy, w: SIZE,
-            appearance: player.appearance,
-            playerClass: player.class,
-            frame: this.frame,
-            lastAttackTime: player.lastAttackTime,
-            lastMoveTime: player.lastMoveTime,
-            lastAttackDir: player.lastAttackDir,
-            lastSkillTime: player.lastSkillTime,
-            lastSkillId: player.lastSkillId,
-            isInvisible: isInvisible,
-            spriteComp: player.sprite
-        });
+        const item = this.getRenderItem();
+        item.sortY = pIsoY + config.zOffset;
+        item.type = 'player';
+        item.x = psx; item.y = psy; item.w = SIZE;
+        item.appearance = player.appearance;
+        item.playerClass = player.class;
+        item.frame = this.frame;
+        item.lastAttackTime = player.lastAttackTime;
+        item.lastMoveTime = player.lastMoveTime;
+        item.lastAttackDir = player.lastAttackDir;
+        item.lastSkillTime = player.lastSkillTime;
+        item.lastSkillId = player.lastSkillId;
+        item.isInvisible = isInvisible;
+        item.spriteComp = player.sprite;
+        renderList.push(item);
     }
 
     private addNPCs(renderList: RenderItem[], state: GameState, getScreenPos: any, isOnCam: any) {
@@ -423,15 +451,96 @@ export class GameRenderer {
             if (visible[npc.y]?.[npc.x]) {
                 const { x: sx, y: sy, isoY } = getScreenPos(npc.x, npc.y);
                 if (isOnCam(sx, sy)) {
-                    renderList.push({
-                        sortY: isoY + config.zOffset,
-                        type: 'npc',
-                        npc: npc,
-                        x: sx, y: sy, w: SIZE
-                    });
+                    const item = this.getRenderItem();
+                    item.sortY = isoY + config.zOffset;
+                    item.type = 'npc';
+                    item.npc = npc;
+                    item.x = sx; item.y = sy; item.w = SIZE;
+                    renderList.push(item);
                 }
             }
         });
+    }
+
+    private addWallsAndDoors(renderList: RenderItem[], state: GameState, offsetX: number, offsetY: number, viewportWidth: number, viewportHeight: number, getScreenPos: any, isOnCam: any) {
+        const { map, visible, explored, level, location } = state;
+        const theme = getThemeForFloor(level || 1);
+        const isHome = location === 'home';
+
+        const padding = 2;
+        const rangeX = Math.ceil(viewportWidth / 2) + padding;
+        const rangeY = Math.ceil(viewportHeight / 2) + padding;
+
+        let startX = Math.floor(offsetX - rangeX);
+        let endX = Math.ceil(offsetX + rangeX + 4);
+        let startY = Math.floor(offsetY - rangeY);
+        let endY = Math.ceil(offsetY + rangeY + 4);
+
+        if (!isHome) {
+            startX = Math.max(0, startX);
+            endX = Math.min(map[0].length, endX);
+            startY = Math.max(0, startY);
+            endY = Math.min(map.length, endY);
+        } else {
+            // Home override similar to map.ts
+            startX = -60; endX = 100; startY = -60; endY = 100;
+        }
+
+        for (let y = startY; y < endY; y++) {
+            for (let x = startX; x < endX; x++) {
+                if (!map[y] || map[y][x] === undefined) continue;
+
+                let isExplored = explored[y]?.[x];
+                let isVisible = visible[y]?.[x];
+
+                if (isHome) { isExplored = true; isVisible = true; }
+
+                if (isExplored) {
+                    const tile = map[y][x];
+                    const { x: sx, y: sy, isoY } = getScreenPos(x, y);
+
+                    if (!isOnCam(sx, sy)) continue; // Optimization
+
+                    if (tile === TILE.WALL) {
+                        const baseWallColor = isVisible ? theme.wall : this.adjustBrightness(theme.wall, -50);
+
+                        const item = this.getRenderItem();
+                        item.sortY = isoY + 1.5;
+                        item.type = 'wall';
+                        item.x = sx - TILE_WIDTH / 2; // Fix alignment
+                        item.y = sy; item.w = TILE_WIDTH; item.h = TILE_HEIGHT;
+                        item.color = baseWallColor;
+                        item.texture = 'wall';
+                        renderList.push(item);
+
+                    } else if (tile === TILE.DOOR || tile === TILE.DOOR_OPEN) {
+                        const type = (tile === TILE.DOOR_OPEN) ? 'door_open' : 'door_closed';
+                        const item = this.getRenderItem();
+                        item.sortY = isoY + 1.1;
+                        item.type = 'sprite';
+                        item.texture = type;
+                        item.x = sx; item.y = sy - TILE_HEIGHT * 0.5; item.w = TILE_WIDTH;
+                        item.frame = 0; // Default frame
+                        renderList.push(item);
+                    } else if (tile === TILE.STAIRS) {
+                        const item = this.getRenderItem();
+                        item.sortY = isoY + 0.1; // Slightly above floor
+                        item.type = 'sprite';
+                        item.texture = 'stairs';
+                        item.x = sx; item.y = sy; item.w = TILE_WIDTH;
+                        renderList.push(item);
+                    }
+                }
+            }
+        }
+    }
+
+    private adjustBrightness(hex: string, amount: number) {
+        const num = parseInt(hex.replace('#', ''), 16);
+        const r = Math.max(0, Math.min(255, (num >> 16) + amount));
+        const g = Math.max(0, Math.min(255, ((num >> 8) & 0x00FF) + amount));
+        const b = Math.max(0, Math.min(255, (num & 0x0000FF) + amount));
+        return `#${(1 << 24 | r << 16 | g << 8 | b).toString(16).slice(1)}`;
     }
 
     private applyOcclusion(renderList: RenderItem[], getScreenPos: any) {

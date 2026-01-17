@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Entity } from '@/types';
+import { Entity, QuestProgress, Appearance } from '@/types';
 
 export function useGameSession() {
     const [gameStarted, setGameStarted] = useState(false);
@@ -13,10 +13,10 @@ export function useGameSession() {
     // Quests
     const [activeQuests, setActiveQuests] = useState<string[]>([]);
     const [completedQuests, setCompletedQuests] = useState<string[]>([]);
-    const [questProgress, setQuestProgress] = useState<Record<string, any>>({});
+    const [questProgress, setQuestProgress] = useState<Record<string, QuestProgress>>({});
 
     // Player Meta
-    const [selectedAppearance, setSelectedAppearance] = useState<any>(null);
+    const [selectedAppearance, setSelectedAppearance] = useState<Appearance | null>(null);
     const [playerClass, setPlayerClass] = useState<'warrior' | 'mage' | 'rogue'>('warrior');
     const [playerName, setPlayerName] = useState('');
 

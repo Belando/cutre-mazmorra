@@ -76,12 +76,12 @@ export class EffectsManager {
             isCritical,
             isSmall,
             isSkillHit,
-            life: isCritical ? 90 : 60,
-            maxLife: isCritical ? 90 : 60,
+            life: isCritical ? 120 : 90,
+            maxLife: isCritical ? 120 : 90,
             // Physics: Pop arch
             vx: (Math.random() - 0.5) * (isCritical ? 0.3 : 0.15), // Wider spread
-            vy: isCritical ? -0.25 : -0.12, // Higher jump
-            gravity: 0.01, // Stronger gravity for "heavy" feel
+            vy: isCritical ? -0.35 : -0.2, // Higher jump
+            gravity: 0.005, // Floatier gravity
             offsetY: 0
         });
     }

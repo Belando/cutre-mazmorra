@@ -10,6 +10,7 @@ import { Entity, Stats, Buff, Player, Enemy, AttackResult, EntityTag, DamageType
 import { BuffBonuses } from '../systems/SkillSystem'; // Type import only if possible, or define locally
 
 import { CLASS_CONFIG } from '@/data/classes';
+import { DYNAMIC_INTERACTIONS } from '@/data/interactions';
 
 
 
@@ -76,39 +77,24 @@ export function calculateModifiers(damage: number, attackerTags: EntityTag[], de
   let finalDamage = damage;
   let message = '';
 
-  // Element interactions
-  // Using Enums for comparison
-  if (attackElement === DamageType.FIRE) {
-    if (defenderTags.includes(EntityTag.PLANT) || defenderTags.includes(EntityTag.INSECT)) {
-      finalDamage *= 1.5;
-      message = '¡Efectivo!';
-    } else if (defenderTags.includes('OILY' as EntityTag)) { // Dynamic Tag
-      finalDamage *= 2.0;
-      message = '¡Ignición!';
-    }
-  }
+  if (attackElement && DYNAMIC_INTERACTIONS[attackElement]) {
+    const interactions = DYNAMIC_INTERACTIONS[attackElement];
 
-  if (attackElement === DamageType.ICE) {
-    if (defenderTags.includes(EntityTag.FIRE)) {
-      finalDamage *= 1.5;
-      message = '¡Vaporizado!';
-    } else if (defenderTags.includes('WET' as EntityTag)) {
-      finalDamage *= 1.2;
-      message = '¡Congelado!';
-      // We can't apply status here directly without refactoring, but damage boost is good.
+    // Check for any matching tag in defenderTags
+    for (const tag of defenderTags) {
+      // We cast tag to string to match the dictionary keys
+      const interaction = interactions[tag as string];
+      if (interaction) {
+        finalDamage *= interaction.multiplier;
+        message = interaction.message;
+        // Apply only the first or strongest interaction? 
+        // Original code applied specific logic. 
+        // Priority: usually highest multiplier or first match. 
+        // Let's break on first match for now to match similar behavior or simply accumulate?
+        // Original code was if/else if. So exclusive.
+        break;
+      }
     }
-  }
-
-  if (attackElement === DamageType.LIGHTNING) {
-    if (defenderTags.includes('WET' as EntityTag) || defenderTags.includes('WATER' as EntityTag)) {
-      finalDamage *= 2.0;
-      message = '¡Electrocutado!';
-    }
-  }
-
-  if (attackElement === DamageType.HOLY && defenderTags.includes(EntityTag.UNDEAD)) {
-    finalDamage *= 2.0;
-    message = '¡Purificado!';
   }
 
   return { damage: Math.floor(finalDamage), isCritical: false, message };
